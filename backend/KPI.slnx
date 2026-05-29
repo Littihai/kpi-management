@@ -1,0 +1,6 @@
+<Solution>
+  <Project Path="KPI.API/KPI.API.csproj" />
+  <Project Path="KPI.Application/KPI.Application.csproj" />
+  <Project Path="KPI.Domain/KPI.Domain.csproj" />
+  <Project Path="KPI.Infrastructure/KPI.Infrastructure.csproj" />
+</Solution>

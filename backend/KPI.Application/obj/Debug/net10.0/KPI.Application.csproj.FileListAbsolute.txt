@@ -1,0 +1,15 @@
+D:\Ritz\kpi-management\backend\KPI.Application\bin\Debug\net10.0\KPI.Application.deps.json
+D:\Ritz\kpi-management\backend\KPI.Application\bin\Debug\net10.0\KPI.Application.dll
+D:\Ritz\kpi-management\backend\KPI.Application\bin\Debug\net10.0\KPI.Application.pdb
+D:\Ritz\kpi-management\backend\KPI.Application\bin\Debug\net10.0\KPI.Domain.dll
+D:\Ritz\kpi-management\backend\KPI.Application\bin\Debug\net10.0\KPI.Domain.pdb
+D:\Ritz\kpi-management\backend\KPI.Application\obj\Debug\net10.0\KPI.Application.csproj.AssemblyReference.cache
+D:\Ritz\kpi-management\backend\KPI.Application\obj\Debug\net10.0\KPI.Application.GeneratedMSBuildEditorConfig.editorconfig
+D:\Ritz\kpi-management\backend\KPI.Application\obj\Debug\net10.0\KPI.Application.AssemblyInfoInputs.cache
+D:\Ritz\kpi-management\backend\KPI.Application\obj\Debug\net10.0\KPI.Application.AssemblyInfo.cs
+D:\Ritz\kpi-management\backend\KPI.Application\obj\Debug\net10.0\KPI.Application.csproj.CoreCompileInputs.cache
+D:\Ritz\kpi-management\backend\KPI.Application\obj\Debug\net10.0\KPI.Appl.9592A759.Up2Date
+D:\Ritz\kpi-management\backend\KPI.Application\obj\Debug\net10.0\KPI.Application.dll
+D:\Ritz\kpi-management\backend\KPI.Application\obj\Debug\net10.0\refint\KPI.Application.dll
+D:\Ritz\kpi-management\backend\KPI.Application\obj\Debug\net10.0\KPI.Application.pdb
+D:\Ritz\kpi-management\backend\KPI.Application\obj\Debug\net10.0\ref\KPI.Application.dll
