@@ -9,3 +9,4 @@ D:\Ritz\kpi-management\backend\KPI.Domain\obj\Debug\net10.0\KPI.Domain.dll
 D:\Ritz\kpi-management\backend\KPI.Domain\obj\Debug\net10.0\refint\KPI.Domain.dll
 D:\Ritz\kpi-management\backend\KPI.Domain\obj\Debug\net10.0\KPI.Domain.pdb
 D:\Ritz\kpi-management\backend\KPI.Domain\obj\Debug\net10.0\ref\KPI.Domain.dll
+D:\Ritz\kpi-management\backend\KPI.Domain\obj\Debug\net10.0\KPI.Domain.sourcelink.json

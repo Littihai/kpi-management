@@ -13,3 +13,4 @@ D:\Ritz\kpi-management\backend\KPI.Application\obj\Debug\net10.0\KPI.Application
 D:\Ritz\kpi-management\backend\KPI.Application\obj\Debug\net10.0\refint\KPI.Application.dll
 D:\Ritz\kpi-management\backend\KPI.Application\obj\Debug\net10.0\KPI.Application.pdb
 D:\Ritz\kpi-management\backend\KPI.Application\obj\Debug\net10.0\ref\KPI.Application.dll
+D:\Ritz\kpi-management\backend\KPI.Application\obj\Debug\net10.0\KPI.Application.sourcelink.json

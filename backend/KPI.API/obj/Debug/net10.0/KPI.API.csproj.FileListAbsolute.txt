@@ -126,3 +126,4 @@ D:\Ritz\kpi-management\backend\KPI.API\obj\Debug\net10.0\refint\KPI.API.dll
 D:\Ritz\kpi-management\backend\KPI.API\obj\Debug\net10.0\KPI.API.pdb
 D:\Ritz\kpi-management\backend\KPI.API\obj\Debug\net10.0\KPI.API.genruntimeconfig.cache
 D:\Ritz\kpi-management\backend\KPI.API\obj\Debug\net10.0\ref\KPI.API.dll
+D:\Ritz\kpi-management\backend\KPI.API\obj\Debug\net10.0\KPI.API.sourcelink.json

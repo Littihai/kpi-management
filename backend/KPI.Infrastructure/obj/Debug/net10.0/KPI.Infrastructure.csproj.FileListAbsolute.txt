@@ -17,3 +17,4 @@ D:\Ritz\kpi-management\backend\KPI.Infrastructure\obj\Debug\net10.0\refint\KPI.I
 D:\Ritz\kpi-management\backend\KPI.Infrastructure\obj\Debug\net10.0\KPI.Infrastructure.pdb
 D:\Ritz\kpi-management\backend\KPI.Infrastructure\obj\Debug\net10.0\KPI.Infrastructure.genruntimeconfig.cache
 D:\Ritz\kpi-management\backend\KPI.Infrastructure\obj\Debug\net10.0\ref\KPI.Infrastructure.dll
+D:\Ritz\kpi-management\backend\KPI.Infrastructure\obj\Debug\net10.0\KPI.Infrastructure.sourcelink.json
