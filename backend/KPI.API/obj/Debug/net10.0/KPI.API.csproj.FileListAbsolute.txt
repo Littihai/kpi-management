@@ -127,3 +127,12 @@ D:\Ritz\kpi-management\backend\KPI.API\obj\Debug\net10.0\KPI.API.pdb
 D:\Ritz\kpi-management\backend\KPI.API\obj\Debug\net10.0\KPI.API.genruntimeconfig.cache
 D:\Ritz\kpi-management\backend\KPI.API\obj\Debug\net10.0\ref\KPI.API.dll
 D:\Ritz\kpi-management\backend\KPI.API\obj\Debug\net10.0\KPI.API.sourcelink.json
+D:\Ritz\kpi-management\backend\KPI.API\bin\Debug\net10.0\BCrypt-Net-Next.dll
+D:\Ritz\kpi-management\backend\KPI.API\bin\Debug\net10.0\Microsoft.AspNetCore.Authentication.JwtBearer.dll
+D:\Ritz\kpi-management\backend\KPI.API\bin\Debug\net10.0\Microsoft.IdentityModel.Abstractions.dll
+D:\Ritz\kpi-management\backend\KPI.API\bin\Debug\net10.0\Microsoft.IdentityModel.JsonWebTokens.dll
+D:\Ritz\kpi-management\backend\KPI.API\bin\Debug\net10.0\Microsoft.IdentityModel.Logging.dll
+D:\Ritz\kpi-management\backend\KPI.API\bin\Debug\net10.0\Microsoft.IdentityModel.Protocols.dll
+D:\Ritz\kpi-management\backend\KPI.API\bin\Debug\net10.0\Microsoft.IdentityModel.Protocols.OpenIdConnect.dll
+D:\Ritz\kpi-management\backend\KPI.API\bin\Debug\net10.0\Microsoft.IdentityModel.Tokens.dll
+D:\Ritz\kpi-management\backend\KPI.API\bin\Debug\net10.0\System.IdentityModel.Tokens.Jwt.dll
