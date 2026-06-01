@@ -1,3 +1,4 @@
+
 using System.Text;
 using KPI.Application.Auth;
 using KPI.API.Authorization;
@@ -9,7 +10,9 @@ using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
+using KPI.Application.Kpis;
 
+AppContext.SetSwitch("Npgsql.EnableLegacyTimestampBehavior", true);
 var builder = WebApplication.CreateBuilder(args);
 
 builder.Services.AddControllers();
@@ -38,6 +41,9 @@ builder.Services.AddScoped<IUserRepository, UserRepository>();
 
 // Services
 builder.Services.AddScoped<IAuthService, AuthService>();
+
+builder.Services.AddScoped<IKpiRepository, KpiRepository>();
+builder.Services.AddScoped<IKpiService, KpiService>();
 
 // JWT Authentication
 var jwtKey = builder.Configuration["Jwt:Key"]!;
