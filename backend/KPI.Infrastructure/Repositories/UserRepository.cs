@@ -33,4 +33,12 @@ public class UserRepository : IUserRepository
 
     public async Task<bool> EmailExistsAsync(string email)
         => await _context.Users.AnyAsync(u => u.Email == email);
+		
+	public async Task<User?> GetByIdWithPermissionsAsync(Guid id)
+    => await _context.Users
+        .Include(u => u.Role)
+            .ThenInclude(r => r.RolePermissions)
+                .ThenInclude(rp => rp.Permission)
+        .FirstOrDefaultAsync(u => u.Id == id);
 }
+

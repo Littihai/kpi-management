@@ -1,5 +1,7 @@
 using KPI.Application.Auth;
 using Microsoft.AspNetCore.Mvc;
+using System.Security.Claims;
+using Microsoft.AspNetCore.Authorization;
 
 namespace KPI.API.Controllers;
 
@@ -41,4 +43,12 @@ public class AuthController : ControllerBase
             return BadRequest(new { message = ex.Message });
         }
     }
+	[HttpGet("me")]
+	[Authorize]
+	public IActionResult Me()
+	{
+		var email = User.FindFirst(ClaimTypes.Email)?.Value;
+		var role = User.FindFirst(ClaimTypes.Role)?.Value;
+		return Ok(new { email, role });
+	}
 }
