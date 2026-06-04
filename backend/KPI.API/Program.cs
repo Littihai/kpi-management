@@ -11,6 +11,8 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 using KPI.Application.Kpis;
+using KPI.Application.Dashboard;
+using KPI.Application.Export;
 
 AppContext.SetSwitch("Npgsql.EnableLegacyTimestampBehavior", true);
 var builder = WebApplication.CreateBuilder(args);
@@ -18,6 +20,8 @@ var builder = WebApplication.CreateBuilder(args);
 builder.Services.AddControllers();
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddOpenApi();
+builder.Services.AddScoped<IDashboardService, DashboardService>();
+builder.Services.AddScoped<IExportService, ExportService>();
 
 // CORS
 builder.Services.AddCors(options =>
