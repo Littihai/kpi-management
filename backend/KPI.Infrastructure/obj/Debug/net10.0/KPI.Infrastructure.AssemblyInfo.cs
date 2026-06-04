@@ -13,7 +13,7 @@ using System.Reflection;
 [assembly: System.Reflection.AssemblyCompanyAttribute("KPI.Infrastructure")]
 [assembly: System.Reflection.AssemblyConfigurationAttribute("Debug")]
 [assembly: System.Reflection.AssemblyFileVersionAttribute("1.0.0.0")]
-[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+d214b7ac1ffd34d3ed0291312193b9329fb76690")]
+[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+a4c64f97dcf7c015fade454a7b344ec3f224b62f")]
 [assembly: System.Reflection.AssemblyProductAttribute("KPI.Infrastructure")]
 [assembly: System.Reflection.AssemblyTitleAttribute("KPI.Infrastructure")]
 [assembly: System.Reflection.AssemblyVersionAttribute("1.0.0.0")]

@@ -15,6 +15,10 @@ using KPI.Application.Dashboard;
 using KPI.Application.Export;
 using KPI.Application.Notifications;
 using Resend;
+using Hangfire;
+using Hangfire.PostgreSql;
+using KPI.Application.Jobs;
+using KPI.Infrastructure.Jobs;
 
 AppContext.SetSwitch("Npgsql.EnableLegacyTimestampBehavior", true);
 var builder = WebApplication.CreateBuilder(args);
@@ -26,6 +30,7 @@ builder.Services.AddScoped<IDashboardService, DashboardService>();
 builder.Services.AddScoped<IExportService, ExportService>();
 builder.Services.AddResend(options => {options.ApiToken = builder.Configuration["Resend:ApiKey"]!;});
 builder.Services.AddScoped<IEmailService, EmailService>();
+builder.Services.AddScoped<IDelayDetectionJob, DelayDetectionJob>();
 
 // CORS
 builder.Services.AddCors(options =>
@@ -71,6 +76,10 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
     });
 
 builder.Services.AddAuthorization();
+builder.Services.AddHangfire(config =>
+    config.UsePostgreSqlStorage(
+        builder.Configuration.GetConnectionString("DefaultConnection")));
+builder.Services.AddHangfireServer();
 builder.Services.AddScoped<IAuthorizationHandler, PermissionHandler>();
 
 var app = builder.Build();
@@ -86,8 +95,14 @@ if (app.Environment.IsDevelopment())
     app.MapOpenApi();
 
 app.UseCors("AllowFrontend");
+app.UseHangfireDashboard("/hangfire");
 app.UseAuthentication();
 app.UseAuthorization();
 app.MapControllers();
+
+RecurringJob.AddOrUpdate<DelayDetectionJob>(
+    "delay-detection",
+    job => job.RunAsync(),
+    Cron.Daily);
 
 app.Run();
