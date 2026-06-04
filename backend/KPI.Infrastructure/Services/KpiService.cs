@@ -3,24 +3,28 @@ using KPI.Application.Notifications;
 using KPI.Domain.Entities;
 using KPI.Domain.Enums;
 using KPI.Domain.Interfaces;
+using KPI.Application.Audit;
 
 namespace KPI.Infrastructure.Services;
 
 public class KpiService : IKpiService
 {
     private readonly IKpiRepository _kpiRepo;
-    private readonly IEmailService _emailService;
-    private readonly IUserRepository _userRepo;
+private readonly IEmailService _emailService;
+private readonly IUserRepository _userRepo;
+private readonly IAuditService _auditService;
 
-    public KpiService(
-        IKpiRepository kpiRepo,
-        IEmailService emailService,
-        IUserRepository userRepo)
-    {
-        _kpiRepo = kpiRepo;
-        _emailService = emailService;
-        _userRepo = userRepo;
-    }
+public KpiService(
+    IKpiRepository kpiRepo,
+    IEmailService emailService,
+    IUserRepository userRepo,
+    IAuditService auditService)
+{
+    _kpiRepo = kpiRepo;
+    _emailService = emailService;
+    _userRepo = userRepo;
+    _auditService = auditService;
+}
 
     public async Task<List<KpiDto>> GetAllAsync(Guid userId)
     {
@@ -86,10 +90,14 @@ public class KpiService : IKpiService
         {
             try
             {
-                await _emailService.SendKpiApprovedAsync(
-                    kpi.Owner.Email,
-                    kpi.Owner.FirstName + " " + kpi.Owner.LastName,
-                    kpi.Name
+                await _auditService.LogAsync(
+                    action: "Approve",
+                    entityName: "Kpi",
+                    entityId: kpi.Id.ToString(),
+                    oldValues: "PendingApproval",
+                    newValues: "Active",
+                    userId: approverId,
+                    userEmail: kpi.Owner?.Email
                 );
                 Console.WriteLine("=== Email sent successfully ===");
             }
@@ -115,6 +123,14 @@ public class KpiService : IKpiService
         kpi.Status = DetectStatus(kpi);
 
         await _kpiRepo.UpdateAsync(kpi);
+
+        await _auditService.LogAsync(
+            action: "UpdateProgress",
+            entityName: "Kpi",
+            entityId: kpi.Id.ToString(),
+            newValues: $"Progress: {request.Progress}%",
+            userId: userId
+        );
 
         await _kpiRepo.AddProgressLogAsync(new KpiProgressLog
         {

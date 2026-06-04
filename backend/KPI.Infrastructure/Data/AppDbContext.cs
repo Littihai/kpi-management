@@ -16,7 +16,8 @@ public class AppDbContext : DbContext
     public DbSet<Kpi> Kpis => Set<Kpi>();
     public DbSet<Project> Projects => Set<Project>();
     public DbSet<KpiProgressLog> KpiProgressLogs => Set<KpiProgressLog>();
-
+    public DbSet<AuditLog> AuditLogs => Set<AuditLog>();
+    
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         base.OnModelCreating(modelBuilder);

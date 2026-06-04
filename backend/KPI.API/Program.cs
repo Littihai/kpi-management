@@ -19,6 +19,7 @@ using Hangfire;
 using Hangfire.PostgreSql;
 using KPI.Application.Jobs;
 using KPI.Infrastructure.Jobs;
+using KPI.Application.Audit;
 
 AppContext.SetSwitch("Npgsql.EnableLegacyTimestampBehavior", true);
 var builder = WebApplication.CreateBuilder(args);
@@ -31,6 +32,7 @@ builder.Services.AddScoped<IExportService, ExportService>();
 builder.Services.AddResend(options => {options.ApiToken = builder.Configuration["Resend:ApiKey"]!;});
 builder.Services.AddScoped<IEmailService, EmailService>();
 builder.Services.AddScoped<IDelayDetectionJob, DelayDetectionJob>();
+builder.Services.AddScoped<IAuditService, AuditService>();
 
 // CORS
 builder.Services.AddCors(options =>
