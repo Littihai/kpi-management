@@ -862,6 +862,19 @@
           }
         }
       },
+      "Resend/0.5.1": {
+        "type": "package",
+        "compile": {
+          "lib/net8.0/Resend.dll": {
+            "related": ".xml"
+          }
+        },
+        "runtime": {
+          "lib/net8.0/Resend.dll": {
+            "related": ".xml"
+          }
+        }
+      },
       "SixLabors.Fonts/1.0.0": {
         "type": "package",
         "compile": {
@@ -1067,6 +1080,7 @@
           "Microsoft.AspNetCore.Authentication.JwtBearer": "10.0.8",
           "Npgsql.EntityFrameworkCore.PostgreSQL": "10.0.2",
           "QuestPDF": "2026.5.0",
+          "Resend": "0.5.1",
           "System.IdentityModel.Tokens.Jwt": "8.18.0"
         },
         "compile": {
@@ -2813,6 +2827,21 @@
         "readme.md"
       ]
     },
+    "Resend/0.5.1": {
+      "sha512": "omjgTjmosGHJ+bF9Mnk6Gu4TqCwIE/XyeYvQCfkPlDmoUE5yuNwxUP5Cyt9Og2KTqTzKqfQypFzlgCgORCEOSw==",
+      "type": "package",
+      "path": "resend/0.5.1",
+      "files": [
+        ".nupkg.metadata",
+        ".signature.p7s",
+        "README.md",
+        "icon.png",
+        "lib/net8.0/Resend.dll",
+        "lib/net8.0/Resend.xml",
+        "resend.0.5.1.nupkg.sha512",
+        "resend.nuspec"
+      ]
+    },
     "SixLabors.Fonts/1.0.0": {
       "sha512": "LFQsCZlV0xlUyXAOMUo5kkSl+8zAQXXbbdwWchtk0B4o7zotZhQsQOcJUELGHdfPfm/xDAsz6hONAuV25bJaAg==",
       "type": "package",
@@ -3095,7 +3124,8 @@
       "Microsoft.AspNetCore.Authentication.JwtBearer >= 10.0.8",
       "Microsoft.AspNetCore.OpenApi >= 10.0.5",
       "Microsoft.EntityFrameworkCore.Design >= 10.0.8",
-      "QuestPDF >= 2026.5.0"
+      "QuestPDF >= 2026.5.0",
+      "Resend >= 0.5.1"
     ]
   },
   "packageFolders": {
@@ -3173,6 +3203,10 @@
           "QuestPDF": {
             "target": "Package",
             "version": "[2026.5.0, )"
+          },
+          "Resend": {
+            "target": "Package",
+            "version": "[0.5.1, )"
           }
         },
         "imports": [

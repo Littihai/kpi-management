@@ -1,6 +1,6 @@
 {
   "version": 2,
-  "dgSpecHash": "Smyu4sWunKc=",
+  "dgSpecHash": "oF4CduL92Rk=",
   "success": true,
   "projectFilePath": "D:\\Ritz\\kpi-management\\backend\\KPI.API\\KPI.API.csproj",
   "expectedPackageFiles": [
@@ -40,6 +40,7 @@
     "C:\\Users\\04726ly\\.nuget\\packages\\npgsql.entityframeworkcore.postgresql\\10.0.2\\npgsql.entityframeworkcore.postgresql.10.0.2.nupkg.sha512",
     "C:\\Users\\04726ly\\.nuget\\packages\\questpdf\\2026.5.0\\questpdf.2026.5.0.nupkg.sha512",
     "C:\\Users\\04726ly\\.nuget\\packages\\rbush.signed\\4.0.0\\rbush.signed.4.0.0.nupkg.sha512",
+    "C:\\Users\\04726ly\\.nuget\\packages\\resend\\0.5.1\\resend.0.5.1.nupkg.sha512",
     "C:\\Users\\04726ly\\.nuget\\packages\\sixlabors.fonts\\1.0.0\\sixlabors.fonts.1.0.0.nupkg.sha512",
     "C:\\Users\\04726ly\\.nuget\\packages\\system.codedom\\6.0.0\\system.codedom.6.0.0.nupkg.sha512",
     "C:\\Users\\04726ly\\.nuget\\packages\\system.composition\\9.0.0\\system.composition.9.0.0.nupkg.sha512",

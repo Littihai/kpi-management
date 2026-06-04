@@ -13,6 +13,8 @@ using Microsoft.IdentityModel.Tokens;
 using KPI.Application.Kpis;
 using KPI.Application.Dashboard;
 using KPI.Application.Export;
+using KPI.Application.Notifications;
+using Resend;
 
 AppContext.SetSwitch("Npgsql.EnableLegacyTimestampBehavior", true);
 var builder = WebApplication.CreateBuilder(args);
@@ -22,6 +24,8 @@ builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddOpenApi();
 builder.Services.AddScoped<IDashboardService, DashboardService>();
 builder.Services.AddScoped<IExportService, ExportService>();
+builder.Services.AddResend(options => {options.ApiToken = builder.Configuration["Resend:ApiKey"]!;});
+builder.Services.AddScoped<IEmailService, EmailService>();
 
 // CORS
 builder.Services.AddCors(options =>

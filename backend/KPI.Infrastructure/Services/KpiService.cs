@@ -1,4 +1,5 @@
 using KPI.Application.Kpis;
+using KPI.Application.Notifications;
 using KPI.Domain.Entities;
 using KPI.Domain.Enums;
 using KPI.Domain.Interfaces;
@@ -8,10 +9,17 @@ namespace KPI.Infrastructure.Services;
 public class KpiService : IKpiService
 {
     private readonly IKpiRepository _kpiRepo;
+    private readonly IEmailService _emailService;
+    private readonly IUserRepository _userRepo;
 
-    public KpiService(IKpiRepository kpiRepo)
+    public KpiService(
+        IKpiRepository kpiRepo,
+        IEmailService emailService,
+        IUserRepository userRepo)
     {
         _kpiRepo = kpiRepo;
+        _emailService = emailService;
+        _userRepo = userRepo;
     }
 
     public async Task<List<KpiDto>> GetAllAsync(Guid userId)
@@ -29,17 +37,17 @@ public class KpiService : IKpiService
     public async Task<KpiDto> CreateAsync(CreateKpiRequest request, Guid ownerId)
     {
         var kpi = new Kpi
-{
-			Name = request.Name,
-			Description = request.Description,
-			Year = request.Year,
-			Target = request.Target,
-			StartDate = DateTime.SpecifyKind(request.StartDate, DateTimeKind.Utc),
-			DueDate = DateTime.SpecifyKind(request.DueDate, DateTimeKind.Utc),
-			DepartmentId = request.DepartmentId,
-			OwnerId = ownerId,
-			Status = KpiStatus.Draft
-		};
+        {
+            Name = request.Name,
+            Description = request.Description,
+            Year = request.Year,
+            Target = request.Target,
+            StartDate = DateTime.SpecifyKind(request.StartDate, DateTimeKind.Utc),
+            DueDate = DateTime.SpecifyKind(request.DueDate, DateTimeKind.Utc),
+            DepartmentId = request.DepartmentId,
+            OwnerId = ownerId,
+            Status = KpiStatus.Draft
+        };
 
         var created = await _kpiRepo.CreateAsync(kpi);
         var full = await _kpiRepo.GetByIdAsync(created.Id);
@@ -71,33 +79,56 @@ public class KpiService : IKpiService
         kpi.ApprovedById = approverId;
         kpi.ApprovedAt = DateTime.UtcNow;
         await _kpiRepo.UpdateAsync(kpi);
+
+        Console.WriteLine($"=== Sending email to: {kpi.Owner?.Email} ===");
+
+        if (kpi.Owner != null)
+        {
+            try
+            {
+                await _emailService.SendKpiApprovedAsync(
+                    kpi.Owner.Email,
+                    kpi.Owner.FirstName + " " + kpi.Owner.LastName,
+                    kpi.Name
+                );
+                Console.WriteLine("=== Email sent successfully ===");
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"=== Email error: {ex.Message} ===");
+            }
+        }
+        else
+        {
+            Console.WriteLine("=== Owner is NULL ===");
+        }
+
         return ToDto(kpi);
     }
 
     public async Task<KpiDto> UpdateProgressAsync(UpdateKpiProgressRequest request, Guid userId)
-	{
-		var kpi = await _kpiRepo.GetByIdAsync(request.KpiId)
-			?? throw new Exception("KPI not found");
+    {
+        var kpi = await _kpiRepo.GetByIdAsync(request.KpiId)
+            ?? throw new Exception("KPI not found");
 
-		kpi.Progress = request.Progress;
-		kpi.Status = DetectStatus(kpi);
+        kpi.Progress = request.Progress;
+        kpi.Status = DetectStatus(kpi);
 
-		await _kpiRepo.UpdateAsync(kpi);
+        await _kpiRepo.UpdateAsync(kpi);
 
-		await _kpiRepo.AddProgressLogAsync(new KpiProgressLog
-		{
-			KpiId = kpi.Id,
-			Progress = request.Progress,
-			Notes = request.Notes,
-			Month = DateTime.UtcNow.Month,
-			Year = DateTime.UtcNow.Year,
-			UpdatedById = userId
-		});
+        await _kpiRepo.AddProgressLogAsync(new KpiProgressLog
+        {
+            KpiId = kpi.Id,
+            Progress = request.Progress,
+            Notes = request.Notes,
+            Month = DateTime.UtcNow.Month,
+            Year = DateTime.UtcNow.Year,
+            UpdatedById = userId
+        });
 
-		return ToDto(kpi);
-	}
+        return ToDto(kpi);
+    }
 
-    // Progress Engine
     private static KpiStatus DetectStatus(Kpi kpi)
     {
         if (kpi.Progress >= kpi.Target) return KpiStatus.Completed;
@@ -117,7 +148,6 @@ public class KpiService : IKpiService
         return KpiStatus.Active;
     }
 
-    // Traffic Light
     private static string GetTrafficLight(Kpi kpi) => kpi.Status switch
     {
         KpiStatus.Active => "green",

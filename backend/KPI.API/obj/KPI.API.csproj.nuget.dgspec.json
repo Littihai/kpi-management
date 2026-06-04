@@ -75,6 +75,10 @@
             "QuestPDF": {
               "target": "Package",
               "version": "[2026.5.0, )"
+            },
+            "Resend": {
+              "target": "Package",
+              "version": "[0.5.1, )"
             }
           },
           "imports": [
@@ -1274,6 +1278,10 @@
             "QuestPDF": {
               "target": "Package",
               "version": "[2026.5.0, )"
+            },
+            "Resend": {
+              "target": "Package",
+              "version": "[0.5.1, )"
             },
             "System.IdentityModel.Tokens.Jwt": {
               "target": "Package",
