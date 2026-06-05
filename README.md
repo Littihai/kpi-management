@@ -1,5 +1,15 @@
 # KPI Management System
 
+![.NET](https://img.shields.io/badge/.NET-10.0-512BD4?style=for-the-badge&logo=dotnet&logoColor=white)
+![React](https://img.shields.io/badge/React-18+-61DAFB?style=for-the-badge&logo=react&logoColor=black)
+![TypeScript](https://img.shields.io/badge/TypeScript-5+-3178C6?style=for-the-badge&logo=typescript&logoColor=white)
+![PostgreSQL](https://img.shields.io/badge/PostgreSQL-15+-4169E1?style=for-the-badge&logo=postgresql&logoColor=white)
+![TailwindCSS](https://img.shields.io/badge/Tailwind_CSS-4.x-06B6D4?style=for-the-badge&logo=tailwindcss&logoColor=white)
+![Supabase](https://img.shields.io/badge/Supabase-Database-3ECF8E?style=for-the-badge&logo=supabase&logoColor=white)
+![Render](https://img.shields.io/badge/Render-API-46E3B7?style=for-the-badge&logo=render&logoColor=white)
+![Vercel](https://img.shields.io/badge/Vercel-Frontend-000000?style=for-the-badge&logo=vercel&logoColor=white)
+![License](https://img.shields.io/badge/License-MIT-yellow?style=for-the-badge)
+
 Enterprise KPI Management Platform สำหรับองค์กร ใช้แทน Excel ในการติดตาม KPI, Projects และ Tasks แบบ Real-time
 
 ---
@@ -25,35 +35,33 @@ Enterprise KPI Management Platform สำหรับองค์กร ใช�
 ### Backend
 | Technology | Version | Purpose |
 |-----------|---------|---------|
-| ASP.NET Core | .NET 10 | Web API Framework |
-| Entity Framework Core | 10.x | ORM + Database Migration |
-| PostgreSQL (Supabase) | 15+ | Primary Database |
-| Hangfire | Latest | Background Jobs |
-| QuestPDF | Latest | PDF Generation |
-| ClosedXML | Latest | Excel Generation |
-| Resend | Latest | Email Service |
-| JWT Bearer | Latest | Authentication |
+| ![.NET](https://img.shields.io/badge/.NET-10.0-512BD4?style=flat&logo=dotnet) | .NET 10 | Web API Framework |
+| ![EF Core](https://img.shields.io/badge/EF_Core-10.x-512BD4?style=flat&logo=dotnet) | 10.x | ORM + Database Migration |
+| ![PostgreSQL](https://img.shields.io/badge/PostgreSQL-15+-4169E1?style=flat&logo=postgresql) | 15+ | Primary Database |
+| ![Hangfire](https://img.shields.io/badge/Hangfire-Latest-grey?style=flat) | Latest | Background Jobs |
+| ![QuestPDF](https://img.shields.io/badge/QuestPDF-Latest-grey?style=flat) | Latest | PDF Generation |
+| ![ClosedXML](https://img.shields.io/badge/ClosedXML-Latest-grey?style=flat) | Latest | Excel Generation |
+| ![Resend](https://img.shields.io/badge/Resend-Latest-000000?style=flat) | Latest | Email Service |
 
 ### Frontend
 | Technology | Version | Purpose |
 |-----------|---------|---------|
-| React | 18+ | UI Framework |
-| TypeScript | 5+ | Type Safety |
-| Tailwind CSS | 4.x | Styling |
-| Vite | 6.x | Build Tool |
-| Zustand | Latest | State Management |
-| Axios | Latest | HTTP Client |
-| Recharts | Latest | Charts & Visualization |
-| React Router | 6+ | Client-side Routing |
+| ![React](https://img.shields.io/badge/React-18+-61DAFB?style=flat&logo=react) | 18+ | UI Framework |
+| ![TypeScript](https://img.shields.io/badge/TypeScript-5+-3178C6?style=flat&logo=typescript) | 5+ | Type Safety |
+| ![Tailwind](https://img.shields.io/badge/Tailwind-4.x-06B6D4?style=flat&logo=tailwindcss) | 4.x | Styling |
+| ![Vite](https://img.shields.io/badge/Vite-6.x-646CFF?style=flat&logo=vite) | 6.x | Build Tool |
+| ![Zustand](https://img.shields.io/badge/Zustand-Latest-brown?style=flat) | Latest | State Management |
+| ![Axios](https://img.shields.io/badge/Axios-Latest-5A29E4?style=flat&logo=axios) | Latest | HTTP Client |
+| ![Recharts](https://img.shields.io/badge/Recharts-Latest-22b5bf?style=flat) | Latest | Charts |
 
 ### Infrastructure
-| Service | Purpose |
-|---------|---------|
-| Supabase | PostgreSQL Database |
-| Render | Backend API Hosting |
-| Vercel | Frontend Hosting |
-| GitHub | Version Control |
-| Resend | Email Delivery |
+| Service | Badge | Purpose |
+|---------|-------|---------|
+| Supabase | ![Supabase](https://img.shields.io/badge/Supabase-3ECF8E?style=flat&logo=supabase&logoColor=white) | PostgreSQL Database |
+| Render | ![Render](https://img.shields.io/badge/Render-46E3B7?style=flat&logo=render&logoColor=white) | Backend API Hosting |
+| Vercel | ![Vercel](https://img.shields.io/badge/Vercel-000000?style=flat&logo=vercel&logoColor=white) | Frontend Hosting |
+| GitHub | ![GitHub](https://img.shields.io/badge/GitHub-181717?style=flat&logo=github&logoColor=white) | Version Control |
+| Resend | ![Resend](https://img.shields.io/badge/Resend-000000?style=flat&logo=mail&logoColor=white) | Email Delivery |
 
 ---
 
@@ -132,9 +140,10 @@ Draft → Pending Approval → Active → At Risk / Delayed → Completed → Cl
 ## Getting Started
 
 ### Prerequisites
-- .NET 10 SDK
-- Node.js 20+
-- PostgreSQL (or Supabase account)
+
+![.NET](https://img.shields.io/badge/.NET_SDK-10.0-512BD4?style=flat&logo=dotnet)
+![Node](https://img.shields.io/badge/Node.js-20+-339933?style=flat&logo=nodedotjs)
+![PostgreSQL](https://img.shields.io/badge/PostgreSQL-15+-4169E1?style=flat&logo=postgresql)
 
 ### Backend Setup
 
@@ -259,12 +268,16 @@ VITE_API_URL=https://your-api.onrender.com
 ## Deployment
 
 ### Backend → Render
+![Render](https://img.shields.io/badge/Deploy_on-Render-46E3B7?style=for-the-badge&logo=render)
+
 1. Connect GitHub repository
 2. Root Directory: `backend`
 3. Dockerfile Path: `KPI.API/Dockerfile`
 4. Add Environment Variables
 
 ### Frontend → Vercel
+![Vercel](https://img.shields.io/badge/Deploy_on-Vercel-000000?style=for-the-badge&logo=vercel)
+
 1. Import GitHub repository
 2. Root Directory: `frontend`
 3. Framework: Vite
@@ -298,4 +311,6 @@ Hangfire Dashboard: `http://localhost:5079/hangfire`
 
 ## License
 
-MIT License
+![License](https://img.shields.io/badge/License-MIT-yellow?style=for-the-badge)
+
+MIT License — feel free to use and modify
