@@ -41,7 +41,9 @@ builder.Services.AddCors(options =>
     {
         policy.WithOrigins(
                 "http://localhost:5173",
-                "https://kpi-management.vercel.app")
+                "https://kpi-management-two.vercel.app",
+                "https://kpi-management.vercel.app"
+              )
               .AllowAnyHeader()
               .AllowAnyMethod();
     });
