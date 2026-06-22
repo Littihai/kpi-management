@@ -4,26 +4,30 @@ using KPI.Domain.Entities;
 using KPI.Domain.Enums;
 using KPI.Domain.Interfaces;
 using KPI.Application.Audit;
+using KPI.Infrastructure.Data;
 
 namespace KPI.Infrastructure.Services;
 
 public class KpiService : IKpiService
 {
-    private readonly IKpiRepository _kpiRepo;
+private readonly IKpiRepository _kpiRepo;
 private readonly IEmailService _emailService;
 private readonly IUserRepository _userRepo;
 private readonly IAuditService _auditService;
+private readonly AppDbContext _context;
 
 public KpiService(
     IKpiRepository kpiRepo,
     IEmailService emailService,
     IUserRepository userRepo,
-    IAuditService auditService)
+    IAuditService auditService,
+    AppDbContext context)
 {
     _kpiRepo = kpiRepo;
     _emailService = emailService;
     _userRepo = userRepo;
     _auditService = auditService;
+    _context = context;
 }
 
     public async Task<List<KpiDto>> GetAllAsync(Guid userId)
