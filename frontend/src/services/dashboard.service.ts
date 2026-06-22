@@ -35,7 +35,7 @@ export const dashboardService = {
 
 export const exportService = {
   async downloadPdf(token: string) {
-    const res = await fetch('http://localhost:5079/api/export/kpi/pdf', {
+    const res = await fetch(`${api.defaults.baseURL}/api/export/kpi/pdf`, {
       headers: { Authorization: `Bearer ${token}` }
     })
     const blob = await res.blob()
@@ -48,7 +48,7 @@ export const exportService = {
   },
 
   async downloadExcel(token: string) {
-    const res = await fetch('http://localhost:5079/api/export/kpi/excel', {
+    const res = await fetch(`${api.defaults.baseURL}/api/export/kpi/excel`, {
       headers: { Authorization: `Bearer ${token}` }
     })
     const blob = await res.blob()
