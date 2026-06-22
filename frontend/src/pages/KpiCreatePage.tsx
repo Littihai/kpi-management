@@ -29,7 +29,7 @@ export default function KpiCreatePage() {
     const fetchDepartments = async () => {
       try {
         const token = localStorage.getItem('token')
-        const res = await fetch('/api/department', {
+        const res = await fetch('/api/departments', {
           headers: { Authorization: `Bearer ${token}` }
         })
         if (!res.ok) throw new Error('Failed to load departments')
