@@ -13,7 +13,7 @@ using System.Reflection;
 [assembly: System.Reflection.AssemblyCompanyAttribute("KPI.Domain")]
 [assembly: System.Reflection.AssemblyConfigurationAttribute("Debug")]
 [assembly: System.Reflection.AssemblyFileVersionAttribute("1.0.0.0")]
-[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+7674f374495282653ff90590544ea3170f93261b")]
+[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+60a3526312914d043595766dd0c629949ada0fe0")]
 [assembly: System.Reflection.AssemblyProductAttribute("KPI.Domain")]
 [assembly: System.Reflection.AssemblyTitleAttribute("KPI.Domain")]
 [assembly: System.Reflection.AssemblyVersionAttribute("1.0.0.0")]
