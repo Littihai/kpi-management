@@ -20,9 +20,10 @@ public class UserRepository : IUserRepository
             .FirstOrDefaultAsync(u => u.Email == email);
 
     public async Task<User?> GetByIdAsync(Guid id)
-        => await _context.Users
-            .Include(u => u.Role)
-            .FirstOrDefaultAsync(u => u.Id == id);
+    => await _context.Users
+        .Include(u => u.Role)
+        .Include(u => u.Department)
+        .FirstOrDefaultAsync(u => u.Id == id);
 
     public async Task<User> CreateAsync(User user)
     {

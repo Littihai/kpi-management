@@ -1,3 +1,4 @@
+using System.Security.Claims;
 using KPI.Application.Dashboard;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -19,7 +20,8 @@ public class DashboardController : ControllerBase
     [HttpGet]
     public async Task<IActionResult> Get()
     {
-        var result = await _dashboardService.GetDashboardAsync();
+        var userId = Guid.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
+        var result = await _dashboardService.GetDashboardAsync(userId);
         return Ok(result);
     }
 }

@@ -27,10 +27,23 @@ public KpiService(
 }
 
     public async Task<List<KpiDto>> GetAllAsync(Guid userId)
+{
+    var user = await _userRepo.GetByIdAsync(userId);
+    var kpis = await _kpiRepo.GetAllAsync();
+
+    // Director และ SuperAdmin เห็นทุกแผนก
+    var fullAccessRoles = new[] { "SuperAdmin", "Director" };
+    if (user?.Role?.Name != null && fullAccessRoles.Contains(user.Role.Name))
     {
-        var kpis = await _kpiRepo.GetAllAsync();
         return kpis.Select(ToDto).ToList();
     }
+
+    // Role อื่นเห็นแค่แผนกตัวเอง
+    return kpis
+        .Where(k => k.DepartmentId == user!.DepartmentId)
+        .Select(ToDto)
+        .ToList();
+}
 
     public async Task<KpiDto?> GetByIdAsync(Guid id)
     {

@@ -2,5 +2,5 @@ namespace KPI.Application.Dashboard;
 
 public interface IDashboardService
 {
-    Task<DashboardDto> GetDashboardAsync();
+    Task<DashboardDto> GetDashboardAsync(Guid userId);
 }
