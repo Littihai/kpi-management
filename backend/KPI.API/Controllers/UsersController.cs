@@ -64,6 +64,36 @@ public class UsersController : ControllerBase
         await _context.SaveChangesAsync();
         return Ok(new { message = "Role updated" });
     }
+    [HttpPost]
+public async Task<IActionResult> Create([FromBody] CreateUserRequest request)
+{
+    if (await _context.Users.AnyAsync(u => u.Email == request.Email))
+        return BadRequest(new { message = "Email already exists" });
+
+    var user = new KPI.Domain.Entities.User
+    {
+        FirstName = request.FirstName,
+        LastName = request.LastName,
+        Email = request.Email,
+        PasswordHash = BCrypt.Net.BCrypt.HashPassword(request.Password),
+        RoleId = Guid.Parse(request.RoleId),
+        DepartmentId = string.IsNullOrEmpty(request.DepartmentId) ? null : Guid.Parse(request.DepartmentId),
+        IsActive = true
+    };
+
+    _context.Users.Add(user);
+    await _context.SaveChangesAsync();
+    return Ok(new { message = "User created" });
+}
+
+public record CreateUserRequest(
+    string FirstName,
+    string LastName,
+    string Email,
+    string Password,
+    string RoleId,
+    string? DepartmentId
+);
 }
 
 public record ChangeRoleRequest(string RoleName);
