@@ -1,0 +1,20 @@
+# Build output
+**/bin/
+**/obj/
+
+# IDE
+.vs/
+.idea/
+*.user
+*.suo
+
+# Secrets / local config (use environment variables or user-secrets instead)
+backend/KPI.API/appsettings.Development.json
+.env
+.env.*
+!.env.example
+!**/appsettings.Example.json
+
+# OS
+.DS_Store
+Thumbs.db
