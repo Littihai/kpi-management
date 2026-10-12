@@ -1,3 +1,4 @@
+using KPI.Domain.Constants;
 using KPI.Infrastructure.Data;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -7,7 +8,7 @@ namespace KPI.API.Controllers;
 
 [ApiController]
 [Route("api/[controller]")]
-[Authorize]
+[Authorize(Policy = Permissions.Department.View)]
 public class DepartmentsController : ControllerBase
 {
     private readonly AppDbContext _context;

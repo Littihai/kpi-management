@@ -11,6 +11,8 @@
     <PackageReference Include="Hangfire.PostgreSql" Version="1.21.1" />
     <PackageReference Include="Microsoft.AspNetCore.Authentication.JwtBearer" Version="10.0.8" />
     <PackageReference Include="Microsoft.AspNetCore.OpenApi" Version="10.0.5" />
+    <!-- Pinned above the version Microsoft.AspNetCore.OpenApi pulls in (2.0.0, GHSA-v5pm-xwqc-g5wc). -->
+    <PackageReference Include="Microsoft.OpenApi" Version="2.12.2" />
     <PackageReference Include="Microsoft.EntityFrameworkCore.Design" Version="10.0.8">
       <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
       <PrivateAssets>all</PrivateAssets>

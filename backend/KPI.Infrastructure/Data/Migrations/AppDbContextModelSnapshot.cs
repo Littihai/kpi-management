@@ -105,6 +105,12 @@ namespace KPI.Infrastructure.Data.Migrations
                     b.Property<Guid?>("ApprovedById")
                         .HasColumnType("uuid");
 
+                    b.Property<DateTime?>("ClosedAt")
+                        .HasColumnType("timestamp without time zone");
+
+                    b.Property<Guid?>("ClosedById")
+                        .HasColumnType("uuid");
+
                     b.Property<DateTime>("CreatedAt")
                         .HasColumnType("timestamp without time zone");
 
@@ -129,11 +135,21 @@ namespace KPI.Infrastructure.Data.Migrations
                         .HasPrecision(5, 2)
                         .HasColumnType("numeric(5,2)");
 
+                    b.Property<string>("RejectReason")
+                        .HasMaxLength(1000)
+                        .HasColumnType("character varying(1000)");
+
                     b.Property<DateTime>("StartDate")
                         .HasColumnType("timestamp without time zone");
 
                     b.Property<int>("Status")
                         .HasColumnType("integer");
+
+                    b.Property<DateTime?>("SubmittedAt")
+                        .HasColumnType("timestamp without time zone");
+
+                    b.Property<Guid?>("SubmittedById")
+                        .HasColumnType("uuid");
 
                     b.Property<decimal>("Target")
                         .HasPrecision(5, 2)
@@ -141,6 +157,10 @@ namespace KPI.Infrastructure.Data.Migrations
 
                     b.Property<DateTime>("UpdatedAt")
                         .HasColumnType("timestamp without time zone");
+
+                    b.Property<int>("Version")
+                        .IsConcurrencyToken()
+                        .HasColumnType("integer");
 
                     b.Property<int>("Year")
                         .HasColumnType("integer");

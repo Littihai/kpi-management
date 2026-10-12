@@ -9,7 +9,7 @@ public static class DbSeeder
     public static async Task SeedAsync(AppDbContext context)
     {
         await SeedRolesAsync(context);
-        await SeedPermissionsAsync(context);
+        await SyncPermissionsAsync(context);
     }
 
     private static async Task SeedRolesAsync(AppDbContext context)
@@ -18,92 +18,56 @@ public static class DbSeeder
 
         var roles = new List<Role>
         {
-            new() { Id = Guid.Parse("00000000-0000-0000-0000-000000000001"), Name = "SuperAdmin",  Description = "Full system access" },
-            new() { Id = Guid.Parse("00000000-0000-0000-0000-000000000002"), Name = "Director",    Description = "View all departments" },
-            new() { Id = Guid.Parse("00000000-0000-0000-0000-000000000003"), Name = "Manager",     Description = "Manage department KPI" },
-            new() { Id = Guid.Parse("00000000-0000-0000-0000-000000000004"), Name = "TeamLeader",  Description = "Manage projects" },
-            new() { Id = Guid.Parse("00000000-0000-0000-0000-000000000005"), Name = "Staff",       Description = "Update assigned tasks" },
-            new() { Id = Guid.Parse("00000000-0000-0000-0000-000000000006"), Name = "Viewer",      Description = "Read only" },
+            new() { Id = Guid.Parse("00000000-0000-0000-0000-000000000001"), Name = RoleNames.SuperAdmin,  Description = "Full system access" },
+            new() { Id = Guid.Parse("00000000-0000-0000-0000-000000000002"), Name = RoleNames.Director,    Description = "View all departments" },
+            new() { Id = Guid.Parse("00000000-0000-0000-0000-000000000003"), Name = RoleNames.Manager,     Description = "Manage department KPI" },
+            new() { Id = Guid.Parse("00000000-0000-0000-0000-000000000004"), Name = RoleNames.TeamLeader,  Description = "Manage projects" },
+            new() { Id = Guid.Parse("00000000-0000-0000-0000-000000000005"), Name = RoleNames.Staff,       Description = "Update assigned tasks" },
+            new() { Id = Guid.Parse("00000000-0000-0000-0000-000000000006"), Name = RoleNames.Viewer,      Description = "Read only" },
         };
 
         context.Roles.AddRange(roles);
         await context.SaveChangesAsync();
     }
 
-    private static async Task SeedPermissionsAsync(AppDbContext context)
+    /// <summary>
+    /// Idempotent: makes the Permissions table and each built-in role's RolePermissions match
+    /// <see cref="RolePermissionMap.Defaults"/>. Runs at every startup, so adding a permission or
+    /// changing a role's grants only needs a code change. Custom roles are left untouched.
+    /// </summary>
+    public static async Task SyncPermissionsAsync(AppDbContext context)
     {
-        if (await context.Permissions.AnyAsync()) return;
+        var existing = await context.Permissions.ToListAsync();
+        var missing = Permissions.All
+            .Where(name => existing.All(p => p.Name != name))
+            .Select(name => new Permission { Name = name, Module = name.Split('.')[0] })
+            .ToList();
 
-        var allPerms = new[]
+        if (missing.Count > 0)
         {
-            Permissions.Kpi.View, Permissions.Kpi.Create,
-            Permissions.Kpi.Edit, Permissions.Kpi.Delete, Permissions.Kpi.Approve,
-            Permissions.Project.View, Permissions.Project.Create,
-            Permissions.Project.Edit, Permissions.Project.Delete,
-            Permissions.User.View, Permissions.User.Create,
-            Permissions.User.Edit, Permissions.User.Delete,
-            Permissions.Department.View, Permissions.Department.Manage,
-        };
+            context.Permissions.AddRange(missing);
+            await context.SaveChangesAsync();
+            existing.AddRange(missing);
+        }
 
-        var permissions = allPerms.Select(p => new Permission
+        var permissionIdByName = existing.ToDictionary(p => p.Name, p => p.Id);
+        var roles = await context.Roles.Include(r => r.RolePermissions).ToListAsync();
+
+        foreach (var (roleName, wanted) in RolePermissionMap.Defaults)
         {
-            Name = p,
-            Module = p.Split('.')[0]
-        }).ToList();
+            var role = roles.FirstOrDefault(r => r.Name == roleName);
+            if (role is null) continue;
 
-        context.Permissions.AddRange(permissions);
-        await context.SaveChangesAsync();
+            var wantedIds = wanted.Select(name => permissionIdByName[name]).ToHashSet();
 
-        await SeedRolePermissionsAsync(context, permissions);
-    }
+            var toRemove = role.RolePermissions.Where(rp => !wantedIds.Contains(rp.PermissionId)).ToList();
+            context.RolePermissions.RemoveRange(toRemove);
 
-    private static async Task SeedRolePermissionsAsync(
-        AppDbContext context, List<Permission> permissions)
-    {
-        if (await context.RolePermissions.AnyAsync()) return;
+            var haveIds = role.RolePermissions.Select(rp => rp.PermissionId).ToHashSet();
+            foreach (var permissionId in wantedIds.Where(id => !haveIds.Contains(id)))
+                context.RolePermissions.Add(new RolePermission { RoleId = role.Id, PermissionId = permissionId });
+        }
 
-        Permission Find(string name) =>
-            permissions.First(p => p.Name == name);
-
-        var rolePermissions = new List<RolePermission>();
-
-        // SuperAdmin — ทุกอย่าง
-        var superAdminId = Guid.Parse("00000000-0000-0000-0000-000000000001");
-        rolePermissions.AddRange(permissions.Select(p =>
-            new RolePermission { RoleId = superAdminId, PermissionId = p.Id }));
-
-        // Director — view ทุกอย่าง + approve kpi
-        var directorId = Guid.Parse("00000000-0000-0000-0000-000000000002");
-        var directorPerms = new[] {
-            Permissions.Kpi.View, Permissions.Kpi.Approve,
-            Permissions.Project.View, Permissions.User.View,
-            Permissions.Department.View
-        };
-        rolePermissions.AddRange(directorPerms.Select(p =>
-            new RolePermission { RoleId = directorId, PermissionId = Find(p).Id }));
-
-        // Manager — manage kpi + view project
-        var managerId = Guid.Parse("00000000-0000-0000-0000-000000000003");
-        var managerPerms = new[] {
-            Permissions.Kpi.View, Permissions.Kpi.Create, Permissions.Kpi.Edit,
-            Permissions.Project.View, Permissions.Project.Create,
-            Permissions.Department.View, Permissions.Department.Manage,
-            Permissions.User.View
-        };
-        rolePermissions.AddRange(managerPerms.Select(p =>
-            new RolePermission { RoleId = managerId, PermissionId = Find(p).Id }));
-
-        // Staff — view + edit assigned
-        var staffId = Guid.Parse("00000000-0000-0000-0000-000000000005");
-        var staffPerms = new[] {
-            Permissions.Kpi.View,
-            Permissions.Project.View,
-            Permissions.Department.View
-        };
-        rolePermissions.AddRange(staffPerms.Select(p =>
-            new RolePermission { RoleId = staffId, PermissionId = Find(p).Id }));
-
-        context.RolePermissions.AddRange(rolePermissions);
         await context.SaveChangesAsync();
     }
 }

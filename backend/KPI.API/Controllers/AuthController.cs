@@ -1,7 +1,8 @@
-using KPI.Application.Auth;
-using Microsoft.AspNetCore.Mvc;
 using System.Security.Claims;
+using KPI.Application.Auth;
+using KPI.Domain.Constants;
 using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Mvc;
 
 namespace KPI.API.Controllers;
 
@@ -16,39 +17,22 @@ public class AuthController : ControllerBase
         _authService = authService;
     }
 
+    /// <summary>Creates a Staff account. No longer public: only users who may create users can call it.</summary>
     [HttpPost("register")]
+    [Authorize(Policy = Permissions.User.Create)]
     public async Task<IActionResult> Register(RegisterRequest request)
-    {
-        try
-        {
-            var result = await _authService.RegisterAsync(request);
-            return Ok(result);
-        }
-        catch (Exception ex)
-        {
-            return BadRequest(new { message = ex.Message });
-        }
-    }
+        => Ok(await _authService.RegisterAsync(request));
 
     [HttpPost("login")]
+    [AllowAnonymous]
     public async Task<IActionResult> Login(LoginRequest request)
+        => Ok(await _authService.LoginAsync(request));
+
+    [HttpGet("me")]
+    [Authorize]
+    public async Task<IActionResult> Me()
     {
-        try
-        {
-            var result = await _authService.LoginAsync(request);
-            return Ok(result);
-        }
-        catch (Exception ex)
-        {
-            return BadRequest(new { message = ex.Message });
-        }
+        var userId = Guid.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
+        return Ok(await _authService.GetProfileAsync(userId));
     }
-	[HttpGet("me")]
-	[Authorize]
-	public IActionResult Me()
-	{
-		var email = User.FindFirst(ClaimTypes.Email)?.Value;
-		var role = User.FindFirst(ClaimTypes.Role)?.Value;
-		return Ok(new { email, role });
-	}
 }

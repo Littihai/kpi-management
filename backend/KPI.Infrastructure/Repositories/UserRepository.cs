@@ -17,7 +17,7 @@ public class UserRepository : IUserRepository
     public async Task<User?> GetByEmailAsync(string email)
         => await _context.Users
             .Include(u => u.Role)
-            .FirstOrDefaultAsync(u => u.Email == email);
+            .FirstOrDefaultAsync(u => u.Email.ToLower() == email.ToLower());
 
     public async Task<User?> GetByIdAsync(Guid id)
     => await _context.Users
@@ -33,7 +33,7 @@ public class UserRepository : IUserRepository
     }
 
     public async Task<bool> EmailExistsAsync(string email)
-        => await _context.Users.AnyAsync(u => u.Email == email);
+        => await _context.Users.AnyAsync(u => u.Email.ToLower() == email.ToLower());
 		
 	public async Task<User?> GetByIdWithPermissionsAsync(Guid id)
     => await _context.Users

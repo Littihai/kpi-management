@@ -1,5 +1,6 @@
 using System.Security.Claims;
 using KPI.Application.Dashboard;
+using KPI.Domain.Constants;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
@@ -7,7 +8,7 @@ namespace KPI.API.Controllers;
 
 [ApiController]
 [Route("api/[controller]")]
-[Authorize]
+[Authorize(Policy = Permissions.Kpi.View)]
 public class DashboardController : ControllerBase
 {
     private readonly IDashboardService _dashboardService;

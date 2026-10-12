@@ -1,5 +1,6 @@
 using Hangfire;
 using KPI.Application.Jobs;
+using KPI.Domain.Constants;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
@@ -7,7 +8,7 @@ namespace KPI.API.Controllers;
 
 [ApiController]
 [Route("api/[controller]")]
-[Authorize]
+[Authorize(Policy = Permissions.Job.Trigger)]
 public class JobsController : ControllerBase
 {
     [HttpPost("trigger-delay-detection")]

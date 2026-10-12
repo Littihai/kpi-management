@@ -1,4 +1,7 @@
 using ClosedXML.Excel;
+using KPI.Domain.Constants;
+using KPI.Domain.Entities;
+using KPI.Domain.Exceptions;
 using KPI.Application.Export;
 using KPI.Infrastructure.Data;
 using Microsoft.EntityFrameworkCore;
@@ -18,13 +21,30 @@ public class ExportService : IExportService
         QuestPDF.Settings.License = LicenseType.Community;
     }
 
-    public async Task<byte[]> ExportKpiToPdfAsync()
+    /// <summary>KPIs the user may export: every department for SuperAdmin/Director, otherwise their own.</summary>
+    private async Task<List<Kpi>> GetVisibleKpisAsync(Guid userId)
     {
-        var kpis = await _context.Kpis
+        var user = await _context.Users.Include(u => u.Role).FirstOrDefaultAsync(u => u.Id == userId);
+        if (user is null || !user.IsActive)
+            throw new ForbiddenException("Your account is not active.");
+
+        var query = _context.Kpis
             .Include(k => k.Department)
             .Include(k => k.Owner)
-            .OrderBy(k => k.Department!.Name)
-            .ToListAsync();
+            .AsQueryable();
+
+        if (!RoleNames.SeesAllDepartments(user.Role.Name))
+        {
+            var departmentId = user.DepartmentId;
+            query = query.Where(k => departmentId != null && k.DepartmentId == departmentId);
+        }
+
+        return await query.OrderBy(k => k.Department.Name).ToListAsync();
+    }
+
+    public async Task<byte[]> ExportKpiToPdfAsync(Guid userId)
+    {
+        var kpis = await GetVisibleKpisAsync(userId);
 
         var doc = Document.Create(container =>
         {
@@ -90,13 +110,9 @@ public class ExportService : IExportService
         return doc.GeneratePdf();
     }
 
-    public async Task<byte[]> ExportKpiToExcelAsync()
+    public async Task<byte[]> ExportKpiToExcelAsync(Guid userId)
     {
-        var kpis = await _context.Kpis
-            .Include(k => k.Department)
-            .Include(k => k.Owner)
-            .OrderBy(k => k.Department!.Name)
-            .ToListAsync();
+        var kpis = await GetVisibleKpisAsync(userId);
 
         using var workbook = new XLWorkbook();
         var ws = workbook.Worksheets.Add("KPI Report");

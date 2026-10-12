@@ -1,4 +1,5 @@
 using KPI.Application.Audit;
+using KPI.Domain.Constants;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
@@ -6,7 +7,7 @@ namespace KPI.API.Controllers;
 
 [ApiController]
 [Route("api/[controller]")]
-[Authorize]
+[Authorize(Policy = Permissions.Audit.View)]
 public class AuditController : ControllerBase
 {
     private readonly IAuditService _auditService;
