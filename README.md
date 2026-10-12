@@ -201,9 +201,9 @@ Frontend จะรันที่ `http://localhost:5173`
 
 ### Authentication
 ```
-POST /api/auth/register    # สมัครสมาชิก
 POST /api/auth/login       # เข้าสู่ระบบ
-GET  /api/auth/me          # ข้อมูล user ปัจจุบัน
+GET  /api/auth/me          # ข้อมูล user ปัจจุบัน + permissions
+POST /api/auth/register    # สร้างบัญชี Staff (ต้องมีสิทธิ์ user.create — ไม่เปิดสาธารณะแล้ว)
 ```
 
 ### KPI
@@ -211,9 +211,20 @@ GET  /api/auth/me          # ข้อมูล user ปัจจุบัน
 GET    /api/kpi              # ดู KPI ทั้งหมด
 GET    /api/kpi/{id}         # ดู KPI รายการ
 POST   /api/kpi              # สร้าง KPI
+PUT    /api/kpi/{id}         # แก้ KPI (เฉพาะ Draft)
+DELETE /api/kpi/{id}         # ลบ KPI (เฉพาะ Draft, SuperAdmin)
 POST   /api/kpi/{id}/submit  # ส่ง approve
 POST   /api/kpi/{id}/approve # อนุมัติ KPI
+POST   /api/kpi/{id}/reject  # ตีกลับเป็น Draft (ต้องระบุเหตุผล)
+POST   /api/kpi/{id}/close   # ปิด KPI ที่ Completed
 POST   /api/kpi/progress     # อัปเดต progress
+```
+
+สิทธิ์ของแต่ละ role และ workflow ของสถานะ KPI: [docs/access-and-workflow.md](docs/access-and-workflow.md)
+
+### Real-time (SignalR)
+```
+/hubs/kpi    # ส่ง KpiChanged / Notification ไปยัง client ที่เกี่ยวข้อง
 ```
 
 ### Dashboard
@@ -257,6 +268,8 @@ POST /api/jobs/trigger-delay-detection  # Trigger delay detection
   }
 }
 ```
+บน Render ใช้ environment variables แทน: `ConnectionStrings__DefaultConnection`, `Jwt__Key`, `Resend__ApiKey`
+และ (ถ้าจำเป็น) `Cors__Origins__0` สำหรับ origin เพิ่มเติม เช่น Vercel preview
 
 ### Frontend (.env.local)
 ```
