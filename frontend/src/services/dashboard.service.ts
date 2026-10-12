@@ -1,5 +1,7 @@
 import api from './api'
 
+export type TrafficColor = 'green' | 'yellow' | 'red' | 'gray'
+
 export interface DashboardDto {
   totalKpis: number
   activeKpis: number
@@ -10,14 +12,14 @@ export interface DashboardDto {
     departmentName: string
     averageProgress: number
     totalKpis: number
-    trafficLight: string
+    trafficLight: TrafficColor
   }[]
   recentKpis: {
     id: string
     name: string
     progress: number
     statusLabel: string
-    trafficLight: string
+    trafficLight: TrafficColor
     departmentName: string
   }[]
   monthlyTrend: {

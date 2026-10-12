@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
 import api from '../../services/api'
+import { apiError } from '../../utils/errors'
 
 interface Props {
   onClose: () => void
@@ -37,8 +38,8 @@ export default function AddUserModal({ onClose, onSuccess }: Props) {
       await api.post('/api/users', form)
       onSuccess()
       onClose()
-    } catch (err: any) {
-      setError(err.response?.data?.message ?? 'Failed to create user')
+    } catch (err) {
+      setError(apiError(err, 'Failed to create user'))
     } finally {
       setSaving(false)
     }

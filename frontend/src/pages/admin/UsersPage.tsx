@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import api from '../../services/api'
 import AddUserModal from '../../components/admin/AddUserModal'
 import { useCan } from '../../stores/authStore'
@@ -32,14 +32,15 @@ export default function UsersPage() {
   const canCreate = useCan('user.create')
   const canEdit = useCan('user.edit')
 
-  const loadUsers = () => {
-    setLoading(true)
+  // State is only set in the promise callbacks (never synchronously inside the effect).
+  const loadUsers = useCallback(() => (
     api.get('/api/users')
       .then(res => setUsers(res.data))
+      .catch(err => setError(apiError(err, 'Could not load users.')))
       .finally(() => setLoading(false))
-  }
+  ), [])
 
-  useEffect(() => { loadUsers() }, [])
+  useEffect(() => { loadUsers() }, [loadUsers])
 
   const filtered = users.filter(u =>
     `${u.firstName} ${u.lastName} ${u.email}`.toLowerCase().includes(search.toLowerCase())

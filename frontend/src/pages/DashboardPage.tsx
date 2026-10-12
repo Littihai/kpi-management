@@ -105,7 +105,7 @@ export default function DashboardPage() {
               onClick={() => navigate(`/kpi/${kpi.id}`)}
               className="flex items-center gap-4 cursor-pointer hover:bg-gray-50 rounded-lg p-2 transition-colors"
             >
-              <TrafficLight color={kpi.trafficLight as any} />
+              <TrafficLight color={kpi.trafficLight} />
               <div className="flex-1">
                 <p className="text-sm font-medium text-gray-700">{kpi.name}</p>
                 <p className="text-xs text-gray-400">{kpi.departmentName}</p>
