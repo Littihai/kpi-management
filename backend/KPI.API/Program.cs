@@ -63,7 +63,10 @@ builder.Services.AddScoped<IKpiRepository, KpiRepository>();
 builder.Services.AddScoped<IKpiService, KpiService>();
 
 // JWT Authentication
-var jwtKey = builder.Configuration["Jwt:Key"]!;
+var jwtKey = builder.Configuration["Jwt:Key"];
+if (string.IsNullOrWhiteSpace(jwtKey))
+    throw new InvalidOperationException(
+        "Jwt:Key is not configured. Set the Jwt__Key environment variable (see appsettings.Example.json).");
 builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
     .AddJwtBearer(options =>
     {
