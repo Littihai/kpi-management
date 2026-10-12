@@ -3,4 +3,5 @@
   <Project Path="KPI.Application/KPI.Application.csproj" />
   <Project Path="KPI.Domain/KPI.Domain.csproj" />
   <Project Path="KPI.Infrastructure/KPI.Infrastructure.csproj" />
+  <Project Path="KPI.Tests/KPI.Tests.csproj" />
 </Solution>
