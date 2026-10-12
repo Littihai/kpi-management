@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { authService } from '../services/auth.service'
 import { useAuthStore } from '../stores/authStore'
+import { apiError } from '../utils/errors'
 
 export default function LoginPage() {
   const navigate = useNavigate()
@@ -21,10 +22,12 @@ export default function LoginPage() {
         email: res.email,
         fullName: res.fullName,
         role: res.role,
+        departmentId: res.departmentId,
+        permissions: res.permissions,
       })
       navigate('/dashboard')
-    } catch {
-      setError('Invalid email or password')
+    } catch (err) {
+      setError(apiError(err, 'Invalid email or password'))
     } finally {
       setLoading(false)
     }

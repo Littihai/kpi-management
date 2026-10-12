@@ -1,5 +1,5 @@
 import api from './api'
-import type { LoginRequest, RegisterRequest, AuthResponse } from '../types/auth'
+import type { LoginRequest, RegisterRequest, AuthResponse, UserProfile } from '../types/auth'
 
 export const authService = {
   async login(data: LoginRequest): Promise<AuthResponse> {
@@ -12,8 +12,8 @@ export const authService = {
     return res.data
   },
 
-  async me(): Promise<{ email: string; role: string }> {
-    const res = await api.get('/api/auth/me')
+  async me(): Promise<UserProfile> {
+    const res = await api.get<UserProfile>('/api/auth/me')
     return res.data
   },
 

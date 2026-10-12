@@ -7,6 +7,7 @@ import {
 import { useAuthStore } from '../stores/authStore'
 import { dashboardService, type DashboardDto } from '../services/dashboard.service'
 import TrafficLight from '../components/TrafficLight'
+import { useKpiEvents } from '../components/realtimeContext'
 
 export default function DashboardPage() {
   const { user, logout } = useAuthStore()
@@ -19,6 +20,9 @@ export default function DashboardPage() {
       .then(setData)
       .finally(() => setLoading(false))
   }, [])
+
+  // Another user changed a KPI: refresh the numbers without a page reload.
+  useKpiEvents(() => { dashboardService.get().then(setData).catch(() => {}) })
 
   const handleLogout = () => { logout(); navigate('/login') }
 
