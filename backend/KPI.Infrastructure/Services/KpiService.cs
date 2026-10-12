@@ -83,7 +83,8 @@ public class KpiService : IKpiService
         await _context.SaveChangesAsync();
 
         var created = await _kpiRepo.GetByIdAsync(kpi.Id) ?? kpi;
-        await _events.PublishAsync(created, "created", ActorName(actor));
+        await _events.PublishAsync(created, "created", ActorName(actor),
+            email: KpiEmailKind.Created, actorId: actor.Id);
         return ToDto(created, actor);
     }
 
@@ -144,7 +145,8 @@ public class KpiService : IKpiService
         await _events.PublishAsync(kpi, "submitted", ActorName(actor),
             new RealtimeNotification("Approval needed",
                 $"{ActorName(actor)} submitted \"{kpi.Name}\" for approval.", "info", kpi.Id),
-            new RealtimeAudience([], Approvers: true));
+            new RealtimeAudience([], Approvers: true),
+            KpiEmailKind.Submitted, actor.Id);
         return ToDto(kpi, actor);
     }
 
@@ -166,7 +168,8 @@ public class KpiService : IKpiService
         await _events.PublishAsync(kpi, "approved", ActorName(actor),
             new RealtimeNotification("KPI approved",
                 $"\"{kpi.Name}\" was approved and is now Active.", "success", kpi.Id),
-            new RealtimeAudience([kpi.OwnerId]));
+            new RealtimeAudience([kpi.OwnerId]),
+            KpiEmailKind.Approved, actor.Id);
         return ToDto(kpi, actor);
     }
 
@@ -194,7 +197,8 @@ public class KpiService : IKpiService
         await _events.PublishAsync(kpi, "rejected", ActorName(actor),
             new RealtimeNotification("KPI returned for changes",
                 $"\"{kpi.Name}\" was rejected: {reason}", "warning", kpi.Id),
-            new RealtimeAudience([kpi.OwnerId]));
+            new RealtimeAudience([kpi.OwnerId]),
+            KpiEmailKind.Rejected, actor.Id);
         return ToDto(kpi, actor);
     }
 
@@ -250,7 +254,8 @@ public class KpiService : IKpiService
         await _kpiRepo.UpdateAsync(kpi);
 
         var (notification, audience) = DescribeStatusChange(kpi, oldStatus);
-        await _events.PublishAsync(kpi, "progress", ActorName(actor), notification, audience);
+        await _events.PublishAsync(kpi, "progress", ActorName(actor), notification, audience,
+            EmailForStatusChange(oldStatus, kpi.Status), actor.Id);
         return ToDto(kpi, actor);
     }
 
@@ -382,6 +387,16 @@ public class KpiService : IKpiService
             _ => (null, null),
         };
     }
+
+    /// <summary>Only a move into AtRisk, Delayed or Completed is worth an e-mail.</summary>
+    public static KpiEmailKind? EmailForStatusChange(KpiStatus oldStatus, KpiStatus newStatus) =>
+        oldStatus == newStatus ? null : newStatus switch
+        {
+            KpiStatus.AtRisk => KpiEmailKind.AtRisk,
+            KpiStatus.Delayed => KpiEmailKind.Delayed,
+            KpiStatus.Completed => KpiEmailKind.Completed,
+            _ => null,
+        };
 
     private static string ActorName(User actor) => $"{actor.FirstName} {actor.LastName}".Trim();
 

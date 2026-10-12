@@ -67,6 +67,24 @@ daily job): `progress ≥ target` → Completed; past the due date (the due date
 progress more than 15 behind the expected pace (`elapsed / total × target`) → AtRisk; otherwise Active.
 Progress must stay between 0 and the target.
 
+## E-mail notifications
+
+Sent through Resend, only when something actually happens (never as a daily repeat), and best effort: a mail
+problem is logged and never fails or undoes the change. The person who performed the action is not e-mailed.
+
+| Event | Recipients |
+|---|---|
+| KPI created | other active Managers of that department |
+| Submitted for approval | all active Directors (SuperAdmins if there is no active Director) |
+| Approved / rejected (with reason) | the KPI's owner |
+| Becomes AtRisk or Delayed (progress update or daily job) | the owner and the department's Managers |
+| Completed | the department's Managers and all Directors |
+
+Settings (environment variables on Render): `Resend__ApiKey`; `Resend__From` – a sender on a **verified domain**
+(the default `onboarding@resend.dev` can only deliver to the Resend account owner); `App__BaseUrl` – the frontend
+URL, which adds an "Open KPI" button; `Email__Enabled=false` to switch e-mail off. Messages to several people are
+spaced about half a second apart to stay under Resend's rate limit. All user-supplied text is HTML-encoded.
+
 ## Real-time updates (SignalR)
 
 Hub: `/hubs/kpi` (JWT; browsers pass it as `?access_token=`, accepted on `/hubs` URLs only).

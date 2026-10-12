@@ -44,6 +44,7 @@ builder.Services.AddSingleton<IRealtimeNotifier, SignalRNotifier>();
 builder.Services.AddScoped<KpiEventPublisher>();
 
 // CORS (SignalR needs credentials, so origins must be listed explicitly).
+builder.Services.AddScoped<KpiEmailNotifier>();
 // Extra origins, e.g. a Vercel preview URL, can be added with Cors__Origins__0, Cors__Origins__1, ...
 var allowedOrigins = new[]
     {

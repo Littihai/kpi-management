@@ -18,18 +18,15 @@ namespace KPI.Infrastructure.Jobs;
 public class DelayDetectionJob : IDelayDetectionJob
 {
     private readonly AppDbContext _context;
-    private readonly IEmailService _emailService;
     private readonly KpiEventPublisher _events;
     private readonly ILogger<DelayDetectionJob> _logger;
 
     public DelayDetectionJob(
         AppDbContext context,
-        IEmailService emailService,
         KpiEventPublisher events,
         ILogger<DelayDetectionJob> logger)
     {
         _context = context;
-        _emailService = emailService;
         _events = events;
         _logger = logger;
     }
@@ -40,6 +37,7 @@ public class DelayDetectionJob : IDelayDetectionJob
 
         var running = await _context.Kpis
             .Include(k => k.Owner)
+            .Include(k => k.Department)
             .Where(k => k.Status == KpiStatus.Active
                      || k.Status == KpiStatus.AtRisk
                      || k.Status == KpiStatus.Delayed)
@@ -77,25 +75,8 @@ public class DelayDetectionJob : IDelayDetectionJob
             await _events.PublishAsync(
                 kpi, "autoStatus", "System",
                 warn ? new RealtimeNotification($"KPI {kpi.Status}", $"\"{kpi.Name}\" is now {kpi.Status}.", "warning", kpi.Id) : null,
-                warn ? new RealtimeAudience([kpi.OwnerId], ManagersOfDepartment: kpi.DepartmentId) : null);
-
-            // Existing e-mail behaviour is kept as-is until the e-mail work is done separately.
-            if (kpi.Status == KpiStatus.AtRisk && kpi.Owner != null)
-            {
-                try
-                {
-                    var daysDelayed = Math.Max(0, (int)(now - kpi.DueDate).TotalDays);
-                    await _emailService.SendKpiDelayedAsync(
-                        kpi.Owner.Email,
-                        kpi.Owner.FirstName + " " + kpi.Owner.LastName,
-                        kpi.Name,
-                        daysDelayed);
-                }
-                catch (Exception ex)
-                {
-                    _logger.LogWarning(ex, "Delay e-mail failed for KPI {KpiId}", kpi.Id);
-                }
-            }
+                warn ? new RealtimeAudience([kpi.OwnerId], ManagersOfDepartment: kpi.DepartmentId) : null,
+                KpiService.EmailForStatusChange(old, kpi.Status));
         }
     }
 }

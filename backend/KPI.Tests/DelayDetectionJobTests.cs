@@ -1,3 +1,4 @@
+using KPI.Application.Notifications;
 using KPI.Domain.Enums;
 using KPI.Infrastructure.Jobs;
 using Microsoft.EntityFrameworkCore;
@@ -7,11 +8,8 @@ namespace KPI.Tests;
 
 public class DelayDetectionJobTests
 {
-    private static (DelayDetectionJob Job, RecordingEmail Email) NewJob(TestWorld w)
-    {
-        var email = new RecordingEmail();
-        return (new DelayDetectionJob(w.Db, email, w.Events, NullLogger<DelayDetectionJob>.Instance), email);
-    }
+    private static (DelayDetectionJob Job, RecordingEmail Email) NewJob(TestWorld w) =>
+        (new DelayDetectionJob(w.Db, w.Events, NullLogger<DelayDetectionJob>.Instance), w.Email);
 
     [Fact]
     public async Task Overdue_running_kpis_become_Delayed_without_anyone_touching_them()
@@ -44,7 +42,7 @@ public class DelayDetectionJobTests
 
         w.Clear();
         Assert.Equal(KpiStatus.Active, (await w.Db.Kpis.FindAsync(kpi.Id))!.Status);
-        Assert.Empty(email.DelayedTo);
+        Assert.Empty(email.Sent); // recovering is good news, not an alert
     }
 
     [Fact]
@@ -82,7 +80,7 @@ public class DelayDetectionJobTests
     }
 
     [Fact]
-    public async Task Existing_AtRisk_email_is_kept_and_a_failure_cannot_undo_the_status_change()
+    public async Task A_mail_failure_cannot_undo_the_status_change()
     {
         var w = await TestWorld.CreateAsync();
         var kpi = await w.AddKpiAsync(KpiStatus.Active, w.ManagerA, progress: 5,
@@ -97,7 +95,7 @@ public class DelayDetectionJobTests
     }
 
     [Fact]
-    public async Task Existing_AtRisk_email_is_still_sent_to_the_owner()
+    public async Task Becoming_AtRisk_emails_the_owner_once()
     {
         var w = await TestWorld.CreateAsync();
         await w.AddKpiAsync(KpiStatus.Active, w.ManagerA, progress: 5,
@@ -105,7 +103,25 @@ public class DelayDetectionJobTests
         var (job, email) = NewJob(w);
 
         await job.RunAsync();
+        await job.RunAsync(); // next day: nothing changed, nothing sent
 
-        Assert.Equal([w.ManagerA.Email], email.DelayedTo);
+        Assert.Equal([w.ManagerA.Email], email.To(KpiEmailKind.AtRisk));
+    }
+
+    [Fact]
+    public async Task Becoming_Delayed_emails_the_owner_and_department_managers_without_duplicates()
+    {
+        var w = await TestWorld.CreateAsync();
+        // Owned by a team leader, so the owner and the department manager are different people.
+        await w.AddKpiAsync(KpiStatus.Active, w.TeamLeaderA, progress: 30,
+            start: DateTime.UtcNow.AddDays(-100), due: DateTime.UtcNow.AddDays(-3));
+        var (job, email) = NewJob(w);
+
+        await job.RunAsync();
+
+        Assert.Equal(
+            new[] { w.ManagerA.Email, w.TeamLeaderA.Email }.OrderBy(e => e),
+            email.To(KpiEmailKind.Delayed).OrderBy(e => e));
+        Assert.DoesNotContain(email.Sent, m => m.ToEmail == w.ManagerB.Email); // other department
     }
 }

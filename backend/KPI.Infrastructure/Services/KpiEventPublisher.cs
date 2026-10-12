@@ -6,17 +6,22 @@ using Microsoft.Extensions.Logging;
 namespace KPI.Infrastructure.Services;
 
 /// <summary>
-/// Pushes real-time updates after a KPI changes. Never throws: a failed push must not
-/// roll back or fail the business operation that already succeeded.
+/// Pushes real-time updates and sends e-mails after a KPI changes. Never throws: a failed
+/// push or e-mail must not roll back or fail the business operation that already succeeded.
 /// </summary>
 public class KpiEventPublisher
 {
     private readonly IRealtimeNotifier _notifier;
+    private readonly KpiEmailNotifier _emails;
     private readonly ILogger<KpiEventPublisher> _logger;
 
-    public KpiEventPublisher(IRealtimeNotifier notifier, ILogger<KpiEventPublisher> logger)
+    public KpiEventPublisher(
+        IRealtimeNotifier notifier,
+        KpiEmailNotifier emails,
+        ILogger<KpiEventPublisher> logger)
     {
         _notifier = notifier;
+        _emails = emails;
         _logger = logger;
     }
 
@@ -25,7 +30,9 @@ public class KpiEventPublisher
         string action,
         string? actorName,
         RealtimeNotification? notification = null,
-        RealtimeAudience? audience = null)
+        RealtimeAudience? audience = null,
+        KpiEmailKind? email = null,
+        Guid? actorId = null)
     {
         try
         {
@@ -49,5 +56,9 @@ public class KpiEventPublisher
         {
             _logger.LogWarning(ex, "Real-time publish failed for KPI {KpiId} ({Action})", kpi.Id, action);
         }
+
+        // E-mail is independent of the live push: either can fail without affecting the other.
+        if (email is { } kind)
+            await _emails.SendAsync(kpi, kind, actorId, actorName);
     }
 }

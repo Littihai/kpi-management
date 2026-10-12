@@ -284,6 +284,10 @@ VITE_API_URL=https://your-api.onrender.com
 ![Render](https://img.shields.io/badge/Deploy_on-Render-46E3B7?style=for-the-badge&logo=render)
 
 1. Connect GitHub repository
+อีเมล: `Resend__From` (ต้องเป็นโดเมนที่ verify แล้ว ไม่งั้นส่งถึงเจ้าของบัญชี Resend เท่านั้น),
+`App__BaseUrl` (URL ของ frontend สำหรับปุ่ม "Open KPI"), `Email__Enabled=false` เพื่อปิดการส่ง —
+รายละเอียดใน [docs/access-and-workflow.md](docs/access-and-workflow.md)
+
 2. Root Directory: `backend`
 3. Dockerfile Path: `KPI.API/Dockerfile`
 4. Add Environment Variables

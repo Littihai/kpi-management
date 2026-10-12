@@ -33,6 +33,7 @@ public class ApiFactory : WebApplicationFactory<Program>
         builder.UseSetting("Jwt:Issuer", "kpi-test");
         builder.UseSetting("Jwt:Audience", "kpi-test");
         builder.UseSetting("Resend:ApiKey", "re_test");
+        builder.UseSetting("Email:Enabled", "false"); // never call the real mail provider from tests
         builder.UseSetting("ConnectionStrings:DefaultConnection", "Host=unused");
 
         builder.ConfigureServices(services =>

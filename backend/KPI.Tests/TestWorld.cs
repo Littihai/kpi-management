@@ -6,6 +6,7 @@ using KPI.Infrastructure.Data;
 using KPI.Infrastructure.Repositories;
 using KPI.Infrastructure.Services;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging.Abstractions;
 
 namespace KPI.Tests;
@@ -33,20 +34,17 @@ public class RecordingNotifier : IRealtimeNotifier
 
 public class RecordingEmail : IEmailService
 {
-    public List<string> DelayedTo { get; } = [];
+    public List<KpiEmailMessage> Sent { get; } = [];
     public bool Throw { get; set; }
 
-    public Task SendKpiDelayedAsync(string toEmail, string fullName, string kpiName, int daysDelayed)
+    public IEnumerable<string> To(KpiEmailKind kind) => Sent.Where(m => m.Kind == kind).Select(m => m.ToEmail);
+
+    public Task SendAsync(KpiEmailMessage message, CancellationToken cancellationToken = default)
     {
-        if (Throw) throw new InvalidOperationException("smtp down");
-        DelayedTo.Add(toEmail);
+        if (Throw) throw new InvalidOperationException("mail provider down");
+        Sent.Add(message);
         return Task.CompletedTask;
     }
-
-    public Task SendKpiApprovedAsync(string toEmail, string fullName, string kpiName) => Task.CompletedTask;
-    public Task SendTaskAssignedAsync(string toEmail, string fullName, string taskName) => Task.CompletedTask;
-    public Task SendKpiCreatedAsync(string toEmail, string managerName, string kpiName, string ownerName) => Task.CompletedTask;
-    public Task SendKpiSubmittedAsync(string toEmail, string directorName, string kpiName, string ownerName) => Task.CompletedTask;
 }
 
 /// <summary>An in-memory database with two departments and one user per role.</summary>
@@ -55,6 +53,7 @@ public class TestWorld
     public AppDbContext Db { get; }
     public DbContextOptions<AppDbContext> Options { get; }
     public RecordingNotifier Notifier { get; } = new();
+    public RecordingEmail Email { get; } = new();
     public KpiEventPublisher Events { get; }
     public KpiService Service { get; }
 
@@ -70,19 +69,25 @@ public class TestWorld
     public User ViewerA { get; private set; } = null!;
     public User NoDepartment { get; private set; } = null!;
 
-    private TestWorld()
+    private TestWorld(bool emailEnabled)
     {
         Options = new DbContextOptionsBuilder<AppDbContext>()
             .UseInMemoryDatabase(Guid.NewGuid().ToString())
             .Options;
         Db = new AppDbContext(Options);
-        Events = new KpiEventPublisher(Notifier, NullLogger<KpiEventPublisher>.Instance);
+        var config = new ConfigurationBuilder().AddInMemoryCollection(new Dictionary<string, string?>
+        {
+            ["Email:PacingMs"] = "0",
+            ["Email:Enabled"] = emailEnabled ? "true" : "false",
+        }).Build();
+        var emails = new KpiEmailNotifier(Db, Email, config, NullLogger<KpiEmailNotifier>.Instance);
+        Events = new KpiEventPublisher(Notifier, emails, NullLogger<KpiEventPublisher>.Instance);
         Service = new KpiService(new KpiRepository(Db), new UserRepository(Db), Db, Events);
     }
 
-    public static async Task<TestWorld> CreateAsync()
+    public static async Task<TestWorld> CreateAsync(bool emailEnabled = true)
     {
-        var world = new TestWorld();
+        var world = new TestWorld(emailEnabled);
         await world.SeedAsync();
         return world;
     }
