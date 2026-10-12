@@ -22,6 +22,9 @@ using Hangfire.PostgreSql;
 using KPI.Application.Jobs;
 using KPI.Infrastructure.Jobs;
 using KPI.Application.Audit;
+using KPI.API.Health;
+using KPI.API.Security;
+using Microsoft.AspNetCore.Diagnostics.HealthChecks;
 
 AppContext.SetSwitch("Npgsql.EnableLegacyTimestampBehavior", true);
 var builder = WebApplication.CreateBuilder(args);
@@ -41,10 +44,18 @@ builder.Services.AddScoped<IEmailService, EmailService>();
 builder.Services.AddScoped<IDelayDetectionJob, DelayDetectionJob>();
 builder.Services.AddScoped<IAuditService, AuditService>();
 builder.Services.AddSingleton<IRealtimeNotifier, SignalRNotifier>();
+builder.Services.AddScoped<KpiEmailNotifier>();
 builder.Services.AddScoped<KpiEventPublisher>();
 
+// /health answers "is the process up"; /health/ready also checks the database.
+builder.Services.AddHealthChecks().AddCheck<DatabaseHealthCheck>("database", tags: ["ready"]);
+
+// Failed sign-ins are counted in memory, so the throttle must live as long as the process.
+builder.Services.Configure<LoginThrottleOptions>(builder.Configuration.GetSection("LoginThrottle"));
+builder.Services.AddSingleton(TimeProvider.System);
+builder.Services.AddSingleton<LoginThrottle>();
+
 // CORS (SignalR needs credentials, so origins must be listed explicitly).
-builder.Services.AddScoped<KpiEmailNotifier>();
 // Extra origins, e.g. a Vercel preview URL, can be added with Cors__Origins__0, Cors__Origins__1, ...
 var allowedOrigins = new[]
     {
@@ -81,9 +92,10 @@ builder.Services.AddScoped<IKpiService, KpiService>();
 
 // JWT Authentication
 var jwtKey = builder.Configuration["Jwt:Key"];
-if (string.IsNullOrWhiteSpace(jwtKey))
+if (JwtKeyValidator.Problem(jwtKey) is { } jwtKeyProblem)
     throw new InvalidOperationException(
-        "Jwt:Key is not configured. Set the Jwt__Key environment variable (see appsettings.Example.json).");
+        $"Jwt:Key cannot be used: {jwtKeyProblem} Set the Jwt__Key environment variable to a random secret " +
+        "of 32+ characters (see appsettings.Example.json).");
 
 builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
     .AddJwtBearer(options =>
@@ -96,7 +108,7 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
             ValidateIssuerSigningKey = true,
             ValidIssuer = builder.Configuration["Jwt:Issuer"],
             ValidAudience = builder.Configuration["Jwt:Audience"],
-            IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(jwtKey))
+            IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(jwtKey!))
         };
 
         // Browsers cannot set an Authorization header on a WebSocket, so SignalR sends the
@@ -132,11 +144,35 @@ builder.Services.AddScoped<IAuthorizationHandler, PermissionHandler>();
 
 var app = builder.Build();
 
-// Seed roles and keep permissions in sync with RolePermissionMap
 using (var scope = app.Services.CreateScope())
 {
     var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+
+    // Bring the schema up to date before anything reads it, so a deploy never runs new code on old tables.
+    // Skipped for the in-memory test database; set Database__AutoMigrate=false to migrate by hand instead.
+    if (db.Database.IsRelational()
+        && !string.Equals(builder.Configuration["Database:AutoMigrate"], "false", StringComparison.OrdinalIgnoreCase))
+    {
+        var pending = (await db.Database.GetPendingMigrationsAsync()).ToList();
+        if (pending.Count > 0)
+            app.Logger.LogInformation("Applying {Count} pending database migration(s): {Migrations}",
+                pending.Count, string.Join(", ", pending));
+        await db.Database.MigrateAsync();
+    }
+
+    // Seed roles and keep permissions in sync with RolePermissionMap
     await DbSeeder.SeedAsync(db);
+
+    // Public registration is closed, so a new database needs its first SuperAdmin from configuration.
+    if (await DbSeeder.SeedInitialAdminAsync(
+            db,
+            builder.Configuration["Admin:Email"],
+            builder.Configuration["Admin:Password"],
+            builder.Configuration["Admin:FirstName"],
+            builder.Configuration["Admin:LastName"]))
+        app.Logger.LogWarning(
+            "Created the first SuperAdmin {Email} from the Admin__* settings. Remove Admin__Password once you have signed in.",
+            builder.Configuration["Admin:Email"]);
 }
 
 app.UseExceptionHandler();
@@ -153,6 +189,8 @@ app.UseAuthentication();
 app.UseAuthorization();
 app.MapControllers();
 app.MapHub<KpiHub>("/hubs/kpi");
+app.MapHealthChecks("/health", new HealthCheckOptions { Predicate = _ => false });
+app.MapHealthChecks("/health/ready", new HealthCheckOptions { Predicate = check => check.Tags.Contains("ready") });
 
 if (runBackgroundJobs)
 {

@@ -153,28 +153,35 @@ cd backend
 # Restore packages
 dotnet restore
 
-# Set connection string in appsettings.Development.json
+# Create KPI.API/appsettings.Development.json (git-ignored; copy appsettings.Example.json)
 {
   "ConnectionStrings": {
     "DefaultConnection": "Host=...;Database=postgres;Username=...;Password=..."
   },
   "Jwt": {
-    "Key": "your-secret-key-minimum-32-characters",
+    "Key": "<random secret, 32+ characters>",
     "Issuer": "kpi-management",
     "Audience": "kpi-management"
   },
   "Resend": {
     "ApiKey": "re_your_api_key"
+  },
+  "Admin": {
+    "Email": "you@example.com",
+    "Password": "<at least 8 characters>"
   }
 }
 
-# Run migrations
-dotnet ef database update --project KPI.Infrastructure --startup-project KPI.API
-
-# Start API
+# Start API — applies pending migrations and creates the first SuperAdmin from "Admin" on a new database
 cd KPI.API
 dotnet run
 ```
+
+`Jwt:Key` ต้องเป็นค่าสุ่มอย่างน้อย 32 ตัวอักษร แอปจะไม่สตาร์ทถ้าไม่ได้ตั้ง สั้นเกินไป หรือยังเป็นค่าตัวอย่างจาก repo
+สร้างได้ด้วย PowerShell: `[Convert]::ToBase64String([Security.Cryptography.RandomNumberGenerator]::GetBytes(48))`
+
+Migration จะรันอัตโนมัติตอนแอปสตาร์ท (ปิดได้ด้วย `Database__AutoMigrate=false` แล้วรัน
+`dotnet ef database update --project KPI.Infrastructure --startup-project KPI.API` เอง)
 
 API จะรันที่ `http://localhost:5079`
 
@@ -227,6 +234,12 @@ POST   /api/kpi/progress     # อัปเดต progress
 /hubs/kpi    # ส่ง KpiChanged / Notification ไปยัง client ที่เกี่ยวข้อง
 ```
 
+### Health
+```
+GET /health          # process ทำงานอยู่ (ไม่แตะ DB) — ใช้เป็น Health Check Path บน Render
+GET /health/ready    # ตรวจการเชื่อมต่อ DB ด้วย (503 ถ้าต่อไม่ได้)
+```
+
 ### Dashboard
 ```
 GET /api/dashboard           # ข้อมูล Executive Dashboard
@@ -271,6 +284,22 @@ POST /api/jobs/trigger-delay-detection  # Trigger delay detection
 บน Render ใช้ environment variables แทน: `ConnectionStrings__DefaultConnection`, `Jwt__Key`, `Resend__ApiKey`
 และ (ถ้าจำเป็น) `Cors__Origins__0` สำหรับ origin เพิ่มเติม เช่น Vercel preview
 
+อีเมล: `Resend__From` (ต้องเป็นโดเมนที่ verify แล้ว ไม่งั้นส่งถึงเจ้าของบัญชี Resend เท่านั้น),
+`App__BaseUrl` (URL ของ frontend สำหรับปุ่ม "Open KPI"), `Email__Enabled=false` เพื่อปิดการส่ง —
+รายละเอียดใน [docs/access-and-workflow.md](docs/access-and-workflow.md)
+
+การ deploy ครั้งแรก:
+- `Admin__Email` + `Admin__Password` (และ `Admin__FirstName`, `Admin__LastName` ถ้าต้องการ) — สร้าง SuperAdmin คนแรกบนฐานข้อมูลใหม่
+  ทำงานเฉพาะตอนยังไม่มี SuperAdmin ที่ active อยู่ ลบ `Admin__Password` ออกหลังล็อกอินครั้งแรกได้
+- `Database__AutoMigrate=false` — ปิดการ migrate อัตโนมัติตอนสตาร์ท (ค่าเริ่มต้นคือเปิด)
+- `LoginThrottle__ClientIpHeader=CF-Connecting-IP` — **ตั้งบน Render** เพื่อให้จำกัดการลองรหัสผ่านตาม IP จริงของผู้ใช้
+  (ถ้าไม่ตั้ง จะเห็นเป็น IP ของ proxy เดียวกันทั้งหมด) ตั้งเฉพาะเมื่อ request ทุกอันผ่าน proxy ที่เขียนทับ header นี้
+- `LoginThrottle__MaxFailuresPerAccount` (5), `LoginThrottle__MaxFailuresPerIp` (20), `LoginThrottle__WindowMinutes` (15)
+
+ตั้ง Health Check Path บน Render เป็น `/health`
+
+รายละเอียดใน [docs/access-and-workflow.md](docs/access-and-workflow.md#sign-in-protection-and-first-deploy)
+
 ### Frontend (.env.local)
 ```
 VITE_API_URL=https://your-api.onrender.com
@@ -284,10 +313,6 @@ VITE_API_URL=https://your-api.onrender.com
 ![Render](https://img.shields.io/badge/Deploy_on-Render-46E3B7?style=for-the-badge&logo=render)
 
 1. Connect GitHub repository
-อีเมล: `Resend__From` (ต้องเป็นโดเมนที่ verify แล้ว ไม่งั้นส่งถึงเจ้าของบัญชี Resend เท่านั้น),
-`App__BaseUrl` (URL ของ frontend สำหรับปุ่ม "Open KPI"), `Email__Enabled=false` เพื่อปิดการส่ง —
-รายละเอียดใน [docs/access-and-workflow.md](docs/access-and-workflow.md)
-
 2. Root Directory: `backend`
 3. Dockerfile Path: `KPI.API/Dockerfile`
 4. Add Environment Variables

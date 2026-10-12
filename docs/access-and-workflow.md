@@ -16,7 +16,7 @@ Tests in `backend/KPI.Tests` fail if the code and this document drift apart.
 4. **Guards** – e.g. nobody approves their own KPI.
 
 Errors: `401` not signed in · `403` not allowed · `404` not found / out of scope · `409` wrong status or stale data ·
-`400` invalid input. Bodies are RFC 7807 problem details and also carry a `message` field.
+`400` invalid input · `429` too many failed sign-ins (with a `Retry-After` header). Bodies are RFC 7807 problem details and also carry a `message` field.
 
 ## Roles × actions
 
@@ -97,3 +97,44 @@ Server → client messages:
 Group membership is decided when a client connects, so a role or department change applies on the next reconnect.
 Pushes never block or fail the business operation. CORS origins are fixed in `Program.cs`; add more with
 `Cors__Origins__0`, `Cors__Origins__1`, … (needed for Vercel preview URLs).
+
+## Sign-in protection and first deploy
+
+**Failed sign-ins are throttled** (`POST /api/auth/login`). Only failures count, so colleagues behind one office
+address sign in normally. Two limits apply per 15-minute window; once one is reached the answer is `429` with
+`Retry-After` until the window ends, even for the right password:
+
+| Limit | Default | Stops |
+|---|---|---|
+| failures for one e-mail from one client address | 5 | guessing one account's password |
+| failures from one client address, any e-mail | 20 | trying one password against many accounts |
+
+A success clears the account counter but not the address counter. The account limit includes the client address, so
+a stranger cannot lock a colleague out from elsewhere. Counters are in memory: they reset on restart and are not
+shared between instances, so bcrypt's cost remains the backstop against a distributed attack.
+
+The API needs the client's real address. Behind Render's proxy the socket address is the proxy's, so set
+`LoginThrottle__ClientIpHeader=CF-Connecting-IP` (Cloudflare overwrites that header on every request). Do not set it
+where a caller can reach the API directly, because the header could then be forged. After deploying, a blocked sign-in
+logs `Sign-in blocked for <ip>`; check that the address is a client's and not a proxy's. Tune with
+`LoginThrottle__MaxFailuresPerAccount`, `LoginThrottle__MaxFailuresPerIp`, `LoginThrottle__WindowMinutes`
+(a limit of `0` switches that check off).
+
+**Signing key.** `Jwt__Key` must be a random secret of at least 32 characters. The API refuses to start if it is
+missing, shorter, repetitive, or one of the placeholder values published in this repository.
+
+**Database.** Pending EF Core migrations are applied when the API starts, before roles are seeded, so new code never
+runs on old tables. Set `Database__AutoMigrate=false` to run `dotnet ef database update` yourself instead. A test
+(`MigrationTests`) fails in CI when the entity model changes without a migration, which would otherwise stop the
+API from starting.
+
+**First SuperAdmin.** Public registration is closed, so a new database has nobody who can sign in. Set
+`Admin__Email` and `Admin__Password` (optionally `Admin__FirstName`, `Admin__LastName`): at startup, if there is no
+active SuperAdmin, that account is created. With an active SuperAdmin present the settings are ignored, so they can
+stay or be removed; removing `Admin__Password` after the first sign-in is recommended. If the settings are present
+but unusable (bad e-mail, short password, e-mail already used by someone else) the API stops with a message naming
+the setting.
+
+**Health checks.** `GET /health` answers 200 while the process is up and never touches the database (use it as
+Render's health check path and for keep-alive pings). `GET /health/ready` also checks the database and answers 503
+when it is unreachable; the response says only `Healthy` or `Unhealthy`, details go to the logs.

@@ -14,3 +14,9 @@ public class InvalidStateException(string message) : AppException(message);
 
 /// <summary>The request data is invalid (400).</summary>
 public class RequestValidationException(string message) : AppException(message);
+
+/// <summary>The caller made too many attempts and must wait before trying again (429).</summary>
+public class TooManyRequestsException(string message, TimeSpan retryAfter) : AppException(message)
+{
+    public TimeSpan RetryAfter { get; } = retryAfter;
+}

@@ -27,6 +27,7 @@ public class ApiExceptionHandler : IExceptionHandler
             ForbiddenException e => (StatusCodes.Status403Forbidden, "Forbidden", e.Message),
             InvalidStateException e => (StatusCodes.Status409Conflict, "Conflict", e.Message),
             RequestValidationException e => (StatusCodes.Status400BadRequest, "Invalid request", e.Message),
+            TooManyRequestsException e => (StatusCodes.Status429TooManyRequests, "Too many requests", e.Message),
             DbUpdateConcurrencyException => (StatusCodes.Status409Conflict, "Conflict",
                 "This record was changed by someone else. Reload and try again."),
             _ => (StatusCodes.Status500InternalServerError, "Server error",
@@ -38,6 +39,9 @@ public class ApiExceptionHandler : IExceptionHandler
                 httpContext.Request.Method, httpContext.Request.Path);
 
         httpContext.Response.StatusCode = status;
+        if (exception is TooManyRequestsException tooMany)
+            httpContext.Response.Headers.RetryAfter =
+                ((int)Math.Ceiling(tooMany.RetryAfter.TotalSeconds)).ToString();
         await httpContext.Response.WriteAsJsonAsync(new ProblemDetails
         {
             Status = status,

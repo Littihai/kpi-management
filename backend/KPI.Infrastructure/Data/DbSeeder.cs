@@ -1,5 +1,7 @@
 using KPI.Domain.Constants;
 using KPI.Domain.Entities;
+using KPI.Domain.Exceptions;
+using KPI.Infrastructure.Services;
 using Microsoft.EntityFrameworkCore;
 
 namespace KPI.Infrastructure.Data;
@@ -10,6 +12,50 @@ public static class DbSeeder
     {
         await SeedRolesAsync(context);
         await SyncPermissionsAsync(context);
+    }
+
+    /// <summary>
+    /// Creates the first SuperAdmin from the Admin__* settings so a brand-new database can be signed in to
+    /// (public registration is closed). Does nothing when the settings are empty or an active SuperAdmin
+    /// already exists, so leaving the settings in place later is harmless. Run it after <see cref="SeedAsync"/>.
+    /// </summary>
+    /// <returns>True when an account was created.</returns>
+    /// <exception cref="InvalidOperationException">The settings are present but unusable.</exception>
+    public static async Task<bool> SeedInitialAdminAsync(
+        AppDbContext context, string? email, string? password, string? firstName = null, string? lastName = null)
+    {
+        if (string.IsNullOrWhiteSpace(email) && string.IsNullOrEmpty(password)) return false;
+
+        if (await context.Users.AnyAsync(u => u.IsActive && u.Role.Name == RoleNames.SuperAdmin)) return false;
+
+        var normalized = AuthService.NormalizeEmail(email);
+        if (normalized.Length == 0 || !normalized.Contains('@'))
+            throw new InvalidOperationException("Admin:Email must be a valid e-mail address.");
+
+        try
+        {
+            AuthService.EnsurePasswordPolicy(password);
+        }
+        catch (RequestValidationException ex)
+        {
+            throw new InvalidOperationException($"Admin:Password is not usable. {ex.Message}");
+        }
+
+        if (await context.Users.AnyAsync(u => u.Email == normalized))
+            throw new InvalidOperationException(
+                "Admin:Email already belongs to a user who is not an active SuperAdmin. Use a different address.");
+
+        var role = await context.Roles.FirstAsync(r => r.Name == RoleNames.SuperAdmin);
+        context.Users.Add(new User
+        {
+            FirstName = string.IsNullOrWhiteSpace(firstName) ? "System" : firstName.Trim(),
+            LastName = string.IsNullOrWhiteSpace(lastName) ? "Admin" : lastName.Trim(),
+            Email = normalized,
+            PasswordHash = BCrypt.Net.BCrypt.HashPassword(password),
+            RoleId = role.Id,
+        });
+        await context.SaveChangesAsync();
+        return true;
     }
 
     private static async Task SeedRolesAsync(AppDbContext context)
