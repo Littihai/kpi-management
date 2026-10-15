@@ -2,6 +2,7 @@ namespace KPI.Application.Export;
 
 public interface IExportService
 {
-    Task<byte[]> ExportKpiToPdfAsync();
-    Task<byte[]> ExportKpiToExcelAsync();
+    /// <summary>Exports the KPIs the given user is allowed to see.</summary>
+    Task<byte[]> ExportKpiToPdfAsync(Guid userId);
+    Task<byte[]> ExportKpiToExcelAsync(Guid userId);
 }

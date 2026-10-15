@@ -23,6 +23,17 @@ public class Kpi : BaseEntity
     public User? ApprovedBy { get; set; }
     public DateTime? ApprovedAt { get; set; }
 
+    public DateTime? SubmittedAt { get; set; }
+    public Guid? SubmittedById { get; set; }
+
+    public string? RejectReason { get; set; }
+
+    public DateTime? ClosedAt { get; set; }
+    public Guid? ClosedById { get; set; }
+
+    /// <summary>Optimistic concurrency token, incremented on every update.</summary>
+    public int Version { get; set; }
+
     public ICollection<Project> Projects { get; set; } = new List<Project>();
     public ICollection<KpiProgressLog> ProgressLogs { get; set; } = new List<KpiProgressLog>();
 }

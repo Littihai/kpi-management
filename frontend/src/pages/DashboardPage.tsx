@@ -7,6 +7,7 @@ import {
 import { useAuthStore } from '../stores/authStore'
 import { dashboardService, type DashboardDto } from '../services/dashboard.service'
 import TrafficLight from '../components/TrafficLight'
+import { useKpiEvents } from '../components/realtimeContext'
 
 export default function DashboardPage() {
   const { user, logout } = useAuthStore()
@@ -19,6 +20,9 @@ export default function DashboardPage() {
       .then(setData)
       .finally(() => setLoading(false))
   }, [])
+
+  // Another user changed a KPI: refresh the numbers without a page reload.
+  useKpiEvents(() => { dashboardService.get().then(setData).catch(() => {}) })
 
   const handleLogout = () => { logout(); navigate('/login') }
 
@@ -101,7 +105,7 @@ export default function DashboardPage() {
               onClick={() => navigate(`/kpi/${kpi.id}`)}
               className="flex items-center gap-4 cursor-pointer hover:bg-gray-50 rounded-lg p-2 transition-colors"
             >
-              <TrafficLight color={kpi.trafficLight as any} />
+              <TrafficLight color={kpi.trafficLight} />
               <div className="flex-1">
                 <p className="text-sm font-medium text-gray-700">{kpi.name}</p>
                 <p className="text-xs text-gray-400">{kpi.departmentName}</p>

@@ -1,5 +1,6 @@
 using System.Security.Claims;
 using KPI.Application.Kpis;
+using KPI.Domain.Constants;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
@@ -21,72 +22,58 @@ public class KpiController : ControllerBase
         Guid.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
 
     [HttpGet]
+    [Authorize(Policy = Permissions.Kpi.View)]
     public async Task<IActionResult> GetAll()
-    {
-        var result = await _kpiService.GetAllAsync(GetUserId());
-        return Ok(result);
-    }
+        => Ok(await _kpiService.GetAllAsync(GetUserId()));
 
-    [HttpGet("{id}")]
+    [HttpGet("{id:guid}")]
+    [Authorize(Policy = Permissions.Kpi.View)]
     public async Task<IActionResult> GetById(Guid id)
-    {
-        var result = await _kpiService.GetByIdAsync(id);
-        return result == null ? NotFound() : Ok(result);
-    }
+        => Ok(await _kpiService.GetByIdAsync(id, GetUserId()));
 
     [HttpPost]
+    [Authorize(Policy = Permissions.Kpi.Create)]
     public async Task<IActionResult> Create(CreateKpiRequest request)
     {
-        try
-        {
-            var result = await _kpiService.CreateAsync(request, GetUserId());
-            return CreatedAtAction(nameof(GetById), new { id = result.Id }, result);
-        }
-        catch (Exception ex)
-        {
-            return BadRequest(new { message = ex.Message });
-        }
+        var result = await _kpiService.CreateAsync(request, GetUserId());
+        return CreatedAtAction(nameof(GetById), new { id = result.Id }, result);
     }
 
-    [HttpPost("{id}/submit")]
+    [HttpPut("{id:guid}")]
+    [Authorize(Policy = Permissions.Kpi.Edit)]
+    public async Task<IActionResult> Update(Guid id, UpdateKpiRequest request)
+        => Ok(await _kpiService.UpdateAsync(id, request, GetUserId()));
+
+    [HttpDelete("{id:guid}")]
+    [Authorize(Policy = Permissions.Kpi.Delete)]
+    public async Task<IActionResult> Delete(Guid id)
+    {
+        await _kpiService.DeleteAsync(id, GetUserId());
+        return NoContent();
+    }
+
+    [HttpPost("{id:guid}/submit")]
+    [Authorize(Policy = Permissions.Kpi.Submit)]
     public async Task<IActionResult> Submit(Guid id)
-    {
-        try
-        {
-            var result = await _kpiService.SubmitForApprovalAsync(id, GetUserId());
-            return Ok(result);
-        }
-        catch (Exception ex)
-        {
-            return BadRequest(new { message = ex.Message });
-        }
-    }
+        => Ok(await _kpiService.SubmitForApprovalAsync(id, GetUserId()));
 
-    [HttpPost("{id}/approve")]
+    [HttpPost("{id:guid}/approve")]
+    [Authorize(Policy = Permissions.Kpi.Approve)]
     public async Task<IActionResult> Approve(Guid id)
-    {
-        try
-        {
-            var result = await _kpiService.ApproveAsync(id, GetUserId());
-            return Ok(result);
-        }
-        catch (Exception ex)
-        {
-            return BadRequest(new { message = ex.Message });
-        }
-    }
+        => Ok(await _kpiService.ApproveAsync(id, GetUserId()));
+
+    [HttpPost("{id:guid}/reject")]
+    [Authorize(Policy = Permissions.Kpi.Reject)]
+    public async Task<IActionResult> Reject(Guid id, RejectKpiRequest request)
+        => Ok(await _kpiService.RejectAsync(id, request.Reason, GetUserId()));
+
+    [HttpPost("{id:guid}/close")]
+    [Authorize(Policy = Permissions.Kpi.Close)]
+    public async Task<IActionResult> Close(Guid id)
+        => Ok(await _kpiService.CloseAsync(id, GetUserId()));
 
     [HttpPost("progress")]
+    [Authorize(Policy = Permissions.Kpi.Progress)]
     public async Task<IActionResult> UpdateProgress(UpdateKpiProgressRequest request)
-    {
-        try
-        {
-            var result = await _kpiService.UpdateProgressAsync(request, GetUserId());
-            return Ok(result);
-        }
-        catch (Exception ex)
-        {
-            return BadRequest(new { message = ex.Message });
-        }
-    }
+        => Ok(await _kpiService.UpdateProgressAsync(request, GetUserId()));
 }

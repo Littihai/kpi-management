@@ -67,6 +67,14 @@ public class AppDbContext : DbContext
             .OnDelete(DeleteBehavior.SetNull);
 
         modelBuilder.Entity<Kpi>()
+            .Property(k => k.Version)
+            .IsConcurrencyToken();
+
+        modelBuilder.Entity<Kpi>()
+            .Property(k => k.RejectReason)
+            .HasMaxLength(1000);
+
+        modelBuilder.Entity<Kpi>()
             .Property(k => k.Progress)
             .HasPrecision(5, 2);
 

@@ -1,10 +1,32 @@
 namespace KPI.Application.Notifications;
 
+public enum KpiEmailKind
+{
+    Created,    // a KPI was created by someone else in the department
+    Submitted,  // waiting for approval
+    Approved,
+    Rejected,
+    AtRisk,
+    Delayed,
+    Completed,
+}
+
+/// <summary>Everything needed to write one e-mail about a KPI to one person.</summary>
+public record KpiEmailMessage(
+    KpiEmailKind Kind,
+    string ToEmail,
+    string ToName,
+    Guid KpiId,
+    string KpiName,
+    string? DepartmentName,
+    string? OwnerName,
+    string? ActorName,
+    decimal Progress,
+    decimal Target,
+    DateTime DueDate,
+    string? Reason);
+
 public interface IEmailService
 {
-    Task SendKpiApprovedAsync(string toEmail, string fullName, string kpiName);
-    Task SendKpiDelayedAsync(string toEmail, string fullName, string kpiName, int daysDelayed);
-    Task SendTaskAssignedAsync(string toEmail, string fullName, string taskName);
-    Task SendKpiCreatedAsync(string toEmail, string managerName, string kpiName, string ownerName);
-Task SendKpiSubmittedAsync(string toEmail, string directorName, string kpiName, string ownerName);
+    Task SendAsync(KpiEmailMessage message, CancellationToken cancellationToken = default);
 }

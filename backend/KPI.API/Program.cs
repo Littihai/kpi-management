@@ -1,7 +1,9 @@
-
 using System.Text;
 using KPI.Application.Auth;
 using KPI.API.Authorization;
+using KPI.API.Errors;
+using KPI.API.Realtime;
+using KPI.Domain.Constants;
 using KPI.Domain.Interfaces;
 using KPI.Infrastructure.Data;
 using KPI.Infrastructure.Repositories;
@@ -20,32 +22,58 @@ using Hangfire.PostgreSql;
 using KPI.Application.Jobs;
 using KPI.Infrastructure.Jobs;
 using KPI.Application.Audit;
+using KPI.API.Health;
+using KPI.API.Security;
+using Microsoft.AspNetCore.Diagnostics.HealthChecks;
 
 AppContext.SetSwitch("Npgsql.EnableLegacyTimestampBehavior", true);
 var builder = WebApplication.CreateBuilder(args);
+// Integration tests run the real pipeline against an in-memory database and without Hangfire.
+var runBackgroundJobs = !builder.Environment.IsEnvironment("Testing");
 
 builder.Services.AddControllers();
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddOpenApi();
+builder.Services.AddProblemDetails();
+builder.Services.AddExceptionHandler<ApiExceptionHandler>();
+builder.Services.AddSignalR();
 builder.Services.AddScoped<IDashboardService, DashboardService>();
 builder.Services.AddScoped<IExportService, ExportService>();
 builder.Services.AddResend(options => {options.ApiToken = builder.Configuration["Resend:ApiKey"]!;});
 builder.Services.AddScoped<IEmailService, EmailService>();
 builder.Services.AddScoped<IDelayDetectionJob, DelayDetectionJob>();
 builder.Services.AddScoped<IAuditService, AuditService>();
+builder.Services.AddSingleton<IRealtimeNotifier, SignalRNotifier>();
+builder.Services.AddScoped<KpiEmailNotifier>();
+builder.Services.AddScoped<KpiEventPublisher>();
 
-// CORS
+// /health answers "is the process up"; /health/ready also checks the database.
+builder.Services.AddHealthChecks().AddCheck<DatabaseHealthCheck>("database", tags: ["ready"]);
+
+// Failed sign-ins are counted in memory, so the throttle must live as long as the process.
+builder.Services.Configure<LoginThrottleOptions>(builder.Configuration.GetSection("LoginThrottle"));
+builder.Services.AddSingleton(TimeProvider.System);
+builder.Services.AddSingleton<LoginThrottle>();
+
+// CORS (SignalR needs credentials, so origins must be listed explicitly).
+// Extra origins, e.g. a Vercel preview URL, can be added with Cors__Origins__0, Cors__Origins__1, ...
+var allowedOrigins = new[]
+    {
+        "http://localhost:5173",
+        "https://kpi-management-two.vercel.app",
+        "https://kpi-management.vercel.app"
+    }
+    .Concat(builder.Configuration.GetSection("Cors:Origins").Get<string[]>() ?? [])
+    .ToArray();
+
 builder.Services.AddCors(options =>
 {
     options.AddPolicy("AllowFrontend", policy =>
     {
-        policy.WithOrigins(
-                "http://localhost:5173",
-                "https://kpi-management-two.vercel.app",
-                "https://kpi-management.vercel.app"
-              )
+        policy.WithOrigins(allowedOrigins)
               .AllowAnyHeader()
-              .AllowAnyMethod();
+              .AllowAnyMethod()
+              .AllowCredentials();
     });
 });
 
@@ -63,7 +91,12 @@ builder.Services.AddScoped<IKpiRepository, KpiRepository>();
 builder.Services.AddScoped<IKpiService, KpiService>();
 
 // JWT Authentication
-var jwtKey = builder.Configuration["Jwt:Key"]!;
+var jwtKey = builder.Configuration["Jwt:Key"];
+if (JwtKeyValidator.Problem(jwtKey) is { } jwtKeyProblem)
+    throw new InvalidOperationException(
+        $"Jwt:Key cannot be used: {jwtKeyProblem} Set the Jwt__Key environment variable to a random secret " +
+        "of 32+ characters (see appsettings.Example.json).");
+
 builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
     .AddJwtBearer(options =>
     {
@@ -75,38 +108,99 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
             ValidateIssuerSigningKey = true,
             ValidIssuer = builder.Configuration["Jwt:Issuer"],
             ValidAudience = builder.Configuration["Jwt:Audience"],
-            IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(jwtKey))
+            IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(jwtKey!))
+        };
+
+        // Browsers cannot set an Authorization header on a WebSocket, so SignalR sends the
+        // token as ?access_token=... on hub URLs only.
+        options.Events = new JwtBearerEvents
+        {
+            OnMessageReceived = context =>
+            {
+                var accessToken = context.Request.Query["access_token"];
+                if (!string.IsNullOrEmpty(accessToken) && context.HttpContext.Request.Path.StartsWithSegments("/hubs"))
+                    context.Token = accessToken;
+                return Task.CompletedTask;
+            }
         };
     });
 
-builder.Services.AddAuthorization();
-builder.Services.AddHangfire(config =>
-    config.UsePostgreSqlStorage(
-        builder.Configuration.GetConnectionString("DefaultConnection")));
-builder.Services.AddHangfireServer();
+// One policy per permission: [Authorize(Policy = Permissions.Kpi.Approve)]
+builder.Services.AddAuthorization(options =>
+{
+    foreach (var permission in Permissions.All)
+        options.AddPolicy(permission, policy =>
+            policy.RequireAuthenticatedUser().AddRequirements(new PermissionRequirement(permission)));
+});
+
+if (runBackgroundJobs)
+{
+    builder.Services.AddHangfire(config =>
+        config.UsePostgreSqlStorage(
+            builder.Configuration.GetConnectionString("DefaultConnection")));
+    builder.Services.AddHangfireServer();
+}
 builder.Services.AddScoped<IAuthorizationHandler, PermissionHandler>();
 
 var app = builder.Build();
 
-// Seed database
 using (var scope = app.Services.CreateScope())
 {
     var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+
+    // Bring the schema up to date before anything reads it, so a deploy never runs new code on old tables.
+    // Skipped for the in-memory test database; set Database__AutoMigrate=false to migrate by hand instead.
+    if (db.Database.IsRelational()
+        && !string.Equals(builder.Configuration["Database:AutoMigrate"], "false", StringComparison.OrdinalIgnoreCase))
+    {
+        var pending = (await db.Database.GetPendingMigrationsAsync()).ToList();
+        if (pending.Count > 0)
+            app.Logger.LogInformation("Applying {Count} pending database migration(s): {Migrations}",
+                pending.Count, string.Join(", ", pending));
+        await db.Database.MigrateAsync();
+    }
+
+    // Seed roles and keep permissions in sync with RolePermissionMap
     await DbSeeder.SeedAsync(db);
+
+    // Public registration is closed, so a new database needs its first SuperAdmin from configuration.
+    if (await DbSeeder.SeedInitialAdminAsync(
+            db,
+            builder.Configuration["Admin:Email"],
+            builder.Configuration["Admin:Password"],
+            builder.Configuration["Admin:FirstName"],
+            builder.Configuration["Admin:LastName"]))
+        app.Logger.LogWarning(
+            "Created the first SuperAdmin {Email} from the Admin__* settings. Remove Admin__Password once you have signed in.",
+            builder.Configuration["Admin:Email"]);
 }
 
+app.UseExceptionHandler();
+
 if (app.Environment.IsDevelopment())
+{
     app.MapOpenApi();
+    // The Hangfire dashboard has no per-user authorization, so it is not exposed in production.
+    app.UseHangfireDashboard("/hangfire");
+}
 
 app.UseCors("AllowFrontend");
-app.UseHangfireDashboard("/hangfire");
 app.UseAuthentication();
 app.UseAuthorization();
 app.MapControllers();
+app.MapHub<KpiHub>("/hubs/kpi");
+app.MapHealthChecks("/health", new HealthCheckOptions { Predicate = _ => false });
+app.MapHealthChecks("/health/ready", new HealthCheckOptions { Predicate = check => check.Tags.Contains("ready") });
 
-RecurringJob.AddOrUpdate<DelayDetectionJob>(
-    "delay-detection",
-    job => job.RunAsync(),
-    Cron.Daily);
+if (runBackgroundJobs)
+{
+    RecurringJob.AddOrUpdate<DelayDetectionJob>(
+        "delay-detection",
+        job => job.RunAsync(),
+        Cron.Daily);
+}
 
 app.Run();
+
+// Lets the integration-test project start the app with WebApplicationFactory<Program>.
+public partial class Program { }

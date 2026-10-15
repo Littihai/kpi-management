@@ -2,7 +2,9 @@ import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { kpiService } from '../services/kpi.service'
 import { exportService } from '../services/dashboard.service'
-import { useAuthStore } from '../stores/authStore'
+import { useAuthStore, useCan } from '../stores/authStore'
+import { useKpiEvents } from '../components/realtimeContext'
+import { apiError } from '../utils/errors'
 import type { KpiDto } from '../types/kpi'
 
 const statusBadge: Record<string, string> = {
@@ -36,12 +38,20 @@ export default function KpiListPage() {
   const [loading, setLoading] = useState(true)
   const [search, setSearch] = useState('')
   const [filter, setFilter] = useState('All')
+  const [error, setError] = useState('')
+  const canCreate = useCan('kpi.create')
+  const canExport = useCan('export.view')
 
-  useEffect(() => {
+  const load = () =>
     kpiService.getAll()
-      .then(setKpis)
+      .then((data) => { setKpis(data); setError('') })
+      .catch((err) => setError(apiError(err, 'Could not load KPIs.')))
       .finally(() => setLoading(false))
-  }, [])
+
+  useEffect(() => { load() }, [])
+
+  // Another user changed a KPI: keep the list current without a reload.
+  useKpiEvents(() => { load() })
 
   const filters = ['All', 'Active', 'PendingApproval', 'AtRisk', 'Delayed', 'Completed']
 
@@ -68,6 +78,7 @@ export default function KpiListPage() {
           <p className="text-xs text-gray-400 mt-0.5">{kpis.length} KPIs · 2026 Annual</p>
         </div>
         <div className="flex items-center gap-2">
+          {canExport && <>
           <button
             onClick={() => exportService.downloadExcel(token!)}
             className="flex items-center gap-1.5 px-3 py-2 border border-gray-200 rounded-lg text-xs text-gray-600 hover:bg-gray-50"
@@ -80,16 +91,22 @@ export default function KpiListPage() {
           >
             <i className="ti ti-file-type-pdf text-sm"></i> Export PDF
           </button>
-          <button
-            onClick={() => navigate('/kpi/create')}
-            className="flex items-center gap-1.5 px-3 py-2 bg-indigo-600 text-white rounded-lg text-xs hover:bg-indigo-700"
-          >
-            <i className="ti ti-plus text-sm"></i> Create KPI
-          </button>
+          </>}
+          {canCreate && (
+            <button
+              onClick={() => navigate('/kpi/create')}
+              className="flex items-center gap-1.5 px-3 py-2 bg-indigo-600 text-white rounded-lg text-xs hover:bg-indigo-700"
+            >
+              <i className="ti ti-plus text-sm"></i> Create KPI
+            </button>
+          )}
         </div>
       </div>
 
       <div className="flex-1 overflow-y-auto p-8">
+        {error && (
+          <div className="mb-4 p-3 bg-red-50 text-red-600 text-sm rounded-lg">{error}</div>
+        )}
         {/* Metrics */}
         <div className="grid grid-cols-4 gap-4 mb-6">
           {[

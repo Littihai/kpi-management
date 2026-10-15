@@ -18,7 +18,6 @@ public class KpiRepository : IKpiRepository
         => await _context.Kpis
             .Include(k => k.Department)
             .Include(k => k.Owner)
-            .Include(k => k.Projects)
             .OrderByDescending(k => k.CreatedAt)
             .ToListAsync();
 
@@ -27,14 +26,13 @@ public class KpiRepository : IKpiRepository
             .Include(k => k.Department)
             .Include(k => k.Owner)
             .Where(k => k.DepartmentId == departmentId)
+            .OrderByDescending(k => k.CreatedAt)
             .ToListAsync();
 
     public async Task<Kpi?> GetByIdAsync(Guid id)
         => await _context.Kpis
             .Include(k => k.Department)
             .Include(k => k.Owner)
-            .Include(k => k.Projects)
-            .Include(k => k.ProgressLogs)
             .FirstOrDefaultAsync(k => k.Id == id);
 
     public async Task<Kpi> CreateAsync(Kpi kpi)
@@ -46,14 +44,23 @@ public class KpiRepository : IKpiRepository
 
     public async Task<Kpi> UpdateAsync(Kpi kpi)
     {
+        // The entity is tracked (loaded through this context), so EF only writes the columns that
+        // changed. Version is the concurrency token: a second writer holding the old value fails.
         kpi.UpdatedAt = DateTime.UtcNow;
-        _context.Kpis.Update(kpi);
+        kpi.Version++;
         await _context.SaveChangesAsync();
         return kpi;
     }
-	public async Task AddProgressLogAsync(KpiProgressLog log)
-	{
-		_context.KpiProgressLogs.Add(log);
-		await _context.SaveChangesAsync();
-	}
+
+    public async Task DeleteAsync(Kpi kpi)
+    {
+        _context.Kpis.Remove(kpi);
+        await _context.SaveChangesAsync();
+    }
+
+    public async Task AddProgressLogAsync(KpiProgressLog log)
+    {
+        _context.KpiProgressLogs.Add(log);
+        await _context.SaveChangesAsync();
+    }
 }

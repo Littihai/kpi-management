@@ -18,10 +18,12 @@ public class PermissionHandler : AuthorizationHandler<PermissionRequirement>
         PermissionRequirement requirement)
     {
         var userId = context.User.FindFirstValue(ClaimTypes.NameIdentifier);
-        if (userId == null) return;
+        if (!Guid.TryParse(userId, out var id)) return;
 
-		var user = await _userRepository.GetByIdWithPermissionsAsync(Guid.Parse(userId));
-        if (user == null) return;
+        // Permissions are read from the database on every request, so role changes and
+        // deactivation take effect immediately instead of when the 7-day JWT expires.
+        var user = await _userRepository.GetByIdWithPermissionsAsync(id);
+        if (user is not { IsActive: true }) return;
 
         var hasPermission = user.Role?.RolePermissions
             .Any(rp => rp.Permission.Name == requirement.Permission);

@@ -4,11 +4,15 @@ public static class Permissions
 {
     public static class Kpi
     {
-        public const string View   = "kpi.view";
-        public const string Create = "kpi.create";
-        public const string Edit   = "kpi.edit";
-        public const string Delete = "kpi.delete";
-        public const string Approve = "kpi.approve";
+        public const string View     = "kpi.view";
+        public const string Create   = "kpi.create";
+        public const string Edit     = "kpi.edit";
+        public const string Delete   = "kpi.delete";
+        public const string Submit   = "kpi.submit";
+        public const string Approve  = "kpi.approve";
+        public const string Reject   = "kpi.reject";
+        public const string Progress = "kpi.progress";
+        public const string Close    = "kpi.close";
     }
 
     public static class Project
@@ -27,9 +31,41 @@ public static class Permissions
         public const string Delete = "user.delete";
     }
 
+    public static class Role
+    {
+        public const string View = "role.view";
+    }
+
     public static class Department
     {
         public const string View   = "department.view";
         public const string Manage = "department.manage";
     }
+
+    public static class Export
+    {
+        public const string View = "export.view";
+    }
+
+    public static class Audit
+    {
+        public const string View = "audit.view";
+    }
+
+    public static class Job
+    {
+        public const string Trigger = "job.trigger";
+    }
+
+    public static readonly string[] All =
+    [
+        Kpi.View, Kpi.Create, Kpi.Edit, Kpi.Delete, Kpi.Submit, Kpi.Approve, Kpi.Reject, Kpi.Progress, Kpi.Close,
+        Project.View, Project.Create, Project.Edit, Project.Delete,
+        User.View, User.Create, User.Edit, User.Delete,
+        Role.View,
+        Department.View, Department.Manage,
+        Export.View,
+        Audit.View,
+        Job.Trigger,
+    ];
 }
