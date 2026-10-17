@@ -49,7 +49,15 @@ public class ControllerAuthorizationTests
             .Select(a => $"{a.Controller.Name}.{a.Action.Name}")
             .ToList();
 
-        Assert.Equal([$"{nameof(AuthController)}.{nameof(AuthController.Login)}"], unprotected);
+        // Login, and the two public endpoints that let someone who cannot sign in ask for help.
+        Assert.Equal(
+            new[]
+            {
+                $"{nameof(AuthController)}.{nameof(AuthController.Login)}",
+                $"{nameof(PublicController)}.{nameof(PublicController.Departments)}",
+                $"{nameof(PublicController)}.{nameof(PublicController.ReportIssue)}",
+            }.OrderBy(n => n),
+            unprotected.OrderBy(n => n));
     }
 
     [Fact]
@@ -90,8 +98,24 @@ public class ControllerAuthorizationTests
     [InlineData(typeof(UsersController), nameof(UsersController.Deactivate), Permissions.User.Edit)]
     [InlineData(typeof(AuthController), nameof(AuthController.Register), Permissions.User.Create)]
     [InlineData(typeof(JobsController), nameof(JobsController.TriggerDelayDetection), Permissions.Job.Trigger)]
-    [InlineData(typeof(AuditController), nameof(AuditController.GetLogs), Permissions.Audit.View)]
+    [InlineData(typeof(AuditController), nameof(AuditController.Search), Permissions.Audit.View)]
     [InlineData(typeof(RolesController), nameof(RolesController.GetAll), Permissions.Role.View)]
+    [InlineData(typeof(AdminController), nameof(AdminController.Overview), Permissions.Overview.View)]
+    [InlineData(typeof(AdminController), nameof(AdminController.RequestLogs), Permissions.Overview.View)]
+    [InlineData(typeof(IssuesController), nameof(IssuesController.Create), Permissions.Issue.Create)]
+    [InlineData(typeof(IssuesController), nameof(IssuesController.Assign), Permissions.Issue.Manage)]
+    [InlineData(typeof(IssuesController), nameof(IssuesController.Start), Permissions.Issue.Manage)]
+    [InlineData(typeof(IssuesController), nameof(IssuesController.RequestInfo), Permissions.Issue.Manage)]
+    [InlineData(typeof(IssuesController), nameof(IssuesController.Resolve), Permissions.Issue.Manage)]
+    [InlineData(typeof(IssuesController), nameof(IssuesController.Reject), Permissions.Issue.Manage)]
+    [InlineData(typeof(IssuesController), nameof(IssuesController.SetPriority), Permissions.Issue.Manage)]
+    [InlineData(typeof(IssuesController), nameof(IssuesController.Assignees), Permissions.Issue.Manage)]
+    [InlineData(typeof(IssuesController), nameof(IssuesController.List), Permissions.Issue.View)]
+    [InlineData(typeof(IssuesController), nameof(IssuesController.Get), Permissions.Issue.View)]
+    [InlineData(typeof(IssuesController), nameof(IssuesController.Comment), Permissions.Issue.View)]
+    [InlineData(typeof(IssuesController), nameof(IssuesController.Confirm), Permissions.Issue.View)]
+    [InlineData(typeof(IssuesController), nameof(IssuesController.Reopen), Permissions.Issue.View)]
+    [InlineData(typeof(IssuesController), nameof(IssuesController.Download), Permissions.Issue.View)]
     [InlineData(typeof(ExportController), nameof(ExportController.ExportPdf), Permissions.Export.View)]
     [InlineData(typeof(ExportController), nameof(ExportController.ExportExcel), Permissions.Export.View)]
     public void Sensitive_endpoints_require_their_specific_permission(Type controller, string actionName, string permission)
