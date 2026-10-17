@@ -962,7 +962,10 @@ public class IssueService : IIssueService
 
     private static string SafeName(string? name)
     {
-        var file = Path.GetFileName(name ?? string.Empty).Trim();
+        // Path.GetFileName only knows the server's own separator, so on Linux a Windows path
+        // ("C:\\Users\\me\\a.png") would pass through untouched. Cut at either kind of slash.
+        var raw = name ?? string.Empty;
+        var file = raw[(raw.LastIndexOfAny(['/', '\\']) + 1)..].Trim();
         if (file.Length == 0) file = "image";
         return Truncate(file, 255)!;
     }
