@@ -1,5 +1,9 @@
 import { useEffect, useState } from 'react'
-import { useNavigate, useParams } from 'react-router-dom'
+import { Link, useNavigate, useParams } from 'react-router-dom'
+import Button from '../components/ui/Button'
+import { Card } from '../components/ui/Card'
+import { SelectInput, TextArea, TextInput } from '../components/ui/Field'
+import { Alert, Page, PageHeader, PageSkeleton } from '../components/ui/Layout'
 import { kpiService } from '../services/kpi.service'
 import { useAuthStore } from '../stores/authStore'
 import { apiError } from '../utils/errors'
@@ -54,13 +58,13 @@ export default function KpiCreatePage() {
           setForm((prev) => ({ ...prev, departmentId: options[0].id }))
         }
       })
-      .catch((err) => setError(apiError(err, 'Could not load the form.')))
+      .catch((err) => setError(apiError(err, 'โหลดฟอร์มไม่สำเร็จ')))
       .finally(() => setLoading(false))
   }, [id, isEdit, user?.role, user?.departmentId])
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
     const { name, value } = e.target
-    setForm(prev => ({ ...prev, [name]: value }))
+    setForm((prev) => ({ ...prev, [name]: value }))
   }
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -80,132 +84,55 @@ export default function KpiCreatePage() {
     }
   }
 
-  const inputClass =
-    'w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500'
+  if (loading) return <Page><PageSkeleton /></Page>
 
-  if (loading) return (
-    <div className="flex items-center justify-center h-64 text-gray-400">Loading...</div>
-  )
+  const back = isEdit ? `/kpi/${id}` : '/kpi'
 
   return (
-    <div className="p-8 max-w-2xl">
-      <button
-        onClick={() => navigate(isEdit ? `/kpi/${id}` : '/kpi')}
-        className="text-sm text-gray-400 hover:text-gray-600 mb-6 block"
-      >
-        ← Back
-      </button>
+    <Page>
+      <PageHeader
+        back={<Link to={back} className="inline-flex items-center gap-1 text-sm text-ink-2 hover:text-ink"><i className="ti ti-arrow-left" aria-hidden="true" />กลับ</Link>}
+        title={isEdit ? 'แก้ไข KPI' : 'สร้าง KPI'}
+        subtitle={isEdit ? 'แก้ไขได้เฉพาะแบบร่าง' : 'สร้างเป็นแบบร่างก่อน แล้วค่อยส่งขออนุมัติ'} />
 
-      <h1 className="text-xl font-medium text-gray-800 mb-6">{isEdit ? 'Edit KPI' : 'Create KPI'}</h1>
+      <form onSubmit={handleSubmit} className="mx-auto max-w-2xl">
+        <Card className="space-y-5 p-5 sm:p-6">
+          {error && <Alert tone="error">{error}</Alert>}
 
-      {error && (
-        <div className="mb-4 p-3 bg-red-50 text-red-600 text-sm rounded-lg">{error}</div>
-      )}
+          {departments.length === 0 && !error && (
+            <Alert tone="warning">บัญชีของคุณยังไม่ได้ระบุแผนก จึงยังสร้าง KPI ไม่ได้ กรุณาแจ้งผู้ดูแลระบบให้กำหนดแผนกให้</Alert>
+          )}
 
-      {departments.length === 0 && !error && (
-        <div className="mb-4 p-3 bg-orange-50 text-orange-800 text-sm rounded-lg">
-          Your account has no department yet, so you cannot create KPIs. Ask an administrator to assign one.
-        </div>
-      )}
+          <TextInput label="ชื่อ KPI" name="name" required maxLength={200} value={form.name} onChange={handleChange}
+            placeholder="เช่น ลดเวลาระบบหยุดทำงาน 30%" />
 
-      <form onSubmit={handleSubmit} className="bg-white rounded-xl border border-gray-100 p-6 space-y-4">
-        <div>
-          <label className="text-sm text-gray-500 block mb-1">KPI Name</label>
-          <input
-            name="name"
-            value={form.name}
-            onChange={handleChange}
-            required
-            maxLength={200}
-            className={inputClass}
-            placeholder="e.g. IT Automation 2026"
-          />
-        </div>
+          <SelectInput label="แผนก" name="departmentId" required value={form.departmentId} onChange={handleChange}
+            disabled={departments.length <= 1} placeholder="เลือกแผนก"
+            options={departments.map((d) => ({ value: d.id, label: d.name }))} />
 
-        <div>
-          <label className="text-sm text-gray-500 block mb-1">Department</label>
-          <select
-            name="departmentId"
-            value={form.departmentId}
-            onChange={handleChange}
-            required
-            disabled={departments.length <= 1}
-            className={`${inputClass} bg-white disabled:bg-gray-50`}
-          >
-            <option value="" disabled>Select a department</option>
-            {departments.map((d) => (
-              <option key={d.id} value={d.id}>{d.name}</option>
-            ))}
-          </select>
-        </div>
+          <TextArea label="รายละเอียด" name="description" rows={3} value={form.description} onChange={handleChange}
+            placeholder="เป้าหมายและวิธีวัดผล" />
 
-        <div>
-          <label className="text-sm text-gray-500 block mb-1">Description</label>
-          <textarea
-            name="description"
-            value={form.description}
-            onChange={handleChange}
-            rows={3}
-            className={`${inputClass} resize-none`}
-            placeholder="Describe the KPI objective"
-          />
-        </div>
-
-        <div className="grid grid-cols-2 gap-4">
-          <div>
-            <label className="text-sm text-gray-500 block mb-1">Year</label>
-            <input name="year" type="number" value={form.year} onChange={handleChange} className={inputClass} />
+          <div className="grid gap-4 sm:grid-cols-2">
+            <TextInput label="ปี (ค.ศ.)" name="year" type="number" value={form.year} onChange={handleChange} />
+            <TextInput label="เป้าหมาย (%)" name="target" type="number" min={1} max={100} value={form.target} onChange={handleChange}
+              hint="ตั้งได้ 1–100" />
           </div>
-          <div>
-            <label className="text-sm text-gray-500 block mb-1">Target (%)</label>
-            <input
-              name="target"
-              type="number"
-              min="1"
-              max="100"
-              value={form.target}
-              onChange={handleChange}
-              className={inputClass}
-            />
-          </div>
-        </div>
 
-        <div className="grid grid-cols-2 gap-4">
-          <div>
-            <label className="text-sm text-gray-500 block mb-1">Start Date</label>
-            <input name="startDate" type="date" value={form.startDate} onChange={handleChange} required className={inputClass} />
+          <div className="grid gap-4 sm:grid-cols-2">
+            <TextInput label="วันที่เริ่ม" name="startDate" type="date" required value={form.startDate} onChange={handleChange} />
+            <TextInput label="วันครบกำหนด" name="dueDate" type="date" required value={form.dueDate}
+              min={form.startDate || undefined} onChange={handleChange} />
           </div>
-          <div>
-            <label className="text-sm text-gray-500 block mb-1">Due Date</label>
-            <input
-              name="dueDate"
-              type="date"
-              value={form.dueDate}
-              min={form.startDate || undefined}
-              onChange={handleChange}
-              required
-              className={inputClass}
-            />
-          </div>
-        </div>
 
-        <div className="flex gap-3 pt-2">
-          <button
-            type="button"
-            onClick={() => navigate(isEdit ? `/kpi/${id}` : '/kpi')}
-            className="px-4 py-2 rounded-lg text-sm border border-gray-200 text-gray-600 hover:bg-gray-50"
-          >
-            Cancel
-          </button>
-          <button
-            type="submit"
-            disabled={saving || departments.length === 0}
-            className="bg-blue-600 text-white px-4 py-2 rounded-lg text-sm hover:bg-blue-700 disabled:opacity-50"
-          >
-            {saving ? 'Saving...' : isEdit ? 'Save changes' : 'Create KPI'}
-          </button>
-        </div>
+          <div className="flex justify-end gap-2 border-t border-line pt-5">
+            <Button onClick={() => navigate(back)}>ยกเลิก</Button>
+            <Button type="submit" variant="primary" icon="device-floppy" loading={saving} disabled={departments.length === 0}>
+              {isEdit ? 'บันทึกการแก้ไข' : 'สร้าง KPI'}
+            </Button>
+          </div>
+        </Card>
       </form>
-    </div>
+    </Page>
   )
 }

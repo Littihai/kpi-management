@@ -1,112 +1,138 @@
-import { useNavigate, useLocation } from 'react-router-dom'
+import { useCallback, useEffect, useState } from 'react'
+import { NavLink, useNavigate } from 'react-router-dom'
 import { useAuthStore } from '../stores/authStore'
+import { issueService } from '../services/issue.service'
+import { useIssueEvents, useRealtimeStatus } from './realtimeContext'
+import { Avatar } from './ui/Layout'
+import { roleLabel } from '../utils/labels'
 
 interface NavItem {
-  path: string
+  to: string
   icon: string
   label: string
+  /** Hidden unless the signed-in user holds this permission. */
+  permission?: string
   badge?: number
-  roles?: string[]
 }
 
-const navItems: NavItem[] = [
-  { path: '/dashboard', icon: 'ti-home', label: 'Dashboard' },
-  { path: '/kpi', icon: 'ti-target', label: 'KPI' },
-  { path: '/projects', icon: 'ti-folder', label: 'Projects' },
-  { path: '/tasks', icon: 'ti-checkbox', label: 'Tasks' },
-]
+const statusText = {
+  connected: { label: 'เชื่อมต่อแบบสด', dot: 'bg-green-dot' },
+  connecting: { label: 'กำลังเชื่อมต่อ…', dot: 'bg-amber-dot' },
+  reconnecting: { label: 'กำลังเชื่อมต่อใหม่…', dot: 'bg-amber-dot' },
+  offline: { label: 'ไม่ได้เชื่อมต่อแบบสด', dot: 'bg-ink-4' },
+} as const
 
-const reportItems: NavItem[] = [
-  { path: '/analytics', icon: 'ti-chart-line', label: 'Analytics' },
-  { path: '/export', icon: 'ti-file-export', label: 'Export' },
-]
-
-const adminItems: NavItem[] = [
-  { path: '/admin/users', icon: 'ti-users', label: 'Users', roles: ['SuperAdmin', 'Director', 'Manager'] },
-  { path: '/admin/departments', icon: 'ti-building', label: 'Departments', roles: ['SuperAdmin', 'Director'] },
-]
-
-export default function Sidebar() {
+export default function Sidebar({ onNavigate }: { onNavigate?: () => void }) {
   const navigate = useNavigate()
-  const location = useLocation()
   const { user, logout } = useAuthStore()
+  const status = useRealtimeStatus()
+  const permissions = user?.permissions ?? []
+  const [openIssues, setOpenIssues] = useState(0)
+  const [overdue, setOverdue] = useState(0)
+  const isIt = permissions.includes('issue.manage')
 
-  const isActive = (path: string) => location.pathname.startsWith(path)
+  const refreshCounts = useCallback(() => {
+    issueService.summary()
+      .then((s) => {
+        setOpenIssues(isIt ? s.open : s.mine)
+        setOverdue(isIt ? s.overdue : 0)
+      })
+      .catch(() => { /* the badge is a convenience; the page shows the real numbers */ })
+  }, [isIt])
 
-  const canSee = (roles?: string[]) => {
-    if (!roles) return true
-    return roles.includes(user?.role ?? '')
-  }
+  useEffect(() => { refreshCounts() }, [refreshCounts])
+  useIssueEvents(refreshCounts)
 
-  const handleLogout = () => {
-    logout()
-    navigate('/login')
-  }
+  const groups: { title: string; items: NavItem[] }[] = [
+    {
+      title: 'ภาพรวม',
+      items: [
+        { to: '/dashboard', icon: 'layout-dashboard', label: 'แดชบอร์ด', permission: 'kpi.view' },
+        { to: '/kpi', icon: 'target-arrow', label: 'KPI', permission: 'kpi.view' },
+      ],
+    },
+    {
+      title: 'ซัพพอร์ต',
+      items: [
+        { to: '/issues', icon: 'lifebuoy', label: isIt ? 'งานแจ้งปัญหา' : 'เรื่องที่ฉันแจ้ง', permission: 'issue.view', badge: openIssues },
+      ],
+    },
+    {
+      title: 'ผู้ดูแลระบบ',
+      items: [
+        { to: '/admin/users', icon: 'users', label: 'ผู้ใช้งาน', permission: 'user.view' },
+        { to: '/admin/overview', icon: 'activity-heartbeat', label: 'ภาพรวมระบบ', permission: 'overview.view' },
+        { to: '/admin/audit', icon: 'history', label: 'บันทึกการใช้งาน', permission: 'overview.view' },
+      ],
+    },
+  ]
 
-  const NavLink = ({ item }: { item: NavItem }) => (
-    <button
-      onClick={() => navigate(item.path)}
-      className={`w-full flex items-center gap-2.5 px-2.5 py-2 rounded-lg text-sm transition-colors ${
-        isActive(item.path)
-          ? 'bg-indigo-50 text-indigo-600 font-medium'
-          : 'text-gray-500 hover:text-gray-800 hover:bg-gray-50'
-      }`}
-    >
-      <i className={`ti ${item.icon} text-base`}></i>
-      <span className="flex-1 text-left">{item.label}</span>
-      {item.badge !== undefined && item.badge > 0 && (
-        <span className="text-xs px-1.5 py-0.5 rounded-full bg-red-50 text-red-600">
-          {item.badge}
-        </span>
-      )}
-    </button>
-  )
+  const connection = statusText[status]
 
   return (
-    <div className="w-56 flex-shrink-0 bg-white border-r border-gray-100 flex flex-col">
-      {/* Logo */}
-      <div className="px-4 py-5 border-b border-gray-100">
-        <div className="w-8 h-8 rounded-lg bg-indigo-600 flex items-center justify-center mb-2">
-          <i className="ti ti-chart-bar text-white text-base"></i>
+    <div className="flex h-full flex-col bg-surface">
+      <div className="flex items-center gap-3 px-5 pb-4 pt-6">
+        <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-accent text-white" aria-hidden="true">
+          <i className="ti ti-chart-donut-3 text-xl" />
+        </span>
+        <div className="min-w-0">
+          <p className="text-[15px] font-semibold leading-tight text-ink">KPI และแจ้งปัญหา</p>
+          <p className="text-xs text-ink-3">ระบบภายในองค์กร</p>
         </div>
-        <div className="text-sm font-medium text-gray-800">KPI System</div>
-        <div className="text-xs text-gray-400 mt-0.5">Enterprise Platform</div>
       </div>
 
-      {/* Nav */}
-      <nav className="flex-1 p-2 flex flex-col gap-0.5 overflow-y-auto">
-        <div className="text-xs text-gray-400 px-2 pt-2 pb-1 uppercase tracking-wider">Main</div>
-        {navItems.filter(i => canSee(i.roles)).map(item => (
-          <NavLink key={item.path} item={item} />
-        ))}
-
-        <div className="text-xs text-gray-400 px-2 pt-4 pb-1 uppercase tracking-wider">Reports</div>
-        {reportItems.filter(i => canSee(i.roles)).map(item => (
-          <NavLink key={item.path} item={item} />
-        ))}
-
-        {adminItems.some(i => canSee(i.roles)) && (
-          <>
-            <div className="text-xs text-gray-400 px-2 pt-4 pb-1 uppercase tracking-wider">Admin</div>
-            {adminItems.filter(i => canSee(i.roles)).map(item => (
-              <NavLink key={item.path} item={item} />
-            ))}
-          </>
-        )}
+      <nav aria-label="เมนูหลัก" className="flex-1 overflow-y-auto px-3 pb-4">
+        {groups.map((group) => {
+          const items = group.items.filter((i) => !i.permission || permissions.includes(i.permission))
+          if (items.length === 0) return null
+          return (
+            <div key={group.title} className="mt-5 first:mt-2">
+              <p className="px-3 pb-1.5 text-[11px] font-medium uppercase tracking-[0.08em] text-ink-3">{group.title}</p>
+              <ul className="space-y-0.5">
+                {items.map((item) => (
+                  <li key={item.to}>
+                    <NavLink to={item.to} onClick={onNavigate}
+                      className={({ isActive }) =>
+                        `group relative flex items-center gap-3 rounded-control px-3 py-2.5 text-sm transition-colors
+                        ${isActive ? 'bg-white font-medium text-ink shadow-card ring-1 ring-line' : 'text-ink-2 hover:bg-surface-2 hover:text-ink'}`}>
+                      {({ isActive }) => (
+                        <>
+                          {isActive && <span className="absolute left-0 top-2.5 h-5 w-[3px] rounded-r bg-accent" aria-hidden="true" />}
+                          <i className={`ti ti-${item.icon} text-lg ${isActive ? 'text-accent' : 'text-ink-3 group-hover:text-ink-2'}`} aria-hidden="true" />
+                          <span className="flex-1">{item.label}</span>
+                          {item.badge ? (
+                            <span className={`tabular rounded-full px-2 py-0.5 text-xs font-medium
+                              ${overdue > 0 && item.to === '/issues' ? 'bg-red-soft text-red-ink' : 'bg-surface-2 text-ink-2'}`}
+                              aria-label={`${item.badge} เรื่อง${overdue > 0 && item.to === '/issues' ? ` เกินกำหนด ${overdue}` : ''}`}>
+                              {item.badge}
+                            </span>
+                          ) : null}
+                        </>
+                      )}
+                    </NavLink>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )
+        })}
       </nav>
 
-      {/* User */}
-      <div className="p-2 border-t border-gray-100">
-        <div className="flex items-center gap-2.5 px-2.5 py-2">
-          <div className="w-8 h-8 rounded-full bg-indigo-50 flex items-center justify-center text-xs font-medium text-indigo-600 flex-shrink-0">
-            {user?.fullName?.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2)}
+      <div className="border-t border-line p-3">
+        <p className="mb-2 flex items-center gap-2 px-2 text-xs text-ink-3" role="status">
+          <span className={`h-1.5 w-1.5 rounded-full ${connection.dot}`} aria-hidden="true" />
+          {connection.label}
+        </p>
+        <div className="flex items-center gap-3 rounded-control px-2 py-1.5">
+          <Avatar name={user?.fullName ?? ''} size={36} />
+          <div className="min-w-0 flex-1">
+            <p className="truncate text-sm font-medium text-ink">{user?.fullName}</p>
+            <p className="truncate text-xs text-ink-3">{roleLabel[user?.role ?? ''] ?? user?.role}</p>
           </div>
-          <div className="flex-1 min-w-0">
-            <div className="text-xs font-medium text-gray-800 truncate">{user?.fullName}</div>
-            <div className="text-xs text-gray-400">{user?.role}</div>
-          </div>
-          <button onClick={handleLogout} className="text-gray-400 hover:text-gray-600">
-            <i className="ti ti-logout text-sm"></i>
+          <button type="button" aria-label="ออกจากระบบ" title="ออกจากระบบ"
+            onClick={() => { logout(); navigate('/login') }}
+            className="flex h-9 w-9 items-center justify-center rounded-control text-ink-3 hover:bg-surface-2 hover:text-ink">
+            <i className="ti ti-logout text-lg" aria-hidden="true" />
           </button>
         </div>
       </div>
