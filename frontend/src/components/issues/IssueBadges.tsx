@@ -1,5 +1,6 @@
 import Badge from '../ui/Badge'
 import { formatCountdown } from '../../utils/format'
+import { clockRuns } from '../../utils/issueStatus'
 import { issueStatusLabel, issueStatusTone, priorityLabel, priorityTone } from '../../utils/labels'
 import { IssueStatus } from '../../types/issue'
 import type { IssueListItem } from '../../types/issue'
@@ -18,13 +19,10 @@ type DueSource = Pick<IssueListItem,
 
 /** The deadline that matters right now: reply first, then fix. Finished issues show nothing. */
 export function DueLabel({ issue, now }: { issue: DueSource; now?: Date }) {
-  const open = issue.status === IssueStatus.New || issue.status === IssueStatus.Assigned
-    || issue.status === IssueStatus.InProgress || issue.status === IssueStatus.Reopened
-
   if (issue.status === IssueStatus.WaitingForReporter) {
     return <span className="text-[13px] text-amber-ink">หยุดนับ · รอผู้แจ้ง</span>
   }
-  if (!open) return <span className="text-[13px] text-ink-3">–</span>
+  if (!clockRuns(issue.status)) return <span className="text-[13px] text-ink-3">–</span>
 
   const needsFirstResponse = issue.status === IssueStatus.New
     || (issue.status === IssueStatus.Assigned && issue.responseOverdue)
