@@ -27,6 +27,8 @@ Enterprise KPI Management Platform สำหรับองค์กร ใช�
 - **RBAC** — Role-Based Access Control 6 ระดับ
 - **Audit Logs** — Track ทุก action ในระบบ
 - **JWT Authentication** — Secure API ด้วย JWT Token
+- **แจ้งปัญหา (Issues)** — ผู้ใช้แจ้งปัญหา ทีม IT รับเรื่อง/แก้ไข/บันทึกวิธีแก้ มี SLA ตอบรับภายใน 2 ชั่วโมง และหน้าแจ้งปัญหาสำหรับผู้ที่เข้าสู่ระบบไม่ได้ (`/report`)
+- **ภาพรวมระบบและ Audit** — SuperAdmin ดูความเคลื่อนไหวทั้งระบบ ใครทำอะไร จาก IP ไหน
 
 ---
 
