@@ -17,18 +17,26 @@ public class KpiService : IKpiService
     private readonly IUserRepository _userRepo;
     private readonly AppDbContext _context;
     private readonly KpiEventPublisher _events;
+    private readonly TimeProvider _time;
+
+    /// <summary>Thailand is UTC+7 all year. Monthly progress is bucketed by the month people see on the wall.</summary>
+    private static readonly TimeSpan ThaiOffset = TimeSpan.FromHours(7);
 
     public KpiService(
         IKpiRepository kpiRepo,
         IUserRepository userRepo,
         AppDbContext context,
-        KpiEventPublisher events)
+        KpiEventPublisher events,
+        TimeProvider time)
     {
         _kpiRepo = kpiRepo;
         _userRepo = userRepo;
         _context = context;
         _events = events;
+        _time = time;
     }
+
+    private DateTime Now => _time.GetUtcNow().UtcDateTime;
 
     // ───────────────────────── Queries ─────────────────────────
 
@@ -83,7 +91,7 @@ public class KpiService : IKpiService
         await _context.SaveChangesAsync();
 
         var created = await _kpiRepo.GetByIdAsync(kpi.Id) ?? kpi;
-        await _events.PublishAsync(created, "created", ActorName(actor),
+        await _events.PublishAsync(created, "created", actor.FullName,
             email: KpiEmailKind.Created, actorId: actor.Id);
         return ToDto(created, actor);
     }
@@ -110,7 +118,7 @@ public class KpiService : IKpiService
         await _kpiRepo.UpdateAsync(kpi);
 
         var updated = await _kpiRepo.GetByIdAsync(kpi.Id) ?? kpi;
-        await _events.PublishAsync(updated, "updated", ActorName(actor));
+        await _events.PublishAsync(updated, "updated", actor.FullName);
         return ToDto(updated, actor);
     }
 
@@ -122,7 +130,7 @@ public class KpiService : IKpiService
 
         StageAudit(actor, "Delete", kpi, kpi.Status.ToString(), null);
         await _kpiRepo.DeleteAsync(kpi);
-        await _events.PublishAsync(kpi, "deleted", ActorName(actor));
+        await _events.PublishAsync(kpi, "deleted", actor.FullName);
     }
 
     public async Task<KpiDto> SubmitForApprovalAsync(Guid id, Guid userId)
@@ -135,16 +143,16 @@ public class KpiService : IKpiService
 
         var old = kpi.Status;
         kpi.Status = KpiStatus.PendingApproval;
-        kpi.SubmittedAt = DateTime.UtcNow;
+        kpi.SubmittedAt = Now;
         kpi.SubmittedById = actor.Id;
         kpi.RejectReason = null;
 
         StageAudit(actor, "Submit", kpi, old.ToString(), kpi.Status.ToString());
         await _kpiRepo.UpdateAsync(kpi);
 
-        await _events.PublishAsync(kpi, "submitted", ActorName(actor),
+        await _events.PublishAsync(kpi, "submitted", actor.FullName,
             new RealtimeNotification("Approval needed",
-                $"{ActorName(actor)} submitted \"{kpi.Name}\" for approval.", "info", kpi.Id),
+                $"{actor.FullName} submitted \"{kpi.Name}\" for approval.", "info", kpi.Id),
             new RealtimeAudience([], Approvers: true),
             KpiEmailKind.Submitted, actor.Id);
         return ToDto(kpi, actor);
@@ -159,13 +167,13 @@ public class KpiService : IKpiService
         var old = kpi.Status;
         kpi.Status = KpiStatus.Active;
         kpi.ApprovedById = actor.Id;
-        kpi.ApprovedAt = DateTime.UtcNow;
+        kpi.ApprovedAt = Now;
         kpi.RejectReason = null;
 
         StageAudit(actor, "Approve", kpi, old.ToString(), kpi.Status.ToString());
         await _kpiRepo.UpdateAsync(kpi);
 
-        await _events.PublishAsync(kpi, "approved", ActorName(actor),
+        await _events.PublishAsync(kpi, "approved", actor.FullName,
             new RealtimeNotification("KPI approved",
                 $"\"{kpi.Name}\" was approved and is now Active.", "success", kpi.Id),
             new RealtimeAudience([kpi.OwnerId]),
@@ -194,7 +202,7 @@ public class KpiService : IKpiService
         StageAudit(actor, "Reject", kpi, old.ToString(), $"{kpi.Status}: {reason}");
         await _kpiRepo.UpdateAsync(kpi);
 
-        await _events.PublishAsync(kpi, "rejected", ActorName(actor),
+        await _events.PublishAsync(kpi, "rejected", actor.FullName,
             new RealtimeNotification("KPI returned for changes",
                 $"\"{kpi.Name}\" was rejected: {reason}", "warning", kpi.Id),
             new RealtimeAudience([kpi.OwnerId]),
@@ -210,13 +218,13 @@ public class KpiService : IKpiService
 
         var old = kpi.Status;
         kpi.Status = KpiStatus.Closed;
-        kpi.ClosedAt = DateTime.UtcNow;
+        kpi.ClosedAt = Now;
         kpi.ClosedById = actor.Id;
 
         StageAudit(actor, "Close", kpi, old.ToString(), kpi.Status.ToString());
         await _kpiRepo.UpdateAsync(kpi);
 
-        await _events.PublishAsync(kpi, "closed", ActorName(actor));
+        await _events.PublishAsync(kpi, "closed", actor.FullName);
         return ToDto(kpi, actor);
     }
 
@@ -232,19 +240,21 @@ public class KpiService : IKpiService
         if (notes.Length > 1000)
             throw new RequestValidationException("Notes must be 1000 characters or fewer.");
 
+        var now = _time.GetUtcNow();
+        var thaiNow = now.ToOffset(ThaiOffset);
         var oldStatus = kpi.Status;
         var oldProgress = kpi.Progress;
         kpi.Progress = request.Progress;
         kpi.Status = KpiStateMachine.EvaluateHealth(
-            kpi.Progress, kpi.Target, kpi.StartDate, kpi.DueDate, DateTime.UtcNow);
+            kpi.Progress, kpi.Target, kpi.StartDate, kpi.DueDate, now.UtcDateTime);
 
         _context.KpiProgressLogs.Add(new KpiProgressLog
         {
             KpiId = kpi.Id,
             Progress = request.Progress,
             Notes = notes,
-            Month = DateTime.UtcNow.Month,
-            Year = DateTime.UtcNow.Year,
+            Month = thaiNow.Month,
+            Year = thaiNow.Year,
             UpdatedById = actor.Id,
         });
         StageAudit(actor, "UpdateProgress", kpi,
@@ -254,7 +264,7 @@ public class KpiService : IKpiService
         await _kpiRepo.UpdateAsync(kpi);
 
         var (notification, audience) = DescribeStatusChange(kpi, oldStatus);
-        await _events.PublishAsync(kpi, "progress", ActorName(actor), notification, audience,
+        await _events.PublishAsync(kpi, "progress", actor.FullName, notification, audience,
             EmailForStatusChange(oldStatus, kpi.Status), actor.Id);
         return ToDto(kpi, actor);
     }
@@ -398,8 +408,6 @@ public class KpiService : IKpiService
             _ => null,
         };
 
-    private static string ActorName(User actor) => $"{actor.FirstName} {actor.LastName}".Trim();
-
     private static DateTime AsUtc(DateTime value) => DateTime.SpecifyKind(value, DateTimeKind.Utc);
 
     private static KpiDto ToDto(Kpi kpi, User actor)
@@ -432,7 +440,7 @@ public class KpiService : IKpiService
             DepartmentId: kpi.DepartmentId,
             DepartmentName: kpi.Department?.Name ?? "",
             OwnerId: kpi.OwnerId,
-            OwnerName: kpi.Owner != null ? $"{kpi.Owner.FirstName} {kpi.Owner.LastName}" : "",
+            OwnerName: kpi.Owner?.FullName ?? "",
             RejectReason: kpi.RejectReason,
             SubmittedAt: kpi.SubmittedAt,
             ApprovedAt: kpi.ApprovedAt,

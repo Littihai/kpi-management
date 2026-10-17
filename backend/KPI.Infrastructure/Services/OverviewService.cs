@@ -85,14 +85,8 @@ public class OverviewService : IOverviewService
         var issues = _db.Issues.AsNoTracking();
         var byStatus = await issues.GroupBy(i => i.Status)
             .Select(g => new { Status = g.Key, Count = g.Count() }).ToListAsync();
-        int Open(IEnumerable<IssueStatus> s) => byStatus.Where(x => s.Contains(x.Status)).Sum(x => x.Count);
-        var openStatuses = new[] { IssueStatus.New, IssueStatus.Assigned, IssueStatus.InProgress,
-            IssueStatus.WaitingForReporter, IssueStatus.Reopened };
-
-        var overdue = await issues.CountAsync(i =>
-            ((i.Status == IssueStatus.New || i.Status == IssueStatus.Assigned) && i.FirstResponseAt == null && now > i.ResponseDueAt)
-            || ((i.Status == IssueStatus.New || i.Status == IssueStatus.Assigned
-                 || i.Status == IssueStatus.InProgress || i.Status == IssueStatus.Reopened) && now > i.ResolveDueAt));
+        var open = byStatus.Where(x => IssueStateMachine.IsOpen(x.Status)).Sum(x => x.Count);
+        var overdue = await issues.CountAsync(IssueFilters.Overdue(now));
 
         var resolvedPairs = await issues
             .Where(i => i.ResolvedAt != null && i.ResolvedAt >= since)
@@ -113,7 +107,7 @@ public class OverviewService : IOverviewService
 
         var issueOverview = new IssueOverview(
             byStatus.Sum(x => x.Count),
-            Open(openStatuses),
+            open,
             overdue,
             resolvedPairs.Count,
             average,

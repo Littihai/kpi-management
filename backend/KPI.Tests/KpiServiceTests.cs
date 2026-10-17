@@ -299,7 +299,7 @@ public class KpiServiceTests
         var w = await TestWorld.CreateAsync();
         // 60 of 100 days elapsed → ~60 expected.
         var kpi = await w.AddKpiAsync(KpiStatus.Active, w.ManagerA,
-            start: DateTime.UtcNow.AddDays(-60), due: DateTime.UtcNow.AddDays(40));
+            start: w.Clock.UtcNow.AddDays(-60), due: w.Clock.UtcNow.AddDays(40));
 
         var behind = await w.Service.UpdateProgressAsync(new UpdateKpiProgressRequest(kpi.Id, 10, ""), w.ManagerA.Id);
         Assert.Equal(KpiStatus.AtRisk, behind.Status);
@@ -311,11 +311,25 @@ public class KpiServiceTests
     }
 
     [Fact]
+    public async Task Progress_is_filed_under_the_month_it_is_in_Thailand()
+    {
+        var w = await TestWorld.CreateAsync();
+        var kpi = await w.AddKpiAsync(KpiStatus.Active, w.ManagerA);
+
+        // 01:30 on 1 November in Bangkok is still 31 October in UTC.
+        w.Clock.Advance(new DateTime(2026, 10, 31, 18, 30, 0, DateTimeKind.Utc) - w.Clock.UtcNow);
+        await w.Service.UpdateProgressAsync(new UpdateKpiProgressRequest(kpi.Id, 20, ""), w.ManagerA.Id);
+
+        var log = await w.Db.KpiProgressLogs.SingleAsync();
+        Assert.Equal((2026, 11), (log.Year, log.Month));
+    }
+
+    [Fact]
     public async Task An_overdue_kpi_is_Delayed_and_still_accepts_progress()
     {
         var w = await TestWorld.CreateAsync();
         var kpi = await w.AddKpiAsync(KpiStatus.Delayed, w.ManagerA,
-            start: DateTime.UtcNow.AddDays(-100), due: DateTime.UtcNow.AddDays(-5), progress: 40);
+            start: w.Clock.UtcNow.AddDays(-100), due: w.Clock.UtcNow.AddDays(-5), progress: 40);
 
         var dto = await w.Service.UpdateProgressAsync(new UpdateKpiProgressRequest(kpi.Id, 60, ""), w.ManagerA.Id);
 
@@ -460,7 +474,7 @@ public class KpiServiceTests
         await using var other = new KPI.Infrastructure.Data.AppDbContext(w.Options);
         var otherService = new KPI.Infrastructure.Services.KpiService(
             new KPI.Infrastructure.Repositories.KpiRepository(other),
-            new KPI.Infrastructure.Repositories.UserRepository(other), other, w.Events);
+            new KPI.Infrastructure.Repositories.UserRepository(other), other, w.Events, w.Clock);
 
         // The first request loads the KPI, then the second one approves it before the first saves.
         var loadedByFirst = await w.Db.Kpis.FirstAsync(k => k.Id == kpi.Id);

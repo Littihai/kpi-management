@@ -72,7 +72,7 @@ public class AuthService : IAuthService
         return new UserProfileDto(
             user.Id,
             user.Email,
-            $"{user.FirstName} {user.LastName}".Trim(),
+            user.FullName,
             user.Role.Name,
             user.DepartmentId,
             department?.Name,
@@ -101,7 +101,7 @@ public class AuthService : IAuthService
             new(ClaimTypes.NameIdentifier, user.Id.ToString()),
             new(ClaimTypes.Email, user.Email),
             new(ClaimTypes.Role, roleName),
-            new(ClaimTypes.Name, $"{user.FirstName} {user.LastName}".Trim()),
+            new(ClaimTypes.Name, user.FullName),
         };
         // Lets the audit log record the department without another database lookup.
         if (user.Department?.Name is { Length: > 0 } departmentName)
@@ -118,7 +118,7 @@ public class AuthService : IAuthService
         return new AuthResponse(
             Token: new JwtSecurityTokenHandler().WriteToken(token),
             Email: user.Email,
-            FullName: $"{user.FirstName} {user.LastName}".Trim(),
+            FullName: user.FullName,
             Role: roleName,
             DepartmentId: user.DepartmentId,
             Permissions: user.Role != null ? PermissionNames(user) : []);

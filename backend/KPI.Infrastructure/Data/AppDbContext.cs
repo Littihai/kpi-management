@@ -1,4 +1,5 @@
 using KPI.Application.Audit;
+using KPI.Application.Common;
 using KPI.Domain.Entities;
 using Microsoft.EntityFrameworkCore;
 
@@ -47,17 +48,14 @@ public class AppDbContext : DbContext
         foreach (var entry in ChangeTracker.Entries<AuditLog>().Where(e => e.State == EntityState.Added))
         {
             var row = entry.Entity;
-            row.IpAddress ??= Truncate(_audit.IpAddress, 64);
-            row.UserAgent ??= Truncate(_audit.UserAgent, 400);
-            row.RequestId ??= Truncate(_audit.RequestId, 64);
-            row.UserName ??= Truncate(_audit.UserName, 200);
-            row.UserRole ??= Truncate(_audit.UserRole, 50);
-            row.DepartmentName ??= Truncate(_audit.DepartmentName, 200);
+            row.IpAddress ??= _audit.IpAddress.Truncate(64);
+            row.UserAgent ??= _audit.UserAgent.Truncate(400);
+            row.RequestId ??= _audit.RequestId.Truncate(64);
+            row.UserName ??= _audit.UserName.Truncate(200);
+            row.UserRole ??= _audit.UserRole.Truncate(50);
+            row.DepartmentName ??= _audit.DepartmentName.Truncate(200);
         }
     }
-
-    private static string? Truncate(string? value, int max) =>
-        value is null ? null : value.Length <= max ? value : value[..max];
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -87,6 +85,8 @@ public class AppDbContext : DbContext
         modelBuilder.Entity<User>()
             .HasIndex(u => u.Email)
             .IsUnique();
+
+        modelBuilder.Entity<User>().Ignore(u => u.FullName);
 
         // KPI
         modelBuilder.Entity<Kpi>()
