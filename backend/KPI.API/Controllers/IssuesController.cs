@@ -1,4 +1,3 @@
-using System.Security.Claims;
 using KPI.API.Security;
 using KPI.Application.Issues;
 using KPI.Domain.Constants;
@@ -25,7 +24,7 @@ public class IssuesController : ControllerBase
         _ipHeader = options.Value.ClientIpHeader;
     }
 
-    private Guid UserId => Guid.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
+    private Guid UserId => User.GetUserId();
 
     [HttpGet]
     [Authorize(Policy = Permissions.Issue.View)]
@@ -57,7 +56,7 @@ public class IssuesController : ControllerBase
             form.PageUrl, Request.Headers.UserAgent.ToString(), form.ClientInfo, form.ErrorRequestId);
 
         var ip = LoginThrottle.ClientIp(HttpContext, _ipHeader);
-        var created = await _issues.CreateAsync(request, await ReadFilesAsync(form.Files), UserId, ip);
+        var created = await _issues.CreateAsync(request, await UploadReader.ReadAsync(form.Files), UserId, ip);
         return CreatedAtAction(nameof(Get), new { id = created.Id }, created);
     }
 
@@ -110,7 +109,7 @@ public class IssuesController : ControllerBase
     [Authorize(Policy = Permissions.Issue.View)]
     [RequestSizeLimit(MaxRequestBytes)]
     public async Task<IActionResult> Attach(Guid id, [FromForm] IFormFileCollection files)
-        => Ok(await _issues.AddAttachmentsAsync(id, await ReadFilesAsync(files), UserId));
+        => Ok(await _issues.AddAttachmentsAsync(id, await UploadReader.ReadAsync(files), UserId));
 
     [HttpGet("{id:guid}/attachments/{attachmentId:guid}")]
     [Authorize(Policy = Permissions.Issue.View)]
@@ -121,26 +120,6 @@ public class IssuesController : ControllerBase
         Response.Headers["X-Content-Type-Options"] = "nosniff";
         Response.Headers["Content-Security-Policy"] = "default-src 'none'; sandbox";
         return File(file.Data, file.ContentType, enableRangeProcessing: false);
-    }
-
-    internal static async Task<List<IssueUpload>> ReadFilesAsync(IFormFileCollection? files)
-    {
-        var uploads = new List<IssueUpload>();
-        if (files is null) return uploads;
-
-        foreach (var file in files)
-        {
-            // Refuse oversized files before reading them into memory.
-            if (file.Length > Infrastructure.Services.IssueService.MaxAttachmentBytes)
-                throw new Domain.Exceptions.RequestValidationException(
-                    $"ไฟล์ \"{Path.GetFileName(file.FileName)}\" ใหญ่เกิน 5 MB");
-
-            await using var stream = file.OpenReadStream();
-            using var buffer = new MemoryStream();
-            await stream.CopyToAsync(buffer);
-            uploads.Add(new IssueUpload(file.FileName, file.ContentType, buffer.ToArray()));
-        }
-        return uploads;
     }
 
     public class IssueForm

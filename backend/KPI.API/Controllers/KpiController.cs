@@ -1,4 +1,4 @@
-using System.Security.Claims;
+using KPI.API.Security;
 using KPI.Application.Kpis;
 using KPI.Domain.Constants;
 using Microsoft.AspNetCore.Authorization;
@@ -18,8 +18,7 @@ public class KpiController : ControllerBase
         _kpiService = kpiService;
     }
 
-    private Guid GetUserId() =>
-        Guid.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
+    private Guid GetUserId() => User.GetUserId();
 
     [HttpGet]
     [Authorize(Policy = Permissions.Kpi.View)]

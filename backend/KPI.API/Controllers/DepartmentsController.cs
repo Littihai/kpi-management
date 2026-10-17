@@ -2,7 +2,6 @@ using KPI.Domain.Constants;
 using KPI.Infrastructure.Data;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.EntityFrameworkCore;
 
 namespace KPI.API.Controllers;
 
@@ -17,10 +16,6 @@ public class DepartmentsController : ControllerBase
     [HttpGet]
     public async Task<IActionResult> GetAll()
     {
-        var departments = await _context.Departments
-            .Where(d => d.IsActive)
-            .Select(d => new { d.Id, d.Name })
-            .ToListAsync();
-        return Ok(departments);
+        return Ok(await _context.ListActiveAsync());
     }
 }
