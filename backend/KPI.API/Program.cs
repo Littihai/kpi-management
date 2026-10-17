@@ -34,7 +34,9 @@ using Microsoft.AspNetCore.ResponseCompression;
 AppContext.SetSwitch("Npgsql.EnableLegacyTimestampBehavior", true);
 var builder = WebApplication.CreateBuilder(args);
 // Integration tests run the real pipeline against an in-memory database and without Hangfire.
-var runBackgroundJobs = !builder.Environment.IsEnvironment("Testing");
+// (A test can switch jobs back on with Jobs:Enabled=true and in-memory storage, to exercise start-up.)
+var runBackgroundJobs = !builder.Environment.IsEnvironment("Testing")
+    || string.Equals(builder.Configuration["Jobs:Enabled"], "true", StringComparison.OrdinalIgnoreCase);
 
 builder.Services.AddControllers().AddJsonOptions(o =>
     o.JsonSerializerOptions.Converters.Add(new FlexibleEnumConverterFactory()));
@@ -172,8 +174,12 @@ builder.Services.AddAuthorization(options =>
 if (runBackgroundJobs)
 {
     builder.Services.AddHangfire(config =>
-        config.UsePostgreSqlStorage(
-            builder.Configuration.GetConnectionString("DefaultConnection")));
+    {
+        if (string.Equals(builder.Configuration["Jobs:Storage"], "InMemory", StringComparison.OrdinalIgnoreCase))
+            config.UseInMemoryStorage();
+        else
+            config.UsePostgreSqlStorage(builder.Configuration.GetConnectionString("DefaultConnection"));
+    });
     builder.Services.AddHangfireServer();
 }
 builder.Services.AddScoped<IAuthorizationHandler, PermissionHandler>();
@@ -233,15 +239,12 @@ app.MapHealthChecks("/health/ready", new HealthCheckOptions { Predicate = check 
 
 if (runBackgroundJobs)
 {
-    RecurringJob.AddOrUpdate<DelayDetectionJob>(
-        "delay-detection",
-        job => job.RunAsync(),
-        Cron.Daily);
-
-    RecurringJob.AddOrUpdate<MaintenanceJob>(
-        "maintenance",
-        job => job.RunAsync(),
-        Cron.Daily);
+    // Use the service-based API. The static RecurringJob.AddOrUpdate needs JobStorage.Current to be set already,
+    // which used to happen only as a side effect of mapping the Hangfire dashboard (now development-only), so
+    // production crashed on start-up with "JobStorage instance has not been initialized yet".
+    var recurringJobs = app.Services.GetRequiredService<IRecurringJobManager>();
+    recurringJobs.AddOrUpdate<DelayDetectionJob>("delay-detection", job => job.RunAsync(), Cron.Daily);
+    recurringJobs.AddOrUpdate<MaintenanceJob>("maintenance", job => job.RunAsync(), Cron.Daily);
 }
 
 app.Run();
