@@ -1,5 +1,5 @@
-using System.Text.Json;
 using KPI.Application.Audit;
+using KPI.Application.Common;
 using KPI.Domain.Entities;
 using KPI.Infrastructure.Data;
 using Microsoft.EntityFrameworkCore;
@@ -32,23 +32,50 @@ public class AuditService : IAuditService
         await _context.SaveChangesAsync();
     }
 
-    public async Task<List<AuditLogDto>> GetLogsAsync(
-        string? entityName = null, Guid? userId = null)
+    public async Task<PagedResult<AuditLogDto>> SearchAsync(AuditQuery query)
     {
-        var query = _context.AuditLogs.AsQueryable();
+        var page = PagedResult<AuditLogDto>.ClampPage(query.Page);
+        var size = PagedResult<AuditLogDto>.ClampSize(query.PageSize);
 
-        if (!string.IsNullOrEmpty(entityName))
-            query = query.Where(a => a.EntityName == entityName);
+        var rows = _context.AuditLogs.AsNoTracking().AsQueryable();
 
-        if (userId.HasValue)
-            query = query.Where(a => a.UserId == userId);
+        if (!string.IsNullOrWhiteSpace(query.Entity)) rows = rows.Where(a => a.EntityName == query.Entity);
+        if (!string.IsNullOrWhiteSpace(query.Action)) rows = rows.Where(a => a.Action == query.Action);
+        if (query.UserId is { } userId) rows = rows.Where(a => a.UserId == userId);
+        if (!string.IsNullOrWhiteSpace(query.Ip)) rows = rows.Where(a => a.IpAddress == query.Ip);
+        if (query.From is { } from) rows = rows.Where(a => a.CreatedAt >= from);
+        if (query.To is { } to) rows = rows.Where(a => a.CreatedAt < to);
+        if (!string.IsNullOrWhiteSpace(query.Search))
+        {
+            var term = query.Search.Trim().ToLower();
+            rows = rows.Where(a =>
+                a.Action.ToLower().Contains(term)
+                || (a.UserEmail != null && a.UserEmail.ToLower().Contains(term))
+                || (a.UserName != null && a.UserName.ToLower().Contains(term))
+                || (a.NewValues != null && a.NewValues.ToLower().Contains(term)));
+        }
 
-        return await query
+        var total = await rows.CountAsync();
+        var items = await rows
             .OrderByDescending(a => a.CreatedAt)
-            .Take(100)
-            .Select(a => new AuditLogDto(
-                a.Id, a.Action, a.EntityName, a.EntityId,
-                a.OldValues, a.NewValues, a.UserEmail, a.CreatedAt))
+            .Skip((page - 1) * size)
+            .Take(size)
+            .Select(ToDtoExpression)
             .ToListAsync();
+
+        return new PagedResult<AuditLogDto>(items, total, page, size);
     }
+
+    public async Task<List<AuditLogDto>> ForEntityAsync(string entityName, string entityId) =>
+        await _context.AuditLogs.AsNoTracking()
+            .Where(a => a.EntityName == entityName && a.EntityId == entityId)
+            .OrderBy(a => a.CreatedAt)
+            .Select(ToDtoExpression)
+            .ToListAsync();
+
+    private static readonly System.Linq.Expressions.Expression<Func<AuditLog, AuditLogDto>> ToDtoExpression =
+        a => new AuditLogDto(
+            a.Id, a.Action, a.EntityName, a.EntityId, a.OldValues, a.NewValues,
+            a.UserId, a.UserEmail, a.UserName, a.UserRole, a.DepartmentName,
+            a.IpAddress, a.UserAgent, a.CreatedAt);
 }

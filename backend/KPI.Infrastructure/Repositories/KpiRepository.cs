@@ -14,8 +14,10 @@ public class KpiRepository : IKpiRepository
         _context = context;
     }
 
+    // Lists are read-only, so skip change tracking.
     public async Task<List<Kpi>> GetAllAsync()
         => await _context.Kpis
+            .AsNoTracking()
             .Include(k => k.Department)
             .Include(k => k.Owner)
             .OrderByDescending(k => k.CreatedAt)
@@ -23,6 +25,7 @@ public class KpiRepository : IKpiRepository
 
     public async Task<List<Kpi>> GetByDepartmentAsync(Guid departmentId)
         => await _context.Kpis
+            .AsNoTracking()
             .Include(k => k.Department)
             .Include(k => k.Owner)
             .Where(k => k.DepartmentId == departmentId)

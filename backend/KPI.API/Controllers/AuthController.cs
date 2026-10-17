@@ -43,6 +43,7 @@ public class AuthController : ControllerBase
     {
         var ip = LoginThrottle.ClientIp(HttpContext, _throttleOptions.ClientIpHeader);
         var email = AuthService.NormalizeEmail(request.Email);
+        HttpContext.Items["audit.email"] = email; // so the request log can show who was being tried
 
         if (_throttle.BlockedFor(ip, email) is { } wait)
         {

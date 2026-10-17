@@ -24,14 +24,20 @@ using KPI.Infrastructure.Jobs;
 using KPI.Application.Audit;
 using KPI.API.Health;
 using KPI.API.Security;
+using KPI.API.Audit;
+using KPI.Application.Admin;
+using KPI.Application.Issues;
+using KPI.Domain.Issues;
 using Microsoft.AspNetCore.Diagnostics.HealthChecks;
+using Microsoft.AspNetCore.ResponseCompression;
 
 AppContext.SetSwitch("Npgsql.EnableLegacyTimestampBehavior", true);
 var builder = WebApplication.CreateBuilder(args);
 // Integration tests run the real pipeline against an in-memory database and without Hangfire.
 var runBackgroundJobs = !builder.Environment.IsEnvironment("Testing");
 
-builder.Services.AddControllers();
+builder.Services.AddControllers().AddJsonOptions(o =>
+    o.JsonSerializerOptions.Converters.Add(new FlexibleEnumConverterFactory()));
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddOpenApi();
 builder.Services.AddProblemDetails();
@@ -46,6 +52,36 @@ builder.Services.AddScoped<IAuditService, AuditService>();
 builder.Services.AddSingleton<IRealtimeNotifier, SignalRNotifier>();
 builder.Services.AddScoped<KpiEmailNotifier>();
 builder.Services.AddScoped<KpiEventPublisher>();
+
+// Issues (problem reports)
+builder.Services.AddScoped<IIssueService, IssueService>();
+builder.Services.AddScoped<IssueEventPublisher>();
+builder.Services.AddScoped<IMaintenanceJob, MaintenanceJob>();
+builder.Services.AddSingleton(new IssueSlaPolicy(
+    TimeSpan.FromHours(builder.Configuration.GetValue("Issues:FirstResponseHours", 2.0)),
+    TimeSpan.FromHours(builder.Configuration.GetValue("Issues:ResolveHours:Critical", 4.0)),
+    TimeSpan.FromHours(builder.Configuration.GetValue("Issues:ResolveHours:High", 24.0)),
+    TimeSpan.FromHours(builder.Configuration.GetValue("Issues:ResolveHours:Medium", 72.0)),
+    TimeSpan.FromHours(builder.Configuration.GetValue("Issues:ResolveHours:Low", 168.0))));
+builder.Services.Configure<PublicSubmitOptions>(builder.Configuration.GetSection("PublicIssues"));
+builder.Services.AddSingleton<PublicSubmitThrottle>();
+
+// Audit: who did what and from where, plus a background-written log of writes, refusals and sign-ins.
+builder.Services.AddHttpContextAccessor();
+builder.Services.AddScoped<IAuditContext, HttpAuditContext>();
+builder.Services.AddScoped<IOverviewService, OverviewService>();
+builder.Services.AddSingleton<PresenceTracker>();
+builder.Services.AddSingleton<IPresenceTracker>(sp => sp.GetRequiredService<PresenceTracker>());
+builder.Services.AddSingleton<RequestLogQueue>();
+builder.Services.AddHostedService<RequestLogWriter>();
+
+// Smaller JSON responses over the wire (the API and the database are often far apart from the user).
+builder.Services.AddResponseCompression(options =>
+{
+    options.EnableForHttps = true;
+    options.Providers.Add<BrotliCompressionProvider>();
+    options.Providers.Add<GzipCompressionProvider>();
+});
 
 // /health answers "is the process up"; /health/ready also checks the database.
 builder.Services.AddHealthChecks().AddCheck<DatabaseHealthCheck>("database", tags: ["ready"]);
@@ -175,6 +211,9 @@ using (var scope = app.Services.CreateScope())
             builder.Configuration["Admin:Email"]);
 }
 
+app.UseResponseCompression();
+// Outside the exception handler so the logged status is the one the client actually receives.
+app.UseMiddleware<RequestLogMiddleware>();
 app.UseExceptionHandler();
 
 if (app.Environment.IsDevelopment())
@@ -196,6 +235,11 @@ if (runBackgroundJobs)
 {
     RecurringJob.AddOrUpdate<DelayDetectionJob>(
         "delay-detection",
+        job => job.RunAsync(),
+        Cron.Daily);
+
+    RecurringJob.AddOrUpdate<MaintenanceJob>(
+        "maintenance",
         job => job.RunAsync(),
         Cron.Daily);
 }
