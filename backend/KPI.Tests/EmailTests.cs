@@ -141,7 +141,7 @@ public class KpiEmailFlowTests
     {
         var w = await TestWorld.CreateAsync();
         var kpi = await w.AddKpiAsync(KpiStatus.Active, w.ManagerA,
-            start: DateTime.UtcNow.AddDays(-60), due: DateTime.UtcNow.AddDays(40));
+            start: w.Clock.UtcNow.AddDays(-60), due: w.Clock.UtcNow.AddDays(40));
 
         // a team leader reports low progress on a KPI owned by the department manager
         await w.Service.UpdateProgressAsync(new UpdateKpiProgressRequest(kpi.Id, 10, ""), w.TeamLeaderA.Id);

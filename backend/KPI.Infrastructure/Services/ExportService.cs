@@ -139,7 +139,7 @@ public class ExportService : IExportService
             ws.Cell(row, 1).Value = kpi.Name;
             ws.Cell(row, 2).Value = kpi.Department?.Name ?? "";
             ws.Cell(row, 3).Value = kpi.Owner != null
-                ? kpi.Owner.FirstName + " " + kpi.Owner.LastName : "";
+                ? kpi.Owner.FullName : "";
             ws.Cell(row, 4).Value = kpi.Year;
             ws.Cell(row, 5).Value = (double)kpi.Progress;
             ws.Cell(row, 6).Value = (double)kpi.Target;

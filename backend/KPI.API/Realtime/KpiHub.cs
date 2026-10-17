@@ -62,7 +62,7 @@ public class KpiHub : Hub
                 }
 
                 var http = Context.GetHttpContext();
-                _presence.Connected(Context.ConnectionId, user.Id, $"{user.FirstName} {user.LastName}".Trim(),
+                _presence.Connected(Context.ConnectionId, user.Id, user.FullName,
                     user.Role.Name, http is null ? null : LoginThrottle.ClientIp(http, _ipHeader));
             }
         }

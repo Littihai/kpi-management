@@ -13,4 +13,7 @@ public class User : BaseEntity
 
     public Guid? DepartmentId { get; set; }
     public Department? Department { get; set; }
+
+    /// <summary>"First Last" for display and audit rows. Not stored.</summary>
+    public string FullName => $"{FirstName} {LastName}".Trim();
 }

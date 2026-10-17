@@ -1,0 +1,182 @@
+using System.Text;
+using Hangfire;
+using Hangfire.PostgreSql;
+using KPI.API.Audit;
+using KPI.API.Authorization;
+using KPI.API.Realtime;
+using KPI.API.Security;
+using KPI.Application.Admin;
+using KPI.Application.Audit;
+using KPI.Application.Auth;
+using KPI.Application.Dashboard;
+using KPI.Application.Export;
+using KPI.Application.Issues;
+using KPI.Application.Jobs;
+using KPI.Application.Kpis;
+using KPI.Application.Notifications;
+using KPI.Domain.Constants;
+using KPI.Domain.Interfaces;
+using KPI.Domain.Issues;
+using KPI.Infrastructure.Jobs;
+using KPI.Infrastructure.Repositories;
+using KPI.Infrastructure.Services;
+using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.AspNetCore.Authorization;
+using Microsoft.IdentityModel.Tokens;
+using Resend;
+
+namespace KPI.API.Startup;
+
+/// <summary>Service registration, grouped by topic so Program.cs reads as the outline of the app.</summary>
+public static class ServiceRegistration
+{
+    /// <summary>KPIs, sign-in, dashboards, exports, e-mail and the live-update hub.</summary>
+    public static IServiceCollection AddKpiServices(this IServiceCollection services, IConfiguration config)
+    {
+        services.AddSignalR();
+        services.AddSingleton<IRealtimeNotifier, SignalRNotifier>();
+
+        services.AddScoped<IDashboardService, DashboardService>();
+        services.AddScoped<IExportService, ExportService>();
+        services.AddResend(options => { options.ApiToken = config["Resend:ApiKey"]!; });
+        services.AddScoped<IEmailService, EmailService>();
+        services.AddScoped<IDelayDetectionJob, DelayDetectionJob>();
+        services.AddScoped<IAuditService, AuditService>();
+        services.AddScoped<KpiEmailNotifier>();
+        services.AddScoped<KpiEventPublisher>();
+
+        services.AddScoped<IUserRepository, UserRepository>();
+        services.AddScoped<IAuthService, AuthService>();
+        services.AddScoped<IKpiRepository, KpiRepository>();
+        services.AddScoped<IKpiService, KpiService>();
+        return services;
+    }
+
+    /// <summary>Problem reports: the service, the SLA targets and the throttle on the public form.</summary>
+    public static IServiceCollection AddIssueTracking(this IServiceCollection services, IConfiguration config)
+    {
+        services.AddScoped<IIssueService, IssueService>();
+        services.AddScoped<IssueEventPublisher>();
+        services.AddScoped<IMaintenanceJob, MaintenanceJob>();
+        services.AddSingleton(new IssueSlaPolicy(
+            TimeSpan.FromHours(config.GetValue("Issues:FirstResponseHours", 2.0)),
+            TimeSpan.FromHours(config.GetValue("Issues:ResolveHours:Critical", 4.0)),
+            TimeSpan.FromHours(config.GetValue("Issues:ResolveHours:High", 24.0)),
+            TimeSpan.FromHours(config.GetValue("Issues:ResolveHours:Medium", 72.0)),
+            TimeSpan.FromHours(config.GetValue("Issues:ResolveHours:Low", 168.0))));
+        services.Configure<PublicSubmitOptions>(config.GetSection("PublicIssues"));
+        services.AddSingleton<PublicSubmitThrottle>();
+        return services;
+    }
+
+    /// <summary>Who did what and from where, plus a background-written log of writes, refusals and sign-ins.</summary>
+    public static IServiceCollection AddAuditing(this IServiceCollection services)
+    {
+        services.AddHttpContextAccessor();
+        services.AddScoped<IAuditContext, HttpAuditContext>();
+        services.AddScoped<IOverviewService, OverviewService>();
+        services.AddSingleton<PresenceTracker>();
+        services.AddSingleton<IPresenceTracker>(sp => sp.GetRequiredService<PresenceTracker>());
+        services.AddSingleton<RequestLogQueue>();
+        services.AddHostedService<RequestLogWriter>();
+        return services;
+    }
+
+    /// <summary>Failed sign-ins are counted in memory, so the throttle must live as long as the process.</summary>
+    public static IServiceCollection AddLoginThrottle(this IServiceCollection services, IConfiguration config)
+    {
+        services.Configure<LoginThrottleOptions>(config.GetSection("LoginThrottle"));
+        services.AddSingleton(TimeProvider.System);
+        services.AddSingleton<LoginThrottle>();
+        return services;
+    }
+
+    /// <summary>
+    /// SignalR needs credentials, so origins must be listed explicitly. Extra origins, e.g. a Vercel preview URL,
+    /// can be added with Cors__Origins__0, Cors__Origins__1, ...
+    /// </summary>
+    public static IServiceCollection AddFrontendCors(this IServiceCollection services, IConfiguration config)
+    {
+        var allowedOrigins = new[]
+            {
+                "http://localhost:5173",
+                "https://kpi-management-two.vercel.app",
+                "https://kpi-management.vercel.app"
+            }
+            .Concat(config.GetSection("Cors:Origins").Get<string[]>() ?? [])
+            .ToArray();
+
+        return services.AddCors(options => options.AddPolicy(CorsPolicy, policy => policy
+            .WithOrigins(allowedOrigins)
+            .AllowAnyHeader()
+            .AllowAnyMethod()
+            .AllowCredentials()));
+    }
+
+    public const string CorsPolicy = "AllowFrontend";
+
+    public static IServiceCollection AddJwtAuthentication(this IServiceCollection services, IConfiguration config)
+    {
+        var jwtKey = config["Jwt:Key"];
+        if (JwtKeyValidator.Problem(jwtKey) is { } jwtKeyProblem)
+            throw new InvalidOperationException(
+                $"Jwt:Key cannot be used: {jwtKeyProblem} Set the Jwt__Key environment variable to a random secret " +
+                "of 32+ characters (see appsettings.Example.json).");
+
+        services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
+            .AddJwtBearer(options =>
+            {
+                options.TokenValidationParameters = new TokenValidationParameters
+                {
+                    ValidateIssuer = true,
+                    ValidateAudience = true,
+                    ValidateLifetime = true,
+                    ValidateIssuerSigningKey = true,
+                    ValidIssuer = config["Jwt:Issuer"],
+                    ValidAudience = config["Jwt:Audience"],
+                    IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(jwtKey!))
+                };
+
+                // Browsers cannot set an Authorization header on a WebSocket, so SignalR sends the
+                // token as ?access_token=... on hub URLs only.
+                options.Events = new JwtBearerEvents
+                {
+                    OnMessageReceived = context =>
+                    {
+                        var accessToken = context.Request.Query["access_token"];
+                        if (!string.IsNullOrEmpty(accessToken) && context.HttpContext.Request.Path.StartsWithSegments("/hubs"))
+                            context.Token = accessToken;
+                        return Task.CompletedTask;
+                    }
+                };
+            });
+        return services;
+    }
+
+    /// <summary>One policy per permission: [Authorize(Policy = Permissions.Kpi.Approve)]</summary>
+    public static IServiceCollection AddPermissionPolicies(this IServiceCollection services)
+    {
+        services.AddAuthorization(options =>
+        {
+            foreach (var permission in Permissions.All)
+                options.AddPolicy(permission, policy =>
+                    policy.RequireAuthenticatedUser().AddRequirements(new PermissionRequirement(permission)));
+        });
+        services.AddScoped<IAuthorizationHandler, PermissionHandler>();
+        return services;
+    }
+
+    /// <summary>Hangfire, on PostgreSQL (or in memory for a test that starts the whole app).</summary>
+    public static IServiceCollection AddBackgroundJobs(this IServiceCollection services, IConfiguration config)
+    {
+        services.AddHangfire(hangfire =>
+        {
+            if (string.Equals(config["Jobs:Storage"], "InMemory", StringComparison.OrdinalIgnoreCase))
+                hangfire.UseInMemoryStorage();
+            else
+                hangfire.UsePostgreSqlStorage(config.GetConnectionString("DefaultConnection"));
+        });
+        services.AddHangfireServer();
+        return services;
+    }
+}

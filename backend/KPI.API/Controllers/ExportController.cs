@@ -1,4 +1,4 @@
-using System.Security.Claims;
+using KPI.API.Security;
 using KPI.Application.Export;
 using KPI.Domain.Constants;
 using Microsoft.AspNetCore.Authorization;
@@ -18,8 +18,7 @@ public class ExportController : ControllerBase
         _exportService = exportService;
     }
 
-    private Guid GetUserId() =>
-        Guid.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
+    private Guid GetUserId() => User.GetUserId();
 
     [HttpGet("kpi/pdf")]
     public async Task<IActionResult> ExportPdf()

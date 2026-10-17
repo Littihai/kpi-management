@@ -55,20 +55,19 @@ public class IssueService : IIssueService
         var now = Now;
         var issue = NewIssue(request.Title, request.Description, request.Category, request.Module, request.Impact, now);
         issue.ReporterUserId = actor.Id;
-        issue.ReporterName = FullName(actor);
+        issue.ReporterName = actor.FullName;
         issue.ReporterEmail = actor.Email;
         issue.DepartmentId = actor.DepartmentId;
-        issue.ReporterIp = Truncate(ip, 64);
-        issue.PageUrl = Truncate(request.PageUrl, 500);
-        issue.UserAgent = Truncate(request.UserAgent, 400);
-        issue.ClientInfo = Truncate(request.ClientInfo, 1000);
-        issue.ErrorRequestId = Truncate(request.ErrorRequestId, 100);
+        issue.ReporterIp = ip.Truncate(64);
+        issue.PageUrl = request.PageUrl.Truncate(500);
+        issue.UserAgent = request.UserAgent.Truncate(400);
+        issue.ClientInfo = request.ClientInfo.Truncate(1000);
+        issue.ErrorRequestId = request.ErrorRequestId.Truncate(100);
 
         await SaveNewAsync(issue, uploads, actor);
 
-        await _events.PublishAsync(issue, "created", FullName(actor), actor.Id,
-            new RealtimeNotification("แจ้งปัญหาใหม่", $"{issue.DisplayNumber} · {issue.Title}", "info", null, issue.Id),
-            new RealtimeAudience([], ItSupport: true),
+        await _events.PublishAsync(issue, "created", actor.FullName, actor.Id,
+            Toast(issue, "แจ้งปัญหาใหม่", issue.Title), ToIt,
             IssueEmailKind.NewForIt);
         await _events.PublishAsync(issue, "received", null, actor.Id, email: IssueEmailKind.Received);
 
@@ -106,16 +105,14 @@ public class IssueService : IIssueService
         issue.ReporterEmail = string.IsNullOrEmpty(email) ? null : email;
         issue.ReporterPhone = string.IsNullOrEmpty(phone) ? null : phone;
         issue.DepartmentId = department?.Id;
-        issue.ReporterIp = Truncate(ip, 64);
-        issue.UserAgent = Truncate(request.UserAgent, 400);
-        issue.ClientInfo = Truncate(request.ClientInfo, 1000);
+        issue.ReporterIp = ip.Truncate(64);
+        issue.UserAgent = request.UserAgent.Truncate(400);
+        issue.ClientInfo = request.ClientInfo.Truncate(1000);
 
         await SaveNewAsync(issue, uploads, actor: null);
 
         await _events.PublishAsync(issue, "created", name, null,
-            new RealtimeNotification("แจ้งปัญหาใหม่ (ผู้ใช้ที่ยังไม่ได้เข้าสู่ระบบ)",
-                $"{issue.DisplayNumber} · {issue.Title}", "info", null, issue.Id),
-            new RealtimeAudience([], ItSupport: true),
+            Toast(issue, "แจ้งปัญหาใหม่ (ผู้ใช้ที่ยังไม่ได้เข้าสู่ระบบ)", issue.Title), ToIt,
             IssueEmailKind.NewForIt);
         await _events.PublishAsync(issue, "received", null, null, email: IssueEmailKind.Received);
 
@@ -166,11 +163,11 @@ public class IssueService : IIssueService
             catch (DbUpdateException) when (attempt < 4)
             {
                 // Number already taken by a concurrent report: forget this attempt and pick the next one.
+                // (The attachments are added again at the top of the loop, so only clear them here.)
                 foreach (var entry in _db.ChangeTracker.Entries()
                              .Where(e => e.Entity is Issue or IssueAttachment or AuditLog).ToList())
                     entry.State = EntityState.Detached;
                 issue.Attachments.Clear();
-                foreach (var upload in uploads) issue.Attachments.Add(ToAttachment(upload, actor?.Id));
             }
         }
     }
@@ -189,10 +186,8 @@ public class IssueService : IIssueService
         var rows = Scope(_db.Issues.AsNoTracking(), actor);
 
         if (query.Status is { } status) rows = rows.Where(i => i.Status == status);
-        if (query.OpenOnly == true)
-            rows = rows.Where(i => i.Status != IssueStatus.Resolved && i.Status != IssueStatus.Closed && i.Status != IssueStatus.Rejected);
-        if (query.OpenOnly == false)
-            rows = rows.Where(i => i.Status == IssueStatus.Resolved || i.Status == IssueStatus.Closed || i.Status == IssueStatus.Rejected);
+        if (query.OpenOnly == true) rows = rows.Where(IssueFilters.Open);
+        if (query.OpenOnly == false) rows = rows.Where(IssueFilters.Finished);
         if (query.Priority is { } priority) rows = rows.Where(i => i.Priority == priority);
         if (query.Module is { } module) rows = rows.Where(i => i.Module == module);
         if (query.DepartmentId is { } departmentId) rows = rows.Where(i => i.DepartmentId == departmentId);
@@ -200,13 +195,7 @@ public class IssueService : IIssueService
         if (query.Mine == true) rows = rows.Where(i => i.ReporterUserId == actor.Id || i.AssigneeId == actor.Id);
         if (query.From is { } from) rows = rows.Where(i => i.CreatedAt >= from);
         if (query.To is { } to) rows = rows.Where(i => i.CreatedAt < to);
-        if (query.Overdue == true)
-            rows = rows.Where(i =>
-                (i.FirstResponseAt == null && now > i.ResponseDueAt
-                    && (i.Status == IssueStatus.New || i.Status == IssueStatus.Assigned))
-                || ((i.Status == IssueStatus.New || i.Status == IssueStatus.Assigned
-                     || i.Status == IssueStatus.InProgress || i.Status == IssueStatus.Reopened)
-                    && now > i.ResolveDueAt));
+        if (query.Overdue == true) rows = rows.Where(IssueFilters.Overdue(now));
 
         if (!string.IsNullOrWhiteSpace(query.Search))
         {
@@ -237,50 +226,39 @@ public class IssueService : IIssueService
         };
 
         var total = await ordered.CountAsync();
-        var items = await ordered
+        var pageRows = await ordered
             .Skip((page - 1) * size)
             .Take(size)
-            .Select(i => new IssueListItemDto(
-                i.Id,
-                string.Empty, // filled in below: the number format lives in C#, not SQL
-                i.Title,
-                i.Category,
-                i.Module,
-                i.Impact,
-                i.Priority,
-                i.Status,
-                string.Empty,
+            .Select(i => new ListRow(
+                i.Id, i.NumberYear, i.Number, i.Title, i.Category, i.Module, i.Impact, i.Priority, i.Status,
                 i.ReporterName,
-                i.DepartmentId,
-                i.Department != null ? i.Department.Name : null,
+                i.DepartmentId, i.Department != null ? i.Department.Name : null,
                 i.AssigneeId,
-                i.Assignee != null ? i.Assignee.FirstName + " " + i.Assignee.LastName : null,
-                i.CreatedAt,
-                i.UpdatedAt,
-                i.ResponseDueAt,
-                i.ResolveDueAt,
-                i.FirstResponseAt == null && now > i.ResponseDueAt
-                    && (i.Status == IssueStatus.New || i.Status == IssueStatus.Assigned),
-                (i.Status == IssueStatus.New || i.Status == IssueStatus.Assigned
-                    || i.Status == IssueStatus.InProgress || i.Status == IssueStatus.Reopened)
-                    && now > i.ResolveDueAt,
-                i.Comments.Count,
-                i.Attachments.Count,
-                i.IsPublicSubmission))
+                i.Assignee != null ? i.Assignee.FirstName : null,
+                i.Assignee != null ? i.Assignee.LastName : null,
+                i.CreatedAt, i.UpdatedAt, i.ResponseDueAt, i.ResolveDueAt, i.FirstResponseAt,
+                i.Comments.Count, i.Attachments.Count, i.IsPublicSubmission))
             .ToListAsync();
 
-        // Number needs year and sequence, so read them separately for just this page.
-        var ids = items.Select(i => i.Id).ToList();
-        var numbers = await _db.Issues.AsNoTracking()
-            .Where(i => ids.Contains(i.Id))
-            .Select(i => new { i.Id, i.NumberYear, i.Number })
-            .ToDictionaryAsync(i => i.Id, i => Issue.FormatNumber(i.NumberYear, i.Number));
+        return new PagedResult<IssueListItemDto>(pageRows.Select(r => r.ToDto(now)).ToList(), total, page, size);
+    }
 
-        var result = items
-            .Select(i => i with { Number = numbers[i.Id], Tone = IssueStateMachine.Tone(i.Status) })
-            .ToList();
-
-        return new PagedResult<IssueListItemDto>(result, total, page, size);
+    /// <summary>What the list query reads; the number, name, tone and overdue flags are worked out in memory afterwards.</summary>
+    private sealed record ListRow(
+        Guid Id, int NumberYear, int Number, string Title, IssueCategory Category, IssueModule Module,
+        IssueImpact Impact, IssuePriority Priority, IssueStatus Status, string ReporterName,
+        Guid? DepartmentId, string? DepartmentName, Guid? AssigneeId, string? AssigneeFirstName, string? AssigneeLastName,
+        DateTime CreatedAt, DateTime UpdatedAt, DateTime ResponseDueAt, DateTime ResolveDueAt, DateTime? FirstResponseAt,
+        int CommentCount, int AttachmentCount, bool IsPublicSubmission)
+    {
+        public IssueListItemDto ToDto(DateTime now) => new(
+            Id, Issue.FormatNumber(NumberYear, Number), Title, Category, Module, Impact, Priority, Status,
+            IssueStateMachine.Tone(Status), ReporterName, DepartmentId, DepartmentName,
+            AssigneeId, AssigneeFirstName is null ? null : $"{AssigneeFirstName} {AssigneeLastName}".Trim(),
+            CreatedAt, UpdatedAt, ResponseDueAt, ResolveDueAt,
+            IssueStateMachine.IsResponseOverdue(Status, FirstResponseAt, ResponseDueAt, now),
+            IssueStateMachine.IsResolveOverdue(Status, ResolveDueAt, now),
+            CommentCount, AttachmentCount, IsPublicSubmission);
     }
 
     public async Task<IssueSummaryDto> SummaryAsync(Guid userId)
@@ -297,17 +275,13 @@ public class IssueService : IIssueService
             .ToListAsync();
         int Count(params IssueStatus[] statuses) => byStatus.Where(s => statuses.Contains(s.Status)).Sum(s => s.Count);
 
-        var overdue = await rows.CountAsync(i =>
-            ((i.Status == IssueStatus.New || i.Status == IssueStatus.Assigned) && i.FirstResponseAt == null && now > i.ResponseDueAt)
-            || ((i.Status == IssueStatus.New || i.Status == IssueStatus.Assigned
-                 || i.Status == IssueStatus.InProgress || i.Status == IssueStatus.Reopened) && now > i.ResolveDueAt));
+        var overdue = await rows.CountAsync(IssueFilters.Overdue(now));
         var resolved = await rows.CountAsync(i => i.ResolvedAt != null && i.ResolvedAt >= weekAgo);
-        var mine = await rows.CountAsync(i =>
-            (i.ReporterUserId == actor.Id || i.AssigneeId == actor.Id)
-            && i.Status != IssueStatus.Resolved && i.Status != IssueStatus.Closed && i.Status != IssueStatus.Rejected);
+        var actorId = actor.Id;
+        var mine = await rows.Where(IssueFilters.Open)
+            .CountAsync(i => i.ReporterUserId == actorId || i.AssigneeId == actorId);
 
-        var open = Count(IssueStatus.New, IssueStatus.Assigned, IssueStatus.InProgress,
-            IssueStatus.WaitingForReporter, IssueStatus.Reopened);
+        var open = byStatus.Where(s => IssueStateMachine.IsOpen(s.Status)).Sum(s => s.Count);
 
         return new IssueSummaryDto(
             open,
@@ -331,24 +305,13 @@ public class IssueService : IIssueService
         var actor = await GetActorAsync(userId);
         var issue = await LoadAsync(id, actor);
 
-        body = body?.Trim() ?? string.Empty;
-        if (body.Length == 0) throw new RequestValidationException("กรุณาพิมพ์ข้อความ");
-        if (body.Length > 4000) throw new RequestValidationException("ข้อความยาวเกินไป (สูงสุด 4,000 ตัวอักษร)");
+        body = RequireText(body, 1, 4000, "กรุณาพิมพ์ข้อความ", "ข้อความยาวเกินไป (สูงสุด 4,000 ตัวอักษร)");
 
         var staff = IsStaff(actor);
         if (internalNote && !staff) throw new ForbiddenException("เฉพาะทีม IT เท่านั้นที่เขียนบันทึกภายในได้");
 
         var now = Now;
-        _db.IssueComments.Add(new IssueComment
-        {
-            IssueId = issue.Id,
-            AuthorId = actor.Id,
-            AuthorName = FullName(actor),
-            IsStaff = staff,
-            IsInternal = internalNote,
-            Body = body,
-            CreatedAt = now,
-        });
+        AddComment(issue, actor, body, now, staff, internalNote);
 
         var isReporter = issue.ReporterUserId == actor.Id;
         string audit = internalNote ? "InternalNote" : staff ? "StaffReply" : "ReporterReply";
@@ -366,25 +329,23 @@ public class IssueService : IIssueService
             issue.Status = IssueStatus.InProgress;
         }
 
-        StageAudit(actor, issue, audit, from, to ?? Truncate(body, 200));
+        StageAudit(actor, issue, audit, from, to ?? body.Truncate(200));
         await Touch(issue, now);
 
         if (!internalNote)
         {
             if (staff)
-                await _events.PublishAsync(issue, "comment", FullName(actor), actor.Id,
-                    new RealtimeNotification("IT ตอบกลับแล้ว", $"{issue.DisplayNumber} · {Truncate(body, 80)}", "info", null, issue.Id),
-                    new RealtimeAudience(issue.ReporterUserId is { } r ? [r] : []),
+                await _events.PublishAsync(issue, "comment", actor.FullName, actor.Id,
+                    Toast(issue, "IT ตอบกลับแล้ว", body.Truncate(80)), ToReporter(issue),
                     IssueEmailKind.StaffReplied, body);
             else
-                await _events.PublishAsync(issue, "comment", FullName(actor), actor.Id,
-                    new RealtimeNotification("ผู้แจ้งตอบกลับ", $"{issue.DisplayNumber} · {Truncate(body, 80)}", "info", null, issue.Id),
-                    issue.AssigneeId is { } a ? new RealtimeAudience([a]) : new RealtimeAudience([], ItSupport: true),
+                await _events.PublishAsync(issue, "comment", actor.FullName, actor.Id,
+                    Toast(issue, "ผู้แจ้งตอบกลับ", body.Truncate(80)), ToAssigneeOrIt(issue),
                     IssueEmailKind.ReporterReplied, body);
         }
         else
         {
-            await _events.PublishAsync(issue, "note", FullName(actor), actor.Id);
+            await _events.PublishAsync(issue, "note", actor.FullName, actor.Id);
         }
 
         return await DetailAsync(issue.Id, actor);
@@ -402,18 +363,18 @@ public class IssueService : IIssueService
 
         var now = Now;
         var oldStatus = issue.Status;
-        var oldAssignee = issue.Assignee is null ? null : FullName(issue.Assignee);
+        var oldAssignee = issue.Assignee is null ? null : issue.Assignee.FullName;
         issue.AssigneeId = assignee.Id;
         issue.Assignee = assignee;
         issue.Status = IssueStateMachine.Next(issue.Status, IssueAction.Assign);
         MarkFirstResponse(issue, now);
 
-        StageAudit(actor, issue, "Assign", oldAssignee ?? oldStatus.ToString(), FullName(assignee));
+        StageAudit(actor, issue, "Assign", oldAssignee ?? oldStatus.ToString(), assignee.FullName);
         await Touch(issue, now);
 
         var toAssignee = assignee.Id == actor.Id ? null : new RealtimeAudience([assignee.Id]);
-        await _events.PublishAsync(issue, "assigned", FullName(actor), actor.Id,
-            toAssignee is null ? null : new RealtimeNotification("มีงานมอบหมายให้คุณ", $"{issue.DisplayNumber} · {issue.Title}", "info", null, issue.Id),
+        await _events.PublishAsync(issue, "assigned", actor.FullName, actor.Id,
+            toAssignee is null ? null : Toast(issue, "มีงานมอบหมายให้คุณ", issue.Title),
             toAssignee,
             toAssignee is null ? null : IssueEmailKind.Assigned);
 
@@ -438,9 +399,8 @@ public class IssueService : IIssueService
 
         StageAudit(actor, issue, "Start", old.ToString(), issue.Status.ToString());
         await Touch(issue, now);
-        await _events.PublishAsync(issue, "started", FullName(actor), actor.Id,
-            new RealtimeNotification("กำลังแก้ไขปัญหา", $"{issue.DisplayNumber} · {FullName(actor)} เริ่มดำเนินการแล้ว", "info", null, issue.Id),
-            new RealtimeAudience(issue.ReporterUserId is { } r ? [r] : []));
+        await _events.PublishAsync(issue, "started", actor.FullName, actor.Id,
+            Toast(issue, "กำลังแก้ไขปัญหา", $"{actor.FullName} เริ่มดำเนินการแล้ว"), ToReporter(issue));
 
         return await DetailAsync(issue.Id, actor);
     }
@@ -451,26 +411,19 @@ public class IssueService : IIssueService
         var issue = await LoadAsync(id, actor);
         Authorize(actor, issue, IssueAction.RequestInfo);
 
-        message = message?.Trim() ?? string.Empty;
-        if (message.Length == 0) throw new RequestValidationException("กรุณาระบุว่าต้องการข้อมูลอะไรเพิ่ม");
-        if (message.Length > 4000) throw new RequestValidationException("ข้อความยาวเกินไป");
+        message = RequireText(message, 1, 4000, "กรุณาระบุว่าต้องการข้อมูลอะไรเพิ่ม", "ข้อความยาวเกินไป");
 
         var now = Now;
         var old = issue.Status;
         issue.Status = IssueStatus.WaitingForReporter;
         issue.WaitingSince = now; // the resolve clock stops until the reporter answers
         MarkFirstResponse(issue, now);
-        _db.IssueComments.Add(new IssueComment
-        {
-            IssueId = issue.Id, AuthorId = actor.Id, AuthorName = FullName(actor),
-            IsStaff = true, Body = message, CreatedAt = now,
-        });
+        AddComment(issue, actor, message, now, staff: true);
 
         StageAudit(actor, issue, "RequestInfo", old.ToString(), issue.Status.ToString());
         await Touch(issue, now);
-        await _events.PublishAsync(issue, "needsInfo", FullName(actor), actor.Id,
-            new RealtimeNotification("IT ขอข้อมูลเพิ่ม", $"{issue.DisplayNumber} · {Truncate(message, 80)}", "warning", null, issue.Id),
-            new RealtimeAudience(issue.ReporterUserId is { } r ? [r] : []),
+        await _events.PublishAsync(issue, "needsInfo", actor.FullName, actor.Id,
+            Toast(issue, "IT ขอข้อมูลเพิ่ม", message.Truncate(80), "warning"), ToReporter(issue),
             IssueEmailKind.NeedsInfo, message);
 
         return await DetailAsync(issue.Id, actor);
@@ -482,9 +435,8 @@ public class IssueService : IIssueService
         var issue = await LoadAsync(id, actor);
         Authorize(actor, issue, IssueAction.Resolve);
 
-        var resolution = request.Resolution?.Trim() ?? string.Empty;
-        if (resolution.Length < 5) throw new RequestValidationException("กรุณาอธิบายวิธีแก้ไข (อย่างน้อย 5 ตัวอักษร)");
-        if (resolution.Length > 4000) throw new RequestValidationException("วิธีแก้ไขยาวเกินไป (สูงสุด 4,000 ตัวอักษร)");
+        var resolution = RequireText(request.Resolution, 5, 4000,
+            "กรุณาอธิบายวิธีแก้ไข (อย่างน้อย 5 ตัวอักษร)", "วิธีแก้ไขยาวเกินไป (สูงสุด 4,000 ตัวอักษร)");
         if (request.RootCause == IssueRootCause.None || !Enum.IsDefined(request.RootCause))
             throw new RequestValidationException("กรุณาเลือกสาเหตุของปัญหา");
         if (request.Prevention is { Length: > 2000 }) throw new RequestValidationException("วิธีป้องกันยาวเกินไป");
@@ -504,11 +456,10 @@ public class IssueService : IIssueService
         if (issue.AssigneeId is null) { issue.AssigneeId = actor.Id; issue.Assignee = actor; }
         MarkFirstResponse(issue, now);
 
-        StageAudit(actor, issue, "Resolve", old.ToString(), $"{issue.Status}: {Truncate(resolution, 200)}");
+        StageAudit(actor, issue, "Resolve", old.ToString(), $"{issue.Status}: {resolution.Truncate(200)}");
         await Touch(issue, now);
-        await _events.PublishAsync(issue, "resolved", FullName(actor), actor.Id,
-            new RealtimeNotification("แก้ไขปัญหาแล้ว", $"{issue.DisplayNumber} · กรุณายืนยันว่าใช้งานได้ปกติ", "success", null, issue.Id),
-            new RealtimeAudience(issue.ReporterUserId is { } r ? [r] : []),
+        await _events.PublishAsync(issue, "resolved", actor.FullName, actor.Id,
+            Toast(issue, "แก้ไขปัญหาแล้ว", "กรุณายืนยันว่าใช้งานได้ปกติ", "success"), ToReporter(issue),
             IssueEmailKind.Resolved, resolution);
 
         return await DetailAsync(issue.Id, actor);
@@ -527,7 +478,7 @@ public class IssueService : IIssueService
 
         StageAudit(actor, issue, "Confirm", old.ToString(), issue.Status.ToString());
         await Touch(issue, now);
-        await _events.PublishAsync(issue, "closed", FullName(actor), actor.Id);
+        await _events.PublishAsync(issue, "closed", actor.FullName, actor.Id);
 
         return await DetailAsync(issue.Id, actor);
     }
@@ -538,9 +489,7 @@ public class IssueService : IIssueService
         var issue = await LoadAsync(id, actor);
         Authorize(actor, issue, IssueAction.Reopen);
 
-        reason = reason?.Trim() ?? string.Empty;
-        if (reason.Length == 0) throw new RequestValidationException("กรุณาบอกว่าทำไมปัญหายังไม่หาย");
-        if (reason.Length > 4000) throw new RequestValidationException("ข้อความยาวเกินไป");
+        reason = RequireText(reason, 1, 4000, "กรุณาบอกว่าทำไมปัญหายังไม่หาย", "ข้อความยาวเกินไป");
 
         var now = Now;
         var old = issue.Status;
@@ -550,17 +499,12 @@ public class IssueService : IIssueService
         issue.ClosedAt = null;
         issue.RejectReason = null;
         issue.ResolveDueAt = now + _sla.ResolveFor(issue.Priority); // a fresh target for the second attempt
-        _db.IssueComments.Add(new IssueComment
-        {
-            IssueId = issue.Id, AuthorId = actor.Id, AuthorName = FullName(actor),
-            IsStaff = IsStaff(actor), Body = reason, CreatedAt = now,
-        });
+        AddComment(issue, actor, reason, now, IsStaff(actor));
 
-        StageAudit(actor, issue, "Reopen", old.ToString(), $"{issue.Status}: {Truncate(reason, 200)}");
+        StageAudit(actor, issue, "Reopen", old.ToString(), $"{issue.Status}: {reason.Truncate(200)}");
         await Touch(issue, now);
-        await _events.PublishAsync(issue, "reopened", FullName(actor), actor.Id,
-            new RealtimeNotification("เปิดเรื่องใหม่", $"{issue.DisplayNumber} · {Truncate(reason, 80)}", "warning", null, issue.Id),
-            issue.AssigneeId is { } a ? new RealtimeAudience([a]) : new RealtimeAudience([], ItSupport: true),
+        await _events.PublishAsync(issue, "reopened", actor.FullName, actor.Id,
+            Toast(issue, "เปิดเรื่องใหม่", reason.Truncate(80), "warning"), ToAssigneeOrIt(issue),
             IssueEmailKind.Reopened, reason);
 
         return await DetailAsync(issue.Id, actor);
@@ -572,9 +516,7 @@ public class IssueService : IIssueService
         var issue = await LoadAsync(id, actor);
         Authorize(actor, issue, IssueAction.Reject);
 
-        reason = reason?.Trim() ?? string.Empty;
-        if (reason.Length == 0) throw new RequestValidationException("กรุณาระบุเหตุผล");
-        if (reason.Length > 1000) throw new RequestValidationException("เหตุผลยาวเกินไป (สูงสุด 1,000 ตัวอักษร)");
+        reason = RequireText(reason, 1, 1000, "กรุณาระบุเหตุผล", "เหตุผลยาวเกินไป (สูงสุด 1,000 ตัวอักษร)");
 
         if (duplicateOfId is { } duplicate)
         {
@@ -592,11 +534,10 @@ public class IssueService : IIssueService
         issue.WaitingSince = null;
         MarkFirstResponse(issue, now);
 
-        StageAudit(actor, issue, "Reject", old.ToString(), $"{issue.Status}: {Truncate(reason, 200)}");
+        StageAudit(actor, issue, "Reject", old.ToString(), $"{issue.Status}: {reason.Truncate(200)}");
         await Touch(issue, now);
-        await _events.PublishAsync(issue, "rejected", FullName(actor), actor.Id,
-            new RealtimeNotification("ไม่ดำเนินการต่อ", $"{issue.DisplayNumber} · {Truncate(reason, 80)}", "warning", null, issue.Id),
-            new RealtimeAudience(issue.ReporterUserId is { } r ? [r] : []),
+        await _events.PublishAsync(issue, "rejected", actor.FullName, actor.Id,
+            Toast(issue, "ไม่ดำเนินการต่อ", reason.Truncate(80), "warning"), ToReporter(issue),
             IssueEmailKind.Rejected, reason);
 
         return await DetailAsync(issue.Id, actor);
@@ -620,7 +561,7 @@ public class IssueService : IIssueService
 
         StageAudit(actor, issue, "SetPriority", old.ToString(), priority.ToString());
         await Touch(issue, now);
-        await _events.PublishAsync(issue, "priority", FullName(actor), actor.Id);
+        await _events.PublishAsync(issue, "priority", actor.FullName, actor.Id);
 
         return await DetailAsync(issue.Id, actor);
     }
@@ -642,7 +583,7 @@ public class IssueService : IIssueService
 
         StageAudit(actor, issue, "Attach", null, $"{uploads.Count} file(s)");
         await Touch(issue, Now);
-        await _events.PublishAsync(issue, "attachment", FullName(actor), actor.Id);
+        await _events.PublishAsync(issue, "attachment", actor.FullName, actor.Id);
 
         return await DetailAsync(issue.Id, actor);
     }
@@ -675,8 +616,8 @@ public class IssueService : IIssueService
 
         var staffIds = staff.Select(s => s.Id).ToList();
         var open = await _db.Issues.AsNoTracking()
-            .Where(i => i.AssigneeId != null && staffIds.Contains(i.AssigneeId.Value)
-                        && i.Status != IssueStatus.Resolved && i.Status != IssueStatus.Closed && i.Status != IssueStatus.Rejected)
+            .Where(IssueFilters.Open)
+            .Where(i => i.AssigneeId != null && staffIds.Contains(i.AssigneeId.Value))
             .GroupBy(i => i.AssigneeId!.Value)
             .Select(g => new { Id = g.Key, Count = g.Count() })
             .ToDictionaryAsync(g => g.Id, g => g.Count);
@@ -866,8 +807,6 @@ public class IssueService : IIssueService
                 e.UserName ?? e.UserEmail, e.UserRole, Utc(e.CreatedAt)))
             .ToList();
 
-        var open = issue.Status is IssueStatus.New or IssueStatus.Assigned or IssueStatus.InProgress or IssueStatus.Reopened;
-
         return new IssueDetailDto(
             issue.Id, issue.DisplayNumber, issue.Title, issue.Description,
             issue.Category, issue.Module, issue.Impact, issue.Priority, issue.Status,
@@ -875,13 +814,12 @@ public class IssueService : IIssueService
             issue.ReporterUserId, issue.ReporterName,
             issue.ReporterEmail, issue.ReporterPhone, issue.IsPublicSubmission,
             issue.DepartmentId, issue.Department?.Name,
-            issue.AssigneeId, issue.Assignee is null ? null : FullName(issue.Assignee),
+            issue.AssigneeId, issue.Assignee is null ? null : issue.Assignee.FullName,
             Utc(issue.CreatedAt), Utc(issue.UpdatedAt),
             Utc(issue.ResponseDueAt), UtcOrNull(issue.FirstResponseAt),
             Utc(issue.ResolveDueAt),
-            issue.FirstResponseAt == null && now > issue.ResponseDueAt
-                && issue.Status is IssueStatus.New or IssueStatus.Assigned,
-            open && now > issue.ResolveDueAt,
+            IssueStateMachine.IsResponseOverdue(issue.Status, issue.FirstResponseAt, issue.ResponseDueAt, now),
+            IssueStateMachine.IsResolveOverdue(issue.Status, issue.ResolveDueAt, now),
             UtcOrNull(issue.WaitingSince), UtcOrNull(issue.ResolvedAt), UtcOrNull(issue.ClosedAt),
             issue.ReopenCount,
             issue.RootCause, issue.Resolution, issue.Prevention, issue.FixReference, issue.TimeSpentMinutes,
@@ -896,6 +834,39 @@ public class IssueService : IIssueService
     }
 
     private static void MarkFirstResponse(Issue issue, DateTime now) => issue.FirstResponseAt ??= now;
+
+    /// <summary>Trims the text and refuses it when it is shorter than <paramref name="min"/> or longer than <paramref name="max"/>.</summary>
+    private static string RequireText(string? value, int min, int max, string tooShort, string tooLong)
+    {
+        var text = value?.Trim() ?? string.Empty;
+        if (text.Length < min) throw new RequestValidationException(tooShort);
+        if (text.Length > max) throw new RequestValidationException(tooLong);
+        return text;
+    }
+
+    private void AddComment(Issue issue, User actor, string body, DateTime now, bool staff, bool internalNote = false) =>
+        _db.IssueComments.Add(new IssueComment
+        {
+            IssueId = issue.Id,
+            AuthorId = actor.Id,
+            AuthorName = actor.FullName,
+            IsStaff = staff,
+            IsInternal = internalNote,
+            Body = body,
+            CreatedAt = now,
+        });
+
+    // Who hears about a change, and how the toast reads.
+    private static readonly RealtimeAudience ToIt = new([], ItSupport: true);
+
+    private static RealtimeAudience ToReporter(Issue issue) =>
+        new(issue.ReporterUserId is { } reporter ? [reporter] : []);
+
+    private static RealtimeAudience ToAssigneeOrIt(Issue issue) =>
+        issue.AssigneeId is { } assignee ? new RealtimeAudience([assignee]) : ToIt;
+
+    private static RealtimeNotification Toast(Issue issue, string title, string? detail, string level = "info") =>
+        new(title, $"{issue.DisplayNumber} · {detail}", level, null, issue.Id);
 
     /// <summary>The reporter answered: push the resolve deadline back by the time IT spent waiting.</summary>
     private static void ResumeFromWaiting(Issue issue, DateTime now)
@@ -923,7 +894,7 @@ public class IssueService : IIssueService
             NewValues = newValues,
             UserId = actor?.Id,
             UserEmail = actor?.Email ?? fallbackEmail,
-            UserName = actor is null ? fallbackName : FullName(actor),
+            UserName = actor is null ? fallbackName : actor.FullName,
             UserRole = actor?.Role?.Name,
             DepartmentName = actor?.Department?.Name,
             CreatedAt = Now,
@@ -939,12 +910,12 @@ public class IssueService : IIssueService
         foreach (var file in uploads)
         {
             if (file.Data.Length > MaxAttachmentBytes)
-                throw new RequestValidationException($"ไฟล์ \"{SafeName(file.FileName)}\" ใหญ่เกิน 5 MB");
+                throw new RequestValidationException($"ไฟล์ \"{file.FileName.ToSafeFileName()}\" ใหญ่เกิน 5 MB");
 
             var type = DetectImageType(file.Data)
-                ?? throw new RequestValidationException($"ไฟล์ \"{SafeName(file.FileName)}\" ต้องเป็นรูปภาพ (PNG, JPG, GIF หรือ WebP)");
+                ?? throw new RequestValidationException($"ไฟล์ \"{file.FileName.ToSafeFileName()}\" ต้องเป็นรูปภาพ (PNG, JPG, GIF หรือ WebP)");
 
-            checkedUploads.Add(new IssueUpload(SafeName(file.FileName), type, file.Data));
+            checkedUploads.Add(new IssueUpload(file.FileName.ToSafeFileName(), type, file.Data));
         }
         return checkedUploads;
     }
@@ -960,16 +931,6 @@ public class IssueService : IIssueService
         return null;
     }
 
-    private static string SafeName(string? name)
-    {
-        // Path.GetFileName only knows the server's own separator, so on Linux a Windows path
-        // ("C:\\Users\\me\\a.png") would pass through untouched. Cut at either kind of slash.
-        var raw = name ?? string.Empty;
-        var file = raw[(raw.LastIndexOfAny(['/', '\\']) + 1)..].Trim();
-        if (file.Length == 0) file = "image";
-        return Truncate(file, 255)!;
-    }
-
     private static IssueAttachment ToAttachment(IssueUpload upload, Guid? uploadedBy, Guid? issueId = null) => new()
     {
         IssueId = issueId ?? Guid.Empty,
@@ -979,11 +940,6 @@ public class IssueService : IIssueService
         Data = upload.Data,
         UploadedById = uploadedBy,
     };
-
-    private static string FullName(User user) => $"{user.FirstName} {user.LastName}".Trim();
-
-    private static string? Truncate(string? value, int max) =>
-        value is null ? null : value.Length <= max ? value : value[..max];
 
     /// <summary>Timestamps are stored as UTC without a zone; mark them so browsers convert correctly.</summary>
     private static DateTime Utc(DateTime value) => DateTime.SpecifyKind(value, DateTimeKind.Utc);

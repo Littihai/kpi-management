@@ -25,6 +25,16 @@ public static class IssueStateMachine
     public static bool IsOpen(IssueStatus status) =>
         status is not (IssueStatus.Resolved or IssueStatus.Closed or IssueStatus.Rejected);
 
+    /// <summary>The resolve clock runs only while the next move is IT's, not while waiting for the reporter.</summary>
+    public static bool ClockRuns(IssueStatus status) =>
+        status is IssueStatus.New or IssueStatus.Assigned or IssueStatus.InProgress or IssueStatus.Reopened;
+
+    public static bool IsResponseOverdue(IssueStatus status, DateTime? firstResponseAt, DateTime responseDueAt, DateTime now) =>
+        firstResponseAt is null && now > responseDueAt && (status is IssueStatus.New or IssueStatus.Assigned);
+
+    public static bool IsResolveOverdue(IssueStatus status, DateTime resolveDueAt, DateTime now) =>
+        ClockRuns(status) && now > resolveDueAt;
+
     public static bool CanApply(IssueStatus status, IssueAction action) => action switch
     {
         IssueAction.Assign => IsOpen(status),

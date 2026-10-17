@@ -114,7 +114,7 @@ public class IssueEventPublisher
             if (issue.ReporterUserId is { } id)
             {
                 var user = await _context.Users.AsNoTracking().FirstOrDefaultAsync(u => u.Id == id && u.IsActive);
-                if (user != null) Add(user.Email, $"{user.FirstName} {user.LastName}".Trim(), user.Id);
+                if (user != null) Add(user.Email, user.FullName, user.Id);
             }
             else
             {
@@ -129,7 +129,7 @@ public class IssueEventPublisher
             if (it.Count == 0)
                 it = await _context.Users.AsNoTracking()
                     .Where(u => u.IsActive && u.Role.Name == RoleNames.SuperAdmin).ToListAsync();
-            foreach (var u in it) Add(u.Email, $"{u.FirstName} {u.LastName}".Trim(), u.Id);
+            foreach (var u in it) Add(u.Email, u.FullName, u.Id);
         }
 
         async Task AddAssigneeOrItAsync()
@@ -137,7 +137,7 @@ public class IssueEventPublisher
             if (issue.AssigneeId is { } id)
             {
                 var user = await _context.Users.AsNoTracking().FirstOrDefaultAsync(u => u.Id == id && u.IsActive);
-                if (user != null) { Add(user.Email, $"{user.FirstName} {user.LastName}".Trim(), user.Id); return; }
+                if (user != null) { Add(user.Email, user.FullName, user.Id); return; }
             }
             await AddItAsync();
         }

@@ -1,4 +1,3 @@
-using System.Security.Claims;
 using KPI.Application.Auth;
 using KPI.API.Security;
 using KPI.Domain.Constants;
@@ -72,7 +71,6 @@ public class AuthController : ControllerBase
     [Authorize]
     public async Task<IActionResult> Me()
     {
-        var userId = Guid.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
-        return Ok(await _authService.GetProfileAsync(userId));
+        return Ok(await _authService.GetProfileAsync(User.GetUserId()));
     }
 }

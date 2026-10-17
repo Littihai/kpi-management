@@ -57,11 +57,11 @@ public class KpiEmailNotifier
                     await _email.SendAsync(new KpiEmailMessage(
                         kind,
                         user.Email,
-                        $"{user.FirstName} {user.LastName}".Trim(),
+                        user.FullName,
                         kpi.Id,
                         kpi.Name,
                         kpi.Department?.Name,
-                        kpi.Owner is null ? null : $"{kpi.Owner.FirstName} {kpi.Owner.LastName}".Trim(),
+                        kpi.Owner is null ? null : kpi.Owner.FullName,
                         actorName,
                         kpi.Progress,
                         kpi.Target,

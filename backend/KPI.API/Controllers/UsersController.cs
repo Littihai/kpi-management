@@ -1,4 +1,4 @@
-using System.Security.Claims;
+using KPI.API.Security;
 using KPI.Application.Auth;
 using KPI.Domain.Constants;
 using KPI.Domain.Exceptions;
@@ -22,8 +22,7 @@ public class UsersController : ControllerBase
         _context = context;
     }
 
-    private Guid CurrentUserId =>
-        Guid.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
+    private Guid CurrentUserId => User.GetUserId();
 
     /// <summary>SuperAdmin and Director see everyone; a Manager sees only their own department.</summary>
     [HttpGet]

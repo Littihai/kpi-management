@@ -5,7 +5,6 @@ using KPI.Domain.Issues;
 using KPI.Infrastructure.Data;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Options;
 
 namespace KPI.API.Controllers;
@@ -38,11 +37,7 @@ public class PublicController : ControllerBase
     /// <summary>Department names for the report form's dropdown. Names only.</summary>
     [HttpGet("departments")]
     public async Task<IActionResult> Departments()
-        => Ok(await _db.Departments.AsNoTracking()
-            .Where(d => d.IsActive)
-            .OrderBy(d => d.Name)
-            .Select(d => new { d.Id, d.Name })
-            .ToListAsync());
+        => Ok(await _db.ListActiveAsync());
 
     [HttpPost("issues")]
     [RequestSizeLimit(MaxRequestBytes)]
@@ -64,7 +59,7 @@ public class PublicController : ControllerBase
             Request.Headers.UserAgent.ToString(), form.ClientInfo);
 
         var receipt = await _issues.CreatePublicAsync(
-            request, await IssuesController.ReadFilesAsync(form.Files), ip);
+            request, await UploadReader.ReadAsync(form.Files), ip);
         return Ok(receipt);
     }
 

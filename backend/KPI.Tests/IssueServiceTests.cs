@@ -3,8 +3,13 @@ using KPI.Application.Notifications;
 using KPI.Domain.Entities;
 using KPI.Domain.Exceptions;
 using KPI.Domain.Issues;
+using KPI.Infrastructure.Data;
+using KPI.Infrastructure.Repositories;
 using KPI.Infrastructure.Services;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Diagnostics;
+using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.Logging.Abstractions;
 
 namespace KPI.Tests;
 
@@ -126,6 +131,45 @@ public class IssueServiceTests
         Assert.Equal("image/png", file.ContentType);        // detected, not trusted from the client
         Assert.Equal("screen shot.png", file.FileName);     // path stripped
         Assert.Equal(Png.Length, file.SizeBytes);
+    }
+
+    [Fact]
+    public async Task A_number_collision_is_retried_without_attaching_the_images_twice()
+    {
+        var w = await TestWorld.CreateAsync();
+        var failFirstSave = new FailFirstIssueSave();
+        await using var db = new AppDbContext(
+            new DbContextOptionsBuilder<AppDbContext>(w.Options).AddInterceptors(failFirstSave).Options);
+        var config = new ConfigurationBuilder()
+            .AddInMemoryCollection(new Dictionary<string, string?> { ["Email:Enabled"] = "false" }).Build();
+        var service = new IssueService(db, new UserRepository(db),
+            new IssueEventPublisher(w.Notifier, db, w.Email, config, NullLogger<IssueEventPublisher>.Instance),
+            IssueSlaPolicy.Default, w.Clock);
+
+        var issue = await service.CreateAsync(Report(), [new IssueUpload("a.png", "image/png", Png)], w.StaffA.Id, null);
+
+        Assert.Equal(1, failFirstSave.Failures);           // the first save really did fail
+        Assert.Equal("ISS-2569-0001", issue.Number);
+        Assert.Single(issue.Attachments);
+        Assert.Equal(1, await w.Db.IssueAttachments.CountAsync());
+        Assert.Equal(1, await w.Db.AuditLogs.CountAsync(a => a.Action == "Create"));
+    }
+
+    /// <summary>Stands in for two reports racing for the same number: the first save of a new issue is refused.</summary>
+    private sealed class FailFirstIssueSave : SaveChangesInterceptor
+    {
+        public int Failures { get; private set; }
+
+        public override ValueTask<InterceptionResult<int>> SavingChangesAsync(
+            DbContextEventData eventData, InterceptionResult<int> result, CancellationToken cancellationToken = default)
+        {
+            if (Failures == 0 && eventData.Context!.ChangeTracker.Entries<Issue>().Any(e => e.State == EntityState.Added))
+            {
+                Failures++;
+                throw new DbUpdateException("duplicate key value violates unique constraint");
+            }
+            return base.SavingChangesAsync(eventData, result, cancellationToken);
+        }
     }
 
     [Fact]
@@ -368,7 +412,7 @@ public class IssueServiceTests
         Assert.Equal(2, forIt.Comments.Count);
         Assert.Contains(forIt.Comments, c => c.IsInternal);
         Assert.Contains(forIt.Timeline, t => t.Action == "InternalNote");
-        Assert.Empty(w.Email.To(IssueEmailKind.StaffReplied).Where(e => e != w.StaffA.Email));
+        Assert.DoesNotContain(w.Email.To(IssueEmailKind.StaffReplied), e => e != w.StaffA.Email);
     }
 
     [Fact]

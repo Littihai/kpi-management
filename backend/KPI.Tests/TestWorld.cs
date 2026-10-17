@@ -115,7 +115,7 @@ public class TestWorld
         }).Build();
         var emails = new KpiEmailNotifier(Db, Email, config, NullLogger<KpiEmailNotifier>.Instance);
         Events = new KpiEventPublisher(Notifier, emails, NullLogger<KpiEventPublisher>.Instance);
-        Service = new KpiService(new KpiRepository(Db), new UserRepository(Db), Db, Events);
+        Service = new KpiService(new KpiRepository(Db), new UserRepository(Db), Db, Events, Clock);
         var issueEvents = new IssueEventPublisher(Notifier, Db, Email, config, NullLogger<IssueEventPublisher>.Instance);
         Issues = new IssueService(Db, new UserRepository(Db), issueEvents, IssueSlaPolicy.Default, Clock);
     }
@@ -182,8 +182,8 @@ public class TestWorld
             Target = target,
             Progress = progress,
             Status = status,
-            StartDate = start ?? DateTime.UtcNow.AddDays(-10),
-            DueDate = due ?? DateTime.UtcNow.AddDays(90),
+            StartDate = start ?? Clock.UtcNow.AddDays(-10),
+            DueDate = due ?? Clock.UtcNow.AddDays(90),
             DepartmentId = (department ?? DeptA).Id,
             OwnerId = owner.Id,
         };
