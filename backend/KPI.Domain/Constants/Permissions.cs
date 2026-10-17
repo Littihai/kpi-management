@@ -57,6 +57,22 @@ public static class Permissions
         public const string Trigger = "job.trigger";
     }
 
+    public static class Issue
+    {
+        /// <summary>Report a problem. Every signed-in role has it.</summary>
+        public const string Create = "issue.create";
+        /// <summary>See issues in your scope: your own, your department's (managers), or all (IT, directors, admins).</summary>
+        public const string View = "issue.view";
+        /// <summary>Work on issues: assign, start, ask for information, resolve, reject, set priority, internal notes.</summary>
+        public const string Manage = "issue.manage";
+    }
+
+    public static class Overview
+    {
+        /// <summary>The system-wide activity overview and request log (SuperAdmin only).</summary>
+        public const string View = "overview.view";
+    }
+
     public static readonly string[] All =
     [
         Kpi.View, Kpi.Create, Kpi.Edit, Kpi.Delete, Kpi.Submit, Kpi.Approve, Kpi.Reject, Kpi.Progress, Kpi.Close,
@@ -67,5 +83,7 @@ public static class Permissions
         Export.View,
         Audit.View,
         Job.Trigger,
+        Issue.Create, Issue.View, Issue.Manage,
+        Overview.View,
     ];
 }
