@@ -96,12 +96,16 @@ public class AuthService : IAuthService
             Encoding.UTF8.GetBytes(_config["Jwt:Key"]!));
 
         var roleName = user.Role?.Name ?? RoleNames.Staff;
-        var claims = new[]
+        var claims = new List<Claim>
         {
-            new Claim(ClaimTypes.NameIdentifier, user.Id.ToString()),
-            new Claim(ClaimTypes.Email, user.Email),
-            new Claim(ClaimTypes.Role, roleName)
+            new(ClaimTypes.NameIdentifier, user.Id.ToString()),
+            new(ClaimTypes.Email, user.Email),
+            new(ClaimTypes.Role, roleName),
+            new(ClaimTypes.Name, $"{user.FirstName} {user.LastName}".Trim()),
         };
+        // Lets the audit log record the department without another database lookup.
+        if (user.Department?.Name is { Length: > 0 } departmentName)
+            claims.Add(new Claim("dept", departmentName));
 
         var token = new JwtSecurityToken(
             issuer: _config["Jwt:Issuer"],

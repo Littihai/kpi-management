@@ -1,75 +1,59 @@
-import { useEffect } from 'react'
-import { BrowserRouter, Routes, Route, Navigate, Outlet } from 'react-router-dom'
+import { lazy, Suspense } from 'react'
+import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom'
+import AppShell from './components/AppShell'
+import ProtectedRoute, { RequirePermission } from './components/ProtectedRoute'
+import { Page, PageSkeleton } from './components/ui/Layout'
 import LoginPage from './pages/LoginPage'
-import DashboardPage from './pages/DashboardPage'
-import KpiListPage from './pages/KpiListPage'
-import KpiDetailPage from './pages/KpiDetailPage'
-import KpiCreatePage from './pages/KpiCreatePage'
-import UsersPage from './pages/admin/UsersPage'
-import ProtectedRoute from './components/ProtectedRoute'
-import Sidebar from './components/Sidebar'
-import { RealtimeProvider } from './components/RealtimeProvider'
-import { authService } from './services/auth.service'
 import { useAuthStore } from './stores/authStore'
 
-// Placeholder pages ชั่วคราว
-const ComingSoon = ({ title }: { title: string }) => (
-  <div className="flex flex-col items-center justify-center h-full text-gray-400 gap-3">
-    <i className="ti ti-tools text-4xl"></i>
-    <p className="text-lg font-medium text-gray-600">{title}</p>
-    <p className="text-sm">Coming soon</p>
-  </div>
-)
+// Each page is loaded when first visited, so the first screen downloads far less code
+// (the charts library alone is large and only a few pages use it).
+const DashboardPage = lazy(() => import('./pages/DashboardPage'))
+const KpiListPage = lazy(() => import('./pages/KpiListPage'))
+const KpiDetailPage = lazy(() => import('./pages/KpiDetailPage'))
+const KpiCreatePage = lazy(() => import('./pages/KpiCreatePage'))
+const UsersPage = lazy(() => import('./pages/admin/UsersPage'))
+const OverviewPage = lazy(() => import('./pages/admin/OverviewPage'))
+const AuditPage = lazy(() => import('./pages/admin/AuditPage'))
+const IssuesPage = lazy(() => import('./pages/issues/IssuesPage'))
+const IssueNewPage = lazy(() => import('./pages/issues/IssueNewPage'))
+const IssueDetailPage = lazy(() => import('./pages/issues/IssueDetailPage'))
+const PublicReportPage = lazy(() => import('./pages/issues/PublicReportPage'))
 
-/** Signed-in area: sidebar, live updates, and a fresh copy of the user's permissions. */
-function AppShell() {
-  const updateUser = useAuthStore((s) => s.updateUser)
-
-  // Permissions are decided by the server and can change between sign-ins, so refresh them on load.
-  useEffect(() => {
-    authService.me()
-      .then((profile) => updateUser({
-        fullName: profile.fullName,
-        role: profile.role,
-        departmentId: profile.departmentId,
-        departmentName: profile.departmentName,
-        permissions: profile.permissions,
-      }))
-      .catch(() => { /* 401 is handled by the API client; other errors keep the cached profile */ })
-  }, [updateUser])
-
-  return (
-    <RealtimeProvider>
-      <div className="flex min-h-screen bg-gray-50">
-        <Sidebar />
-        <main className="flex-1 overflow-auto">
-          <Outlet />
-        </main>
-      </div>
-    </RealtimeProvider>
-  )
+function Home() {
+  const isAuthenticated = useAuthStore((s) => s.isAuthenticated)
+  return <Navigate to={isAuthenticated ? '/dashboard' : '/login'} replace />
 }
 
 export default function App() {
   return (
     <BrowserRouter>
-      <Routes>
-        <Route path="/login" element={<LoginPage />} />
-        <Route element={<ProtectedRoute><AppShell /></ProtectedRoute>}>
-          <Route path="/dashboard" element={<DashboardPage />} />
-          <Route path="/kpi" element={<KpiListPage />} />
-          <Route path="/kpi/create" element={<KpiCreatePage />} />
-          <Route path="/kpi/:id/edit" element={<KpiCreatePage />} />
-          <Route path="/kpi/:id" element={<KpiDetailPage />} />
-          <Route path="/projects" element={<ComingSoon title="Projects" />} />
-          <Route path="/tasks" element={<ComingSoon title="Tasks" />} />
-          <Route path="/analytics" element={<ComingSoon title="Analytics" />} />
-          <Route path="/export" element={<ComingSoon title="Export" />} />
-          <Route path="/admin/users" element={<UsersPage />} />
-          <Route path="/admin/departments" element={<ComingSoon title="Departments" />} />
-        </Route>
-        <Route path="*" element={<Navigate to="/login" replace />} />
-      </Routes>
+      <Suspense fallback={<Page><PageSkeleton /></Page>}>
+        <Routes>
+          <Route path="/login" element={<LoginPage />} />
+          {/* Works without an account, for people who cannot sign in */}
+          <Route path="/report" element={<PublicReportPage />} />
+
+          <Route element={<ProtectedRoute><AppShell /></ProtectedRoute>}>
+            <Route path="/dashboard" element={<RequirePermission permission="kpi.view"><DashboardPage /></RequirePermission>} />
+            <Route path="/kpi" element={<RequirePermission permission="kpi.view"><KpiListPage /></RequirePermission>} />
+            <Route path="/kpi/create" element={<RequirePermission permission="kpi.create"><KpiCreatePage /></RequirePermission>} />
+            <Route path="/kpi/:id/edit" element={<RequirePermission permission="kpi.edit"><KpiCreatePage /></RequirePermission>} />
+            <Route path="/kpi/:id" element={<RequirePermission permission="kpi.view"><KpiDetailPage /></RequirePermission>} />
+
+            <Route path="/issues" element={<RequirePermission permission="issue.view"><IssuesPage /></RequirePermission>} />
+            <Route path="/issues/new" element={<RequirePermission permission="issue.create"><IssueNewPage /></RequirePermission>} />
+            <Route path="/issues/:id" element={<RequirePermission permission="issue.view"><IssueDetailPage /></RequirePermission>} />
+
+            <Route path="/admin/users" element={<RequirePermission permission="user.view"><UsersPage /></RequirePermission>} />
+            <Route path="/admin/overview" element={<RequirePermission permission="overview.view"><OverviewPage /></RequirePermission>} />
+            <Route path="/admin/audit" element={<RequirePermission permission="overview.view"><AuditPage /></RequirePermission>} />
+          </Route>
+
+          <Route path="/" element={<Home />} />
+          <Route path="*" element={<Navigate to="/" replace />} />
+        </Routes>
+      </Suspense>
     </BrowserRouter>
   )
 }

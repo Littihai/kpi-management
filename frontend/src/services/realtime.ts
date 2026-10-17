@@ -16,12 +16,28 @@ export interface KpiChangedEvent {
   at: string
 }
 
+/** Pushed to everyone who may see the issue so queues and detail pages can refresh. */
+export interface IssueChangedEvent {
+  issueId: string
+  number: string
+  title: string
+  action: string
+  status: number
+  priority: number
+  reporterUserId: string | null
+  assigneeId: string | null
+  departmentId: string | null
+  actorName: string | null
+  at: string
+}
+
 /** A toast-style message addressed to specific people. */
 export interface RealtimeNotification {
   title: string
   message: string
   level: 'info' | 'success' | 'warning' | 'error'
   kpiId: string | null
+  issueId: string | null
 }
 
 export function createKpiConnection(): signalR.HubConnection {

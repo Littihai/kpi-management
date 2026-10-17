@@ -9,6 +9,10 @@ public class UserRepository : IUserRepository
 {
     private readonly AppDbContext _context;
 
+    // The repository lives for one request. Authorization and the service both ask for the same user
+    // with permissions, so remember the answer instead of paying the database round trip twice.
+    private readonly Dictionary<Guid, User?> _withPermissions = new();
+
     public UserRepository(AppDbContext context)
     {
         _context = context;
@@ -34,12 +38,19 @@ public class UserRepository : IUserRepository
 
     public async Task<bool> EmailExistsAsync(string email)
         => await _context.Users.AnyAsync(u => u.Email.ToLower() == email.ToLower());
-		
-	public async Task<User?> GetByIdWithPermissionsAsync(Guid id)
-    => await _context.Users
-        .Include(u => u.Role)
-            .ThenInclude(r => r.RolePermissions)
-                .ThenInclude(rp => rp.Permission)
-        .FirstOrDefaultAsync(u => u.Id == id);
-}
 
+    public async Task<User?> GetByIdWithPermissionsAsync(Guid id)
+    {
+        if (_withPermissions.TryGetValue(id, out var cached)) return cached;
+
+        var user = await _context.Users
+            .Include(u => u.Department)
+            .Include(u => u.Role)
+                .ThenInclude(r => r.RolePermissions)
+                    .ThenInclude(rp => rp.Permission)
+            .FirstOrDefaultAsync(u => u.Id == id);
+
+        _withPermissions[id] = user;
+        return user;
+    }
+}

@@ -1,3 +1,4 @@
+using KPI.Application.Audit;
 using KPI.Domain.Entities;
 using Microsoft.EntityFrameworkCore;
 
@@ -5,8 +6,14 @@ namespace KPI.Infrastructure.Data;
 
 public class AppDbContext : DbContext
 {
-    public AppDbContext(DbContextOptions<AppDbContext> options)
-        : base(options) { }
+    private readonly IAuditContext _audit;
+
+    // The audit context is optional so tests and tools can build a context from options alone.
+    public AppDbContext(DbContextOptions<AppDbContext> options, IAuditContext? audit = null)
+        : base(options)
+    {
+        _audit = audit ?? NullAuditContext.Instance;
+    }
 
     public DbSet<User> Users => Set<User>();
     public DbSet<Role> Roles => Set<Role>();
@@ -17,7 +24,41 @@ public class AppDbContext : DbContext
     public DbSet<Project> Projects => Set<Project>();
     public DbSet<KpiProgressLog> KpiProgressLogs => Set<KpiProgressLog>();
     public DbSet<AuditLog> AuditLogs => Set<AuditLog>();
-    
+    public DbSet<RequestLog> RequestLogs => Set<RequestLog>();
+    public DbSet<Issue> Issues => Set<Issue>();
+    public DbSet<IssueComment> IssueComments => Set<IssueComment>();
+    public DbSet<IssueAttachment> IssueAttachments => Set<IssueAttachment>();
+
+    public override int SaveChanges(bool acceptAllChangesOnSuccess)
+    {
+        StampAuditRows();
+        return base.SaveChanges(acceptAllChangesOnSuccess);
+    }
+
+    public override Task<int> SaveChangesAsync(bool acceptAllChangesOnSuccess, CancellationToken cancellationToken = default)
+    {
+        StampAuditRows();
+        return base.SaveChangesAsync(acceptAllChangesOnSuccess, cancellationToken);
+    }
+
+    /// <summary>Adds who/where (from the current request) to audit rows that do not carry it yet.</summary>
+    private void StampAuditRows()
+    {
+        foreach (var entry in ChangeTracker.Entries<AuditLog>().Where(e => e.State == EntityState.Added))
+        {
+            var row = entry.Entity;
+            row.IpAddress ??= Truncate(_audit.IpAddress, 64);
+            row.UserAgent ??= Truncate(_audit.UserAgent, 400);
+            row.RequestId ??= Truncate(_audit.RequestId, 64);
+            row.UserName ??= Truncate(_audit.UserName, 200);
+            row.UserRole ??= Truncate(_audit.UserRole, 50);
+            row.DepartmentName ??= Truncate(_audit.DepartmentName, 200);
+        }
+    }
+
+    private static string? Truncate(string? value, int max) =>
+        value is null ? null : value.Length <= max ? value : value[..max];
+
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         base.OnModelCreating(modelBuilder);
@@ -96,5 +137,80 @@ public class AppDbContext : DbContext
         modelBuilder.Entity<Project>()
             .Property(p => p.Progress)
             .HasPrecision(5, 2);
+
+        // ── Indexes for the queries the app actually runs (filters, joins and sort orders) ──
+        modelBuilder.Entity<Kpi>().HasIndex(k => k.Status);
+        modelBuilder.Entity<Kpi>().HasIndex(k => new { k.DepartmentId, k.Status });
+        modelBuilder.Entity<Kpi>().HasIndex(k => k.CreatedAt);
+        modelBuilder.Entity<KpiProgressLog>().HasIndex(l => new { l.Year, l.Month });
+        modelBuilder.Entity<RolePermission>().HasIndex(rp => rp.PermissionId);
+
+        // ── Audit and request logs ──
+        var audit = modelBuilder.Entity<AuditLog>();
+        audit.HasIndex(a => a.CreatedAt);
+        audit.HasIndex(a => new { a.EntityName, a.EntityId });
+        audit.HasIndex(a => new { a.UserId, a.CreatedAt });
+        audit.HasIndex(a => a.IpAddress);
+        audit.Property(a => a.IpAddress).HasMaxLength(64);
+        audit.Property(a => a.UserAgent).HasMaxLength(400);
+        audit.Property(a => a.RequestId).HasMaxLength(64);
+        audit.Property(a => a.UserName).HasMaxLength(200);
+        audit.Property(a => a.UserRole).HasMaxLength(50);
+        audit.Property(a => a.DepartmentName).HasMaxLength(200);
+
+        var request = modelBuilder.Entity<RequestLog>();
+        request.HasIndex(r => r.CreatedAt);
+        request.HasIndex(r => new { r.UserId, r.CreatedAt });
+        request.HasIndex(r => new { r.IpAddress, r.CreatedAt });
+        request.HasIndex(r => new { r.StatusCode, r.CreatedAt });
+        request.Property(r => r.Method).HasMaxLength(10);
+        request.Property(r => r.Path).HasMaxLength(300);
+        request.Property(r => r.IpAddress).HasMaxLength(64);
+        request.Property(r => r.UserAgent).HasMaxLength(400);
+        request.Property(r => r.RequestId).HasMaxLength(64);
+        request.Property(r => r.UserEmail).HasMaxLength(254);
+        request.Property(r => r.UserRole).HasMaxLength(50);
+
+        // ── Issues ──
+        var issue = modelBuilder.Entity<Issue>();
+        issue.Property(i => i.Title).HasMaxLength(200);
+        issue.Property(i => i.Description).HasMaxLength(4000);
+        issue.Property(i => i.ReporterName).HasMaxLength(200);
+        issue.Property(i => i.ReporterEmail).HasMaxLength(254);
+        issue.Property(i => i.ReporterPhone).HasMaxLength(40);
+        issue.Property(i => i.Resolution).HasMaxLength(4000);
+        issue.Property(i => i.Prevention).HasMaxLength(2000);
+        issue.Property(i => i.FixReference).HasMaxLength(500);
+        issue.Property(i => i.RejectReason).HasMaxLength(1000);
+        issue.Property(i => i.PageUrl).HasMaxLength(500);
+        issue.Property(i => i.UserAgent).HasMaxLength(400);
+        issue.Property(i => i.ClientInfo).HasMaxLength(1000);
+        issue.Property(i => i.ErrorRequestId).HasMaxLength(100);
+        issue.Property(i => i.ReporterIp).HasMaxLength(64);
+        issue.Property(i => i.Version).IsConcurrencyToken();
+        issue.Ignore(i => i.DisplayNumber);
+
+        issue.HasOne(i => i.ReporterUser).WithMany().HasForeignKey(i => i.ReporterUserId).OnDelete(DeleteBehavior.SetNull);
+        issue.HasOne(i => i.Assignee).WithMany().HasForeignKey(i => i.AssigneeId).OnDelete(DeleteBehavior.SetNull);
+        issue.HasOne(i => i.Department).WithMany().HasForeignKey(i => i.DepartmentId).OnDelete(DeleteBehavior.SetNull);
+        issue.HasMany(i => i.Comments).WithOne(c => c.Issue).HasForeignKey(c => c.IssueId).OnDelete(DeleteBehavior.Cascade);
+        issue.HasMany(i => i.Attachments).WithOne(a => a.Issue).HasForeignKey(a => a.IssueId).OnDelete(DeleteBehavior.Cascade);
+
+        issue.HasIndex(i => new { i.NumberYear, i.Number }).IsUnique();
+        issue.HasIndex(i => i.Status);
+        issue.HasIndex(i => i.CreatedAt);
+        issue.HasIndex(i => new { i.Status, i.ResolveDueAt });
+        issue.HasIndex(i => new { i.DepartmentId, i.Status });
+        issue.HasIndex(i => new { i.AssigneeId, i.Status });
+        issue.HasIndex(i => new { i.ReporterUserId, i.CreatedAt });
+
+        var comment = modelBuilder.Entity<IssueComment>();
+        comment.Property(c => c.AuthorName).HasMaxLength(200);
+        comment.Property(c => c.Body).HasMaxLength(4000);
+        comment.HasIndex(c => new { c.IssueId, c.CreatedAt });
+
+        var attachment = modelBuilder.Entity<IssueAttachment>();
+        attachment.Property(a => a.FileName).HasMaxLength(255);
+        attachment.Property(a => a.ContentType).HasMaxLength(100);
     }
 }

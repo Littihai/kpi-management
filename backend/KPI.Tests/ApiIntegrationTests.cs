@@ -34,6 +34,8 @@ public class ApiFactory : WebApplicationFactory<Program>
         builder.UseSetting("Jwt:Audience", "kpi-test");
         builder.UseSetting("Resend:ApiKey", "re_test");
         builder.UseSetting("Email:Enabled", "false"); // never call the real mail provider from tests
+        builder.UseSetting("Audit:FlushMs", "50");     // save request logs almost immediately
+        builder.UseSetting("PublicIssues:MaxPerWindow", "3");
         builder.UseSetting("ConnectionStrings:DefaultConnection", "Host=unused");
 
         builder.ConfigureServices(services =>
@@ -69,6 +71,8 @@ public class ApiFactory : WebApplicationFactory<Program>
         await AddUserAsync(db, "staff-b", RoleNames.Staff, DeptB.Id);
         await AddUserAsync(db, "viewer-a", RoleNames.Viewer, DeptA.Id);
         await AddUserAsync(db, "retired", RoleNames.Manager, DeptA.Id, active: false);
+        await AddUserAsync(db, "it-a", RoleNames.ITSupport, DeptB.Id);
+        await AddUserAsync(db, "it-b", RoleNames.ITSupport, DeptB.Id);
     }
 
     private static async Task AddUserAsync(AppDbContext db, string name, string role, Guid? departmentId, bool active = true)

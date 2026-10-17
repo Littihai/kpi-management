@@ -11,6 +11,7 @@ public static class DbSeeder
     public static async Task SeedAsync(AppDbContext context)
     {
         await SeedRolesAsync(context);
+        await EnsureRolesAsync(context);
         await SyncPermissionsAsync(context);
     }
 
@@ -74,6 +75,22 @@ public static class DbSeeder
 
         context.Roles.AddRange(roles);
         await context.SaveChangesAsync();
+    }
+
+    /// <summary>Adds built-in roles that older databases do not have yet (e.g. ITSupport), by name.</summary>
+    private static async Task EnsureRolesAsync(AppDbContext context)
+    {
+        var existing = await context.Roles.Select(r => r.Name).ToListAsync();
+        if (!existing.Contains(RoleNames.ITSupport))
+        {
+            context.Roles.Add(new Role
+            {
+                Id = Guid.Parse("00000000-0000-0000-0000-000000000007"),
+                Name = RoleNames.ITSupport,
+                Description = "Works the issue queue",
+            });
+            await context.SaveChangesAsync();
+        }
     }
 
     /// <summary>

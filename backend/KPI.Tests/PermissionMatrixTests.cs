@@ -72,6 +72,8 @@ public class PermissionMatrixTests
     [InlineData(Permissions.Role.View)]
     [InlineData(Permissions.Department.Manage)]
     [InlineData(Permissions.Job.Trigger)]
+    [InlineData(Permissions.Audit.View)]
+    [InlineData(Permissions.Overview.View)]
     public void Administrative_permissions_belong_to_SuperAdmin_only(string permission)
     {
         var holders = RoleNames.All.Where(r => For(r).Contains(permission)).ToList();
@@ -79,15 +81,47 @@ public class PermissionMatrixTests
     }
 
     [Fact]
-    public void Viewer_is_read_only()
+    public void Viewer_is_read_only_apart_from_reporting_problems()
     {
-        Assert.All(For(RoleNames.Viewer), p => Assert.EndsWith(".view", p));
+        Assert.All(For(RoleNames.Viewer).Where(p => p != Permissions.Issue.Create),
+            p => Assert.EndsWith(".view", p));
+    }
+
+    [Fact]
+    public void Everyone_who_signs_in_can_report_and_follow_their_problems()
+    {
+        foreach (var role in RoleNames.All)
+        {
+            Assert.Contains(Permissions.Issue.Create, For(role));
+            Assert.Contains(Permissions.Issue.View, For(role));
+        }
+    }
+
+    [Fact]
+    public void Only_IT_Support_and_SuperAdmin_work_the_issue_queue()
+    {
+        Assert.Equal([RoleNames.SuperAdmin, RoleNames.ITSupport],
+            RoleNames.All.Where(r => For(r).Contains(Permissions.Issue.Manage)).ToHashSet());
+    }
+
+    [Fact]
+    public void Only_SuperAdmin_sees_the_overview_and_audit_log()
+    {
+        foreach (var permission in new[] { Permissions.Overview.View, Permissions.Audit.View })
+            Assert.Equal([RoleNames.SuperAdmin], RoleNames.All.Where(r => For(r).Contains(permission)).ToList());
+    }
+
+    [Fact]
+    public void Who_sees_every_issue()
+    {
+        Assert.Equal([RoleNames.SuperAdmin, RoleNames.Director, RoleNames.ITSupport],
+            RoleNames.All.Where(RoleNames.SeesAllIssues).ToHashSet());
     }
 
     [Fact]
     public void Audit_and_export_visibility_matches_the_agreed_table()
     {
-        Assert.Equal([RoleNames.SuperAdmin, RoleNames.Director],
+        Assert.Equal([RoleNames.SuperAdmin],
             RoleNames.All.Where(r => For(r).Contains(Permissions.Audit.View)).ToHashSet());
         Assert.Equal([RoleNames.SuperAdmin, RoleNames.Director, RoleNames.Manager],
             RoleNames.All.Where(r => For(r).Contains(Permissions.Export.View)).ToHashSet());

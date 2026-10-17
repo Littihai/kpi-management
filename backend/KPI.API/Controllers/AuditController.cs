@@ -18,11 +18,6 @@ public class AuditController : ControllerBase
     }
 
     [HttpGet]
-    public async Task<IActionResult> GetLogs(
-        [FromQuery] string? entityName,
-        [FromQuery] Guid? userId)
-    {
-        var logs = await _auditService.GetLogsAsync(entityName, userId);
-        return Ok(logs);
-    }
+    public async Task<IActionResult> Search([FromQuery] AuditQuery query)
+        => Ok(await _auditService.SearchAsync(query));
 }

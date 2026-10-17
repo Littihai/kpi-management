@@ -35,4 +35,19 @@ public class EmailService : IEmailService
 
         await _resend.EmailSendAsync(email, cancellationToken);
     }
+
+    public async Task SendIssueAsync(IssueEmailMessage message, CancellationToken cancellationToken = default)
+    {
+        var (subject, html) = IssueEmailTemplates.Build(message, _appBaseUrl);
+
+        var email = new EmailMessage
+        {
+            From = _from,
+            To = { message.ToEmail },
+            Subject = KpiEmailTemplates.SingleLine(subject),
+            HtmlBody = html,
+        };
+
+        await _resend.EmailSendAsync(email, cancellationToken);
+    }
 }

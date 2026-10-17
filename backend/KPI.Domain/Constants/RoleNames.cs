@@ -8,10 +8,17 @@ public static class RoleNames
     public const string TeamLeader = "TeamLeader";
     public const string Staff = "Staff";
     public const string Viewer = "Viewer";
+    public const string ITSupport = "ITSupport";
 
-    public static readonly string[] All = [SuperAdmin, Director, Manager, TeamLeader, Staff, Viewer];
+    public static readonly string[] All = [SuperAdmin, Director, Manager, TeamLeader, Staff, Viewer, ITSupport];
 
     /// <summary>SuperAdmin and Director see every department; all other roles are limited to their own.</summary>
     public static bool SeesAllDepartments(string? roleName) =>
         roleName is SuperAdmin or Director;
+
+    /// <summary>
+    /// Who sees every reported issue. Managers see their department's, everyone else only their own.
+    /// </summary>
+    public static bool SeesAllIssues(string? roleName) =>
+        roleName is SuperAdmin or Director or ITSupport;
 }
