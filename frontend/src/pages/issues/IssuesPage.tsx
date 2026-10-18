@@ -11,10 +11,9 @@ import { issueService } from '../../services/issue.service'
 import { useCan } from '../../stores/authStore'
 import { apiError } from '../../utils/errors'
 import { formatRelative } from '../../utils/format'
+import { usePageSize } from '../../utils/paging'
 import { categoryLabel, issueStatusLabel, moduleShort, priorityLabel } from '../../utils/labels'
 import type { Assignee, IssueListItem, IssueSummary, Paged } from '../../types/issue'
-
-const PAGE_SIZE = 20
 
 type Tab = 'open' | 'done' | 'all'
 
@@ -31,6 +30,7 @@ export default function IssuesPage() {
   const sort = params.get('sort') ?? (isIt ? 'priority' : 'updated')
   const overdue = params.get('overdue') === '1'
   const page = Number(params.get('page') ?? 1)
+  const [pageSize, setPageSize] = usePageSize()
 
   const [data, setData] = useState<Paged<IssueListItem> | null>(null)
   const [summary, setSummary] = useState<IssueSummary | null>(null)
@@ -51,7 +51,12 @@ export default function IssuesPage() {
     }, { replace: true })
   }, [setParams])
 
+  // Changing the page size can start two loads back to back; only the newest one may show its result.
+  const latestLoad = useRef(0)
+
   const load = useCallback(() => {
+    const mine = ++latestLoad.current
+    const current = () => mine === latestLoad.current
     issueService.list({
       search: search || undefined,
       openOnly: tab === 'open' ? true : tab === 'done' ? false : undefined,
@@ -62,13 +67,13 @@ export default function IssuesPage() {
       overdue: overdue || undefined,
       sort,
       page,
-      pageSize: PAGE_SIZE,
+      pageSize,
     })
-      .then((result) => { setData(result); setError('') })
-      .catch((err) => setError(apiError(err, 'โหลดรายการไม่สำเร็จ')))
-      .finally(() => setLoading(false))
+      .then((result) => { if (current()) { setData(result); setError('') } })
+      .catch((err) => { if (current()) setError(apiError(err, 'โหลดรายการไม่สำเร็จ')) })
+      .finally(() => { if (current()) setLoading(false) })
     issueService.summary().then(setSummary).catch(() => {})
-  }, [search, tab, status, priority, assignee, overdue, sort, page])
+  }, [search, tab, status, priority, assignee, overdue, sort, page, pageSize])
 
   useEffect(() => { load() }, [load])
   useEffect(() => { if (isIt) issueService.assignees().then(setAssignees).catch(() => {}) }, [isIt])
@@ -238,7 +243,9 @@ export default function IssuesPage() {
               ))}
             </ul>
 
-            <Pagination page={data!.page} pageSize={data!.pageSize} total={data!.total} onChange={(p) => update({ page: String(p) })} />
+            <Pagination page={data!.page} pageSize={data!.pageSize} total={data!.total}
+              onChange={(p) => update({ page: String(p) })}
+              onPageSizeChange={(size) => { setPageSize(size); update({}) }} />
           </>
         )}
       </Card>

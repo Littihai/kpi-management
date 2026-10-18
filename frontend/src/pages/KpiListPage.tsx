@@ -3,7 +3,7 @@ import { Link, useNavigate } from 'react-router-dom'
 import Badge from '../components/ui/Badge'
 import Button from '../components/ui/Button'
 import { Card, Stat } from '../components/ui/Card'
-import { Alert, EmptyState, Page, PageHeader, Segmented, Skeleton } from '../components/ui/Layout'
+import { Alert, EmptyState, Page, PageHeader, Pagination, Segmented, Skeleton } from '../components/ui/Layout'
 import Progress from '../components/ui/Progress'
 import { useKpiEvents } from '../components/realtimeContext'
 import { exportService } from '../services/dashboard.service'
@@ -11,6 +11,7 @@ import { kpiService } from '../services/kpi.service'
 import { useAuthStore, useCan } from '../stores/authStore'
 import { apiError } from '../utils/errors'
 import { formatDate } from '../utils/format'
+import { usePaging } from '../utils/paging'
 import { kpiStatusLabel, kpiStatusTone } from '../utils/labels'
 import type { KpiDto } from '../types/kpi'
 
@@ -51,6 +52,8 @@ export default function KpiListPage() {
     return matchFilter && (!term || k.name.toLowerCase().includes(term) || k.departmentName.toLowerCase().includes(term)
       || k.ownerName.toLowerCase().includes(term))
   })
+
+  const paging = usePaging(filtered, `${filter}|${search}`)
 
   const download = async (kind: 'excel' | 'pdf') => {
     if (!token) return
@@ -109,34 +112,38 @@ export default function KpiListPage() {
             {kpis.length === 0 ? 'สร้าง KPI ของแผนก แล้วส่งขออนุมัติได้เลย' : 'ลองเปลี่ยนสถานะหรือคำค้นหา'}
           </EmptyState>
         ) : (
-          <ul className="divide-y divide-line">
-            {filtered.map((kpi) => (
-              <li key={kpi.id}>
-                <Link to={`/kpi/${kpi.id}`} className="block px-5 py-4 transition-colors hover:bg-surface">
-                  <div className="flex items-start justify-between gap-3">
-                    <div className="min-w-0">
-                      <p className="truncate font-medium text-ink">{kpi.name}</p>
-                      <p className="mt-0.5 flex flex-wrap items-center gap-x-2 text-xs text-ink-3">
-                        <span><i className="ti ti-user" aria-hidden="true" /> {kpi.ownerName}</span>
-                        <span aria-hidden="true">·</span><span>{kpi.departmentName}</span>
-                        <span aria-hidden="true">·</span><span>ครบกำหนด {formatDate(kpi.dueDate)}</span>
-                      </p>
+          <>
+            <ul className="divide-y divide-line">
+              {paging.pageItems.map((kpi) => (
+                <li key={kpi.id}>
+                  <Link to={`/kpi/${kpi.id}`} className="block px-5 py-4 transition-colors hover:bg-surface">
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="min-w-0">
+                        <p className="truncate font-medium text-ink">{kpi.name}</p>
+                        <p className="mt-0.5 flex flex-wrap items-center gap-x-2 text-xs text-ink-3">
+                          <span><i className="ti ti-user" aria-hidden="true" /> {kpi.ownerName}</span>
+                          <span aria-hidden="true">·</span><span>{kpi.departmentName}</span>
+                          <span aria-hidden="true">·</span><span>ครบกำหนด {formatDate(kpi.dueDate)}</span>
+                        </p>
+                      </div>
+                      <Badge tone={kpiStatusTone[kpi.statusLabel] ?? 'gray'} dot>{kpiStatusLabel[kpi.statusLabel] ?? kpi.statusLabel}</Badge>
                     </div>
-                    <Badge tone={kpiStatusTone[kpi.statusLabel] ?? 'gray'} dot>{kpiStatusLabel[kpi.statusLabel] ?? kpi.statusLabel}</Badge>
-                  </div>
-                  <div className="mt-3 flex items-center gap-3">
-                    <Progress value={kpi.progress} max={kpi.target || 100} color={kpi.trafficLight} label={`ความคืบหน้า ${kpi.name}`} />
-                    <span className="w-24 shrink-0 text-right text-[13px] font-medium tabular">
-                      {Number(kpi.progress).toFixed(0)} / {Number(kpi.target).toFixed(0)}%
-                    </span>
-                  </div>
-                  {kpi.rejectReason && kpi.statusLabel === 'Draft' && (
-                    <p className="mt-2 text-xs text-amber-ink"><i className="ti ti-arrow-back-up" aria-hidden="true" /> ถูกตีกลับ: {kpi.rejectReason}</p>
-                  )}
-                </Link>
-              </li>
-            ))}
-          </ul>
+                    <div className="mt-3 flex items-center gap-3">
+                      <Progress value={kpi.progress} max={kpi.target || 100} color={kpi.trafficLight} label={`ความคืบหน้า ${kpi.name}`} />
+                      <span className="w-24 shrink-0 text-right text-[13px] font-medium tabular">
+                        {Number(kpi.progress).toFixed(0)} / {Number(kpi.target).toFixed(0)}%
+                      </span>
+                    </div>
+                    {kpi.rejectReason && kpi.statusLabel === 'Draft' && (
+                      <p className="mt-2 text-xs text-amber-ink"><i className="ti ti-arrow-back-up" aria-hidden="true" /> ถูกตีกลับ: {kpi.rejectReason}</p>
+                    )}
+                  </Link>
+                </li>
+              ))}
+            </ul>
+            <Pagination page={paging.page} pageSize={paging.pageSize} total={paging.total}
+              onChange={paging.setPage} onPageSizeChange={paging.setPageSize} />
+          </>
         )}
       </Card>
     </Page>
