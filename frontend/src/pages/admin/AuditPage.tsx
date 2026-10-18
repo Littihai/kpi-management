@@ -8,10 +8,10 @@ import { Alert, EmptyState, Page, PageHeader, Pagination, Segmented, Skeleton } 
 import { adminService, type AuditRow, type RequestLogRow } from '../../services/admin.service'
 import { apiError } from '../../utils/errors'
 import { dayEndIso, dayStartIso, formatDateTime } from '../../utils/format'
+import { usePageSize } from '../../utils/paging'
 import { auditActionLabel, roleLabel } from '../../utils/labels'
 import type { Paged } from '../../types/issue'
 
-const PAGE_SIZE = 50
 type Tab = 'audit' | 'requests'
 
 function csvCell(value: unknown): string {
@@ -41,6 +41,7 @@ export default function AuditPage() {
   const from = params.get('from') ?? ''
   const to = params.get('to') ?? ''
   const page = Number(params.get('page') ?? 1)
+  const [pageSize, setPageSize] = usePageSize()
 
   const [audit, setAudit] = useState<Paged<AuditRow> | null>(null)
   const [requests, setRequests] = useState<Paged<RequestLogRow> | null>(null)
@@ -63,27 +64,27 @@ export default function AuditPage() {
   }, [setParams])
 
   // Rows belong to the filters they were fetched for; while those differ from the current ones we are loading.
-  const key = JSON.stringify([tab, q, entity, ip, method, minStatus, from, to, page])
+  const key = JSON.stringify([tab, q, entity, ip, method, minStatus, from, to, page, pageSize])
   const loading = loadedKey !== key
 
   useEffect(() => {
     let cancelled = false
     const range = { from: from ? dayStartIso(from) : undefined, to: to ? dayEndIso(to) : undefined }
     const request = tab === 'audit'
-      ? adminService.audit({ search: q || undefined, entity: entity || undefined, ip: ip || undefined, ...range, page, pageSize: PAGE_SIZE })
+      ? adminService.audit({ search: q || undefined, entity: entity || undefined, ip: ip || undefined, ...range, page, pageSize })
           .then((rows) => { if (!cancelled) setAudit(rows) })
       : adminService.requestLogs({
           search: q || undefined, ip: ip || undefined, method: method || undefined,
-          minStatus: minStatus ? Number(minStatus) : undefined, ...range, page, pageSize: PAGE_SIZE,
+          minStatus: minStatus ? Number(minStatus) : undefined, ...range, page, pageSize,
         }).then((rows) => { if (!cancelled) setRequests(rows) })
 
-    const forKey = JSON.stringify([tab, q, entity, ip, method, minStatus, from, to, page])
+    const forKey = JSON.stringify([tab, q, entity, ip, method, minStatus, from, to, page, pageSize])
     request
       .then(() => { if (!cancelled) setError('') })
       .catch((err) => { if (!cancelled) setError(apiError(err, 'โหลดบันทึกไม่สำเร็จ')) })
       .finally(() => { if (!cancelled) setLoadedKey(forKey) })
     return () => { cancelled = true }
-  }, [tab, q, entity, ip, method, minStatus, from, to, page])
+  }, [tab, q, entity, ip, method, minStatus, from, to, page, pageSize])
 
   useEffect(() => {
     if (searchText === q && ipText === ip) return
@@ -250,7 +251,11 @@ export default function AuditPage() {
           </div>
         )}
 
-        {data && <Pagination page={data.page} pageSize={data.pageSize} total={data.total} onChange={(p) => update({ page: String(p) })} />}
+        {data && (
+          <Pagination page={data.page} pageSize={data.pageSize} total={data.total}
+            onChange={(p) => update({ page: String(p) })}
+            onPageSizeChange={(size) => { setPageSize(size); update({}) }} />
+        )}
       </Card>
     </Page>
   )

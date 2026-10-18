@@ -4,12 +4,13 @@ import Badge from '../../components/ui/Badge'
 import Button from '../../components/ui/Button'
 import { Card, Stat } from '../../components/ui/Card'
 import { CompactSelect } from '../../components/ui/Field'
-import { Alert, Avatar, EmptyState, Page, PageHeader, Skeleton } from '../../components/ui/Layout'
+import { Alert, Avatar, EmptyState, Page, PageHeader, Pagination, Skeleton } from '../../components/ui/Layout'
 import Modal from '../../components/ui/Modal'
 import api from '../../services/api'
 import { useAuthStore, useCan } from '../../stores/authStore'
 import { apiError } from '../../utils/errors'
 import { roleLabel } from '../../utils/labels'
+import { usePaging } from '../../utils/paging'
 import type { Tone } from '../../types/issue'
 
 interface UserDto {
@@ -54,6 +55,8 @@ export default function UsersPage() {
     const term = search.trim().toLowerCase()
     return users.filter((u) => !term || `${u.firstName} ${u.lastName} ${u.email}`.toLowerCase().includes(term))
   }, [users, search])
+
+  const paging = usePaging(filtered, search)
 
   const changeRole = async (user: UserDto, roleName: string) => {
     setBusy(true)
@@ -113,56 +116,60 @@ export default function UsersPage() {
         ) : filtered.length === 0 ? (
           <EmptyState icon="users" title="ไม่พบผู้ใช้">{search ? 'ลองเปลี่ยนคำค้นหา' : 'ยังไม่มีผู้ใช้ในส่วนที่คุณดูได้'}</EmptyState>
         ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full min-w-[720px] text-left">
-              <thead>
-                <tr className="border-b border-line text-[11px] font-medium uppercase tracking-[0.08em] text-ink-3">
-                  <th scope="col" className="px-5 py-3">ผู้ใช้</th>
-                  <th scope="col" className="px-3 py-3">บทบาท</th>
-                  <th scope="col" className="px-3 py-3">แผนก</th>
-                  <th scope="col" className="px-3 py-3">สถานะ</th>
-                  {canEdit && <th scope="col" className="px-5 py-3 text-right">จัดการ</th>}
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-line">
-                {filtered.map((u) => {
-                  const isMe = u.email.toLowerCase() === me?.email.toLowerCase()
-                  return (
-                    <tr key={u.id} className={u.isActive ? '' : 'bg-surface'}>
-                      <td className="px-5 py-3.5">
-                        <div className="flex items-center gap-3">
-                          <Avatar name={`${u.firstName} ${u.lastName}`} size={36} />
-                          <div className="min-w-0">
-                            <p className="truncate text-sm font-medium">{u.firstName} {u.lastName}{isMe && <span className="ml-1.5 text-xs font-normal text-ink-3">(คุณ)</span>}</p>
-                            <p className="truncate text-xs text-ink-3">{u.email}</p>
+          <>
+            <div className="overflow-x-auto">
+              <table className="w-full min-w-[720px] text-left">
+                <thead>
+                  <tr className="border-b border-line text-[11px] font-medium uppercase tracking-[0.08em] text-ink-3">
+                    <th scope="col" className="px-5 py-3">ผู้ใช้</th>
+                    <th scope="col" className="px-3 py-3">บทบาท</th>
+                    <th scope="col" className="px-3 py-3">แผนก</th>
+                    <th scope="col" className="px-3 py-3">สถานะ</th>
+                    {canEdit && <th scope="col" className="px-5 py-3 text-right">จัดการ</th>}
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-line">
+                  {paging.pageItems.map((u) => {
+                    const isMe = u.email.toLowerCase() === me?.email.toLowerCase()
+                    return (
+                      <tr key={u.id} className={u.isActive ? '' : 'bg-surface'}>
+                        <td className="px-5 py-3.5">
+                          <div className="flex items-center gap-3">
+                            <Avatar name={`${u.firstName} ${u.lastName}`} size={36} />
+                            <div className="min-w-0">
+                              <p className="truncate text-sm font-medium">{u.firstName} {u.lastName}{isMe && <span className="ml-1.5 text-xs font-normal text-ink-3">(คุณ)</span>}</p>
+                              <p className="truncate text-xs text-ink-3">{u.email}</p>
+                            </div>
                           </div>
-                        </div>
-                      </td>
-                      <td className="px-3 py-3.5">
-                        {canEdit && !isMe && u.isActive && roles.length > 0 ? (
-                          <CompactSelect aria-label={`บทบาทของ ${u.firstName}`} value={u.role} disabled={busy}
-                            onChange={(e) => changeRole(u, e.target.value)}>
-                            {roles.map((r) => <option key={r.id} value={r.name}>{roleLabel[r.name] ?? r.name}</option>)}
-                          </CompactSelect>
-                        ) : <Badge tone={roleTone[u.role] ?? 'gray'}>{roleLabel[u.role] ?? u.role}</Badge>}
-                      </td>
-                      <td className="px-3 py-3.5 text-[13px] text-ink-2">{u.department ?? <span className="text-ink-3">ไม่ระบุ</span>}</td>
-                      <td className="px-3 py-3.5">
-                        <Badge tone={u.isActive ? 'green' : 'gray'} dot>{u.isActive ? 'ใช้งานอยู่' : 'ปิดใช้งาน'}</Badge>
-                      </td>
-                      {canEdit && (
-                        <td className="px-5 py-3.5 text-right">
-                          {u.isActive && !isMe && (
-                            <Button size="sm" variant="ghost" icon="user-off" onClick={() => setConfirmDeactivate(u)}>ปิดใช้งาน</Button>
-                          )}
                         </td>
-                      )}
-                    </tr>
-                  )
-                })}
-              </tbody>
-            </table>
-          </div>
+                        <td className="px-3 py-3.5">
+                          {canEdit && !isMe && u.isActive && roles.length > 0 ? (
+                            <CompactSelect aria-label={`บทบาทของ ${u.firstName}`} value={u.role} disabled={busy}
+                              onChange={(e) => changeRole(u, e.target.value)}>
+                              {roles.map((r) => <option key={r.id} value={r.name}>{roleLabel[r.name] ?? r.name}</option>)}
+                            </CompactSelect>
+                          ) : <Badge tone={roleTone[u.role] ?? 'gray'}>{roleLabel[u.role] ?? u.role}</Badge>}
+                        </td>
+                        <td className="px-3 py-3.5 text-[13px] text-ink-2">{u.department ?? <span className="text-ink-3">ไม่ระบุ</span>}</td>
+                        <td className="px-3 py-3.5">
+                          <Badge tone={u.isActive ? 'green' : 'gray'} dot>{u.isActive ? 'ใช้งานอยู่' : 'ปิดใช้งาน'}</Badge>
+                        </td>
+                        {canEdit && (
+                          <td className="px-5 py-3.5 text-right">
+                            {u.isActive && !isMe && (
+                              <Button size="sm" variant="ghost" icon="user-off" onClick={() => setConfirmDeactivate(u)}>ปิดใช้งาน</Button>
+                            )}
+                          </td>
+                        )}
+                      </tr>
+                    )
+                  })}
+                </tbody>
+              </table>
+            </div>
+            <Pagination page={paging.page} pageSize={paging.pageSize} total={paging.total}
+              onChange={paging.setPage} onPageSizeChange={paging.setPageSize} />
+          </>
         )}
       </Card>
 

@@ -1,9 +1,12 @@
 import type { ReactNode } from 'react'
+import { PAGE_SIZES } from '../../utils/paging'
+import { CompactSelect } from './Field'
 
 /** Page frame: consistent padding and a readable maximum width. */
 export function Page({ children, wide }: { children: ReactNode; wide?: boolean }) {
   return (
-    <div className={`mx-auto w-full px-4 py-6 sm:px-6 lg:px-8 lg:py-8 ${wide ? 'max-w-[1360px]' : 'max-w-6xl'}`}>
+    // Room at the bottom so the floating "report a problem" button never covers the last row or the pager.
+    <div className={`mx-auto w-full px-4 pb-24 pt-6 sm:px-6 lg:px-8 lg:pt-8 ${wide ? 'max-w-[1360px]' : 'max-w-6xl'}`}>
       {children}
     </div>
   )
@@ -132,26 +135,45 @@ export function Segmented<T extends string | number>({
   )
 }
 
+/**
+ * Range, rows-per-page choice and previous / next. Hidden while everything fits on the smallest page
+ * (nothing to choose); otherwise it stays so the size can still be changed on the last page.
+ */
 export function Pagination({
-  page, pageSize, total, onChange,
-}: { page: number; pageSize: number; total: number; onChange: (page: number) => void }) {
+  page, pageSize, total, onChange, onPageSizeChange,
+}: {
+  page: number
+  pageSize: number
+  total: number
+  onChange: (page: number) => void
+  onPageSizeChange: (size: number) => void
+}) {
   const pages = Math.max(1, Math.ceil(total / pageSize))
-  if (total <= pageSize) return null
-  const from = (page - 1) * pageSize + 1
+  if (total <= PAGE_SIZES[0]) return null
+  const from = Math.min((page - 1) * pageSize + 1, total)
   const to = Math.min(total, page * pageSize)
   return (
-    <nav aria-label="เปลี่ยนหน้า" className="flex items-center justify-between gap-3 border-t border-line px-5 py-3 text-[13px] text-ink-2">
+    <nav aria-label="เปลี่ยนหน้า"
+      className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2 border-t border-line px-5 py-3 text-[13px] text-ink-2">
       <span className="tabular">{from}–{to} จาก {total}</span>
-      <div className="flex items-center gap-1">
-        <button type="button" disabled={page <= 1} onClick={() => onChange(page - 1)} aria-label="หน้าก่อนหน้า"
-          className="flex h-8 w-8 items-center justify-center rounded-control hover:bg-surface-2 disabled:opacity-40">
-          <i className="ti ti-chevron-left" aria-hidden="true" />
-        </button>
-        <span className="px-2 tabular">{page} / {pages}</span>
-        <button type="button" disabled={page >= pages} onClick={() => onChange(page + 1)} aria-label="หน้าถัดไป"
-          className="flex h-8 w-8 items-center justify-center rounded-control hover:bg-surface-2 disabled:opacity-40">
-          <i className="ti ti-chevron-right" aria-hidden="true" />
-        </button>
+      <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
+        <label className="flex items-center gap-2 text-ink-3">
+          แสดงต่อหน้า
+          <CompactSelect value={pageSize} onChange={(e) => onPageSizeChange(Number(e.target.value))} className="!w-auto text-ink">
+            {PAGE_SIZES.map((size) => <option key={size} value={size}>{size}</option>)}
+          </CompactSelect>
+        </label>
+        <div className="flex items-center gap-1">
+          <button type="button" disabled={page <= 1} onClick={() => onChange(page - 1)} aria-label="หน้าก่อนหน้า"
+            className="flex h-8 w-8 items-center justify-center rounded-control hover:bg-surface-2 disabled:opacity-40">
+            <i className="ti ti-chevron-left" aria-hidden="true" />
+          </button>
+          <span className="px-2 tabular">{page} / {pages}</span>
+          <button type="button" disabled={page >= pages} onClick={() => onChange(page + 1)} aria-label="หน้าถัดไป"
+            className="flex h-8 w-8 items-center justify-center rounded-control hover:bg-surface-2 disabled:opacity-40">
+            <i className="ti ti-chevron-right" aria-hidden="true" />
+          </button>
+        </div>
       </div>
     </nav>
   )
