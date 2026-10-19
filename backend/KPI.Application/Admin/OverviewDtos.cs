@@ -29,7 +29,6 @@ public record OverviewDto(
     UserStats Users,
     RequestStats Requests,
     IssueOverview Issues,
-    KpiOverview Kpis,
     IReadOnlyList<CountByLabel> TopIps,
     IReadOnlyList<RequestLogDto> SecurityEvents,
     IReadOnlyList<AuditLogDto> Activity,
@@ -50,7 +49,6 @@ public record IssueOverview(
     IReadOnlyList<CountByLabel> ByDepartment,
     IReadOnlyList<CountByLabel> ByModule);
 
-public record KpiOverview(int Total, IReadOnlyList<CountByLabel> ByStatus);
 
 public record RequestLogDto(
     Guid Id,

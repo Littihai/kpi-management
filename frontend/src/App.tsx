@@ -9,9 +9,6 @@ import { useAuthStore } from './stores/authStore'
 // Each page is loaded when first visited, so the first screen downloads far less code
 // (the charts library alone is large and only a few pages use it).
 const DashboardPage = lazy(() => import('./pages/DashboardPage'))
-const KpiListPage = lazy(() => import('./pages/KpiListPage'))
-const KpiDetailPage = lazy(() => import('./pages/KpiDetailPage'))
-const KpiCreatePage = lazy(() => import('./pages/KpiCreatePage'))
 const UsersPage = lazy(() => import('./pages/admin/UsersPage'))
 const OverviewPage = lazy(() => import('./pages/admin/OverviewPage'))
 const AuditPage = lazy(() => import('./pages/admin/AuditPage'))
@@ -35,12 +32,7 @@ export default function App() {
           <Route path="/report" element={<PublicReportPage />} />
 
           <Route element={<ProtectedRoute><AppShell /></ProtectedRoute>}>
-            <Route path="/dashboard" element={<RequirePermission permission="kpi.view"><DashboardPage /></RequirePermission>} />
-            <Route path="/kpi" element={<RequirePermission permission="kpi.view"><KpiListPage /></RequirePermission>} />
-            <Route path="/kpi/create" element={<RequirePermission permission="kpi.create"><KpiCreatePage /></RequirePermission>} />
-            <Route path="/kpi/:id/edit" element={<RequirePermission permission="kpi.edit"><KpiCreatePage /></RequirePermission>} />
-            <Route path="/kpi/:id" element={<RequirePermission permission="kpi.view"><KpiDetailPage /></RequirePermission>} />
-
+            <Route path="/dashboard" element={<RequirePermission permission="issue.view"><DashboardPage /></RequirePermission>} />
             <Route path="/issues" element={<RequirePermission permission="issue.view"><IssuesPage /></RequirePermission>} />
             <Route path="/issues/new" element={<RequirePermission permission="issue.create"><IssueNewPage /></RequirePermission>} />
             <Route path="/issues/:id" element={<RequirePermission permission="issue.view"><IssueDetailPage /></RequirePermission>} />

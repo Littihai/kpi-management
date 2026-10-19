@@ -20,7 +20,7 @@ public class IssueServiceTests
     private static CreateIssueRequest Report(
         string title = "กดอนุมัติ KPI แล้วไม่มีอะไรเกิดขึ้น",
         IssueImpact impact = IssueImpact.Blocking,
-        IssueModule module = IssueModule.Kpi) =>
+        IssueModule module = IssueModule.Application) =>
         new(title, "กดปุ่ม Approve แล้วสถานะยังเป็น Pending ทั้งที่ควรเป็น Active", IssueCategory.Bug, module, impact);
 
     private static IReadOnlyList<IssueUpload> NoFiles => [];
@@ -97,7 +97,7 @@ public class IssueServiceTests
     public async Task Titles_and_descriptions_must_be_meaningful(string title, string description)
     {
         var w = await TestWorld.CreateAsync();
-        var request = new CreateIssueRequest(title, description, IssueCategory.Bug, IssueModule.Kpi, IssueImpact.Minor);
+        var request = new CreateIssueRequest(title, description, IssueCategory.Bug, IssueModule.Application, IssueImpact.Minor);
         await Assert.ThrowsAsync<RequestValidationException>(() => w.Issues.CreateAsync(request, NoFiles, w.StaffA.Id, null));
     }
 

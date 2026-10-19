@@ -28,7 +28,7 @@ builder.Services.AddExceptionHandler<ApiExceptionHandler>();
 builder.Services.AddDbContext<AppDbContext>(options =>
     options.UseNpgsql(config.GetConnectionString("DefaultConnection")));
 
-builder.Services.AddKpiServices(config);
+builder.Services.AddCoreServices(config);
 builder.Services.AddIssueTracking(config);
 builder.Services.AddAuditing();
 builder.Services.AddLoginThrottle(config);

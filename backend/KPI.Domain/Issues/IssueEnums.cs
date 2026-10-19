@@ -40,7 +40,7 @@ public enum IssueCategory
 /// <summary>Which part of the system, or "general IT", the issue is about.</summary>
 public enum IssueModule
 {
-    Kpi = 0,
+    Application = 0,  // the main program / business system (was "Kpi" when this product tracked KPIs)
     Login = 1,
     Dashboard = 2,
     Export = 3,

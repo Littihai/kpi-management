@@ -56,7 +56,6 @@ export interface Overview {
     averageResolveHours: number | null
     byStatus: CountByLabel[]; byDepartment: CountByLabel[]; byModule: CountByLabel[]
   }
-  kpis: { total: number; byStatus: CountByLabel[] }
   topIps: CountByLabel[]
   securityEvents: RequestLogRow[]
   activity: AuditRow[]

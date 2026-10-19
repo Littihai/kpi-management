@@ -22,13 +22,6 @@ export default function Badge({ tone = 'gray', children, dot, icon, className = 
   )
 }
 
-/** Traffic light with a text label so it still reads for people who cannot tell the colours apart. */
-export function TrafficBadge({ light, label }: { light: string; label: string }) {
-  const tone: Tone = light === 'green' ? 'green' : light === 'yellow' ? 'amber' : light === 'red' ? 'red' : 'gray'
-  const icon = light === 'green' ? 'circle-check' : light === 'yellow' ? 'alert-triangle' : light === 'red' ? 'clock-exclamation' : 'circle-dashed'
-  return <Badge tone={tone} icon={icon}>{label}</Badge>
-}
-
 export function Dot({ tone }: { tone: Tone }) {
   return <span className={`inline-block h-2 w-2 rounded-full ${toneClasses[tone].dot}`} aria-hidden="true" />
 }

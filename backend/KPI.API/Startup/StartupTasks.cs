@@ -50,7 +50,6 @@ public static class StartupTasks
     public static void RegisterRecurringJobs(this WebApplication app)
     {
         var recurringJobs = app.Services.GetRequiredService<IRecurringJobManager>();
-        recurringJobs.AddOrUpdate<DelayDetectionJob>("delay-detection", job => job.RunAsync(), Cron.Daily);
         recurringJobs.AddOrUpdate<MaintenanceJob>("maintenance", job => job.RunAsync(), Cron.Daily);
     }
 }

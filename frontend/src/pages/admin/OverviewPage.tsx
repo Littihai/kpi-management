@@ -10,7 +10,7 @@ import { Alert, Avatar, EmptyState, Page, PageHeader, PageSkeleton, Segmented } 
 import { adminService, type CountByLabel, type Overview } from '../../services/admin.service'
 import { apiError } from '../../utils/errors'
 import { formatDateTime, formatNumber, formatRelative, formatShortDate, toDate } from '../../utils/format'
-import { auditActionLabel, issueStatusLabel, kpiStatusLabel, moduleShort, roleLabel } from '../../utils/labels'
+import { auditActionLabel, issueStatusLabel, moduleShort, roleLabel } from '../../utils/labels'
 
 const INK = 'var(--lt-text)'
 const ACCENT = 'var(--lt-accent)'
@@ -21,7 +21,7 @@ const issueStatusByName: Record<string, string> = Object.fromEntries(
     .map((name, i) => [name, issueStatusLabel[i]]),
 )
 const moduleByName: Record<string, string> = Object.fromEntries(
-  ['Kpi', 'Login', 'Dashboard', 'Export', 'Users', 'Issues', 'ItGeneral', 'Other'].map((name, i) => [name, moduleShort[i]]),
+  ['Application', 'Login', 'Dashboard', 'Export', 'Users', 'Issues', 'ItGeneral', 'Other'].map((name, i) => [name, moduleShort[i]]),
 )
 
 function BarList({ rows, labels, color = INK }: { rows: CountByLabel[]; labels?: Record<string, string>; color?: string }) {
@@ -231,7 +231,7 @@ export default function OverviewPage() {
                             {a.departmentName && <span className="text-ink-3"> · {a.departmentName}</span>}
                           </p>
                           <p className="text-ink-2">
-                            {auditActionLabel[a.action] ?? a.action} <Badge tone="gray">{a.entityName === 'Kpi' ? 'KPI' : a.entityName === 'Issue' ? 'แจ้งปัญหา' : a.entityName}</Badge>
+                            {auditActionLabel[a.action] ?? a.action} <Badge tone="gray">{a.entityName === 'Issue' ? 'แจ้งปัญหา' : a.entityName}</Badge>
                             {a.newValues && <span className="ml-1 break-words text-ink-3">{a.newValues.length > 90 ? `${a.newValues.slice(0, 90)}…` : a.newValues}</span>}
                           </p>
                           <p className="text-xs text-ink-3">
@@ -249,10 +249,6 @@ export default function OverviewPage() {
                 <CardHeader eyebrow="ผู้ใช้" title={`${data.users.total} บัญชี`} />
                 <div className="px-3 pb-3 pt-2"><BarList rows={data.users.byRole} labels={roleLabel} /></div>
                 <p className="px-5 pb-5 text-xs text-ink-3">ปิดใช้งานแล้ว {data.users.inactive} บัญชี</p>
-              </Card>
-              <Card>
-                <CardHeader eyebrow="KPI" title={`${data.kpis.total} รายการ`} />
-                <div className="px-3 pb-4 pt-2"><BarList rows={data.kpis.byStatus} labels={kpiStatusLabel} /></div>
               </Card>
             </div>
           </div>

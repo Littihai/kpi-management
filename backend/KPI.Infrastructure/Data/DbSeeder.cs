@@ -101,6 +101,17 @@ public static class DbSeeder
     public static async Task SyncPermissionsAsync(AppDbContext context)
     {
         var existing = await context.Permissions.ToListAsync();
+
+        // Rights of features that were removed (kpi.*, project.*, export.view) must not linger in the role editor.
+        var stale = existing.Where(p => !Permissions.All.Contains(p.Name)).ToList();
+        if (stale.Count > 0)
+        {
+            var staleIds = stale.Select(p => p.Id).ToList();
+            context.RolePermissions.RemoveRange(await context.RolePermissions.Where(rp => staleIds.Contains(rp.PermissionId)).ToListAsync());
+            context.Permissions.RemoveRange(stale);
+            existing.RemoveAll(p => staleIds.Contains(p.Id));
+            await context.SaveChangesAsync();
+        }
         var missing = Permissions.All
             .Where(name => existing.All(p => p.Name != name))
             .Select(name => new Permission { Name = name, Module = name.Split('.')[0] })

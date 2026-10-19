@@ -136,7 +136,7 @@ export default function AuditPage() {
             <div>
               <label htmlFor="entity" className="mb-1 block text-xs text-ink-3">รายการ</label>
               <CompactSelect id="entity" value={entity} onChange={(e) => update({ entity: e.target.value })}>
-                <option value="">ทั้งหมด</option><option value="Kpi">KPI</option><option value="Issue">แจ้งปัญหา</option>
+                <option value="">ทั้งหมด</option><option value="Issue">แจ้งปัญหา</option>
               </CompactSelect>
             </div>
           ) : (
@@ -199,7 +199,7 @@ export default function AuditPage() {
                       </td>
                       <td className="px-3 py-3">
                         <span className="font-medium">{auditActionLabel[a.action] ?? a.action}</span>{' '}
-                        <Badge tone="gray">{a.entityName === 'Kpi' ? 'KPI' : a.entityName === 'Issue' ? 'แจ้งปัญหา' : a.entityName}</Badge>
+                        <Badge tone="gray">{a.entityName === 'Issue' ? 'แจ้งปัญหา' : a.entityName}</Badge>
                       </td>
                       <td className="max-w-sm px-3 py-3 text-ink-2">
                         <span className="line-clamp-1 break-words">{a.oldValues && a.newValues ? `${a.oldValues} → ${a.newValues}` : (a.newValues ?? a.oldValues ?? '–')}</span>

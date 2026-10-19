@@ -2,10 +2,8 @@ using System.Net;
 using System.Net.Http.Headers;
 using System.Net.Http.Json;
 using System.Text.Json;
-using KPI.Application.Kpis;
 using KPI.Domain.Constants;
 using KPI.Domain.Entities;
-using KPI.Domain.Enums;
 using KPI.Infrastructure.Data;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Http.Connections;
@@ -135,17 +133,6 @@ public class ApiIntegrationTests : IClassFixture<ApiFactory>, IAsyncLifetime
 
     public Task DisposeAsync() => Task.CompletedTask;
 
-    private static object NewKpi(Guid departmentId, string name = "HTTP KPI") => new
-    {
-        name,
-        description = "d",
-        year = 2026,
-        target = 100,
-        startDate = "2026-01-01",
-        dueDate = "2026-12-31",
-        departmentId,
-    };
-
     private static async Task<JsonElement> JsonAsync(HttpResponseMessage response) =>
         await response.Content.ReadFromJsonAsync<JsonElement>();
 
@@ -155,7 +142,7 @@ public class ApiIntegrationTests : IClassFixture<ApiFactory>, IAsyncLifetime
     public async Task Anonymous_requests_are_rejected()
     {
         var client = _factory.CreateClient();
-        Assert.Equal(HttpStatusCode.Unauthorized, (await client.GetAsync("/api/kpi")).StatusCode);
+        Assert.Equal(HttpStatusCode.Unauthorized, (await client.GetAsync("/api/issues")).StatusCode);
         Assert.Equal(HttpStatusCode.Unauthorized, (await client.GetAsync("/api/users")).StatusCode);
         Assert.Equal(HttpStatusCode.Unauthorized, (await client.GetAsync("/api/auth/me")).StatusCode);
     }
@@ -178,8 +165,8 @@ public class ApiIntegrationTests : IClassFixture<ApiFactory>, IAsyncLifetime
 
         Assert.Equal("Manager", body.GetProperty("role").GetString());
         var permissions = body.GetProperty("permissions").EnumerateArray().Select(p => p.GetString()).ToList();
-        Assert.Contains(Permissions.Kpi.Create, permissions);
-        Assert.DoesNotContain(Permissions.Kpi.Approve, permissions);
+        Assert.Contains(Permissions.Issue.Create, permissions);
+        Assert.DoesNotContain(Permissions.Issue.Manage, permissions);
     }
 
     [Fact]
@@ -203,13 +190,13 @@ public class ApiIntegrationTests : IClassFixture<ApiFactory>, IAsyncLifetime
 
         Assert.Equal("Staff", body.GetProperty("role").GetString());
         Assert.Equal(_factory.DeptA.Id, body.GetProperty("departmentId").GetGuid());
-        Assert.Contains(Permissions.Kpi.Progress, body.GetProperty("permissions").EnumerateArray().Select(p => p.GetString()));
+        Assert.Contains(Permissions.Issue.View, body.GetProperty("permissions").EnumerateArray().Select(p => p.GetString()));
     }
 
     // ───────────── Authorization over HTTP ─────────────
 
     [Fact]
-    public async Task Staff_cannot_reach_administrative_or_approval_endpoints()
+    public async Task Staff_cannot_reach_administrative_or_queue_endpoints()
     {
         var staff = await _factory.ClientAsync("staff-a");
         var someId = Guid.NewGuid();
@@ -217,10 +204,8 @@ public class ApiIntegrationTests : IClassFixture<ApiFactory>, IAsyncLifetime
         Assert.Equal(HttpStatusCode.Forbidden, (await staff.GetAsync("/api/users")).StatusCode);
         Assert.Equal(HttpStatusCode.Forbidden, (await staff.GetAsync("/api/roles")).StatusCode);
         Assert.Equal(HttpStatusCode.Forbidden, (await staff.GetAsync("/api/audit")).StatusCode);
-        Assert.Equal(HttpStatusCode.Forbidden, (await staff.GetAsync("/api/export/kpi/excel")).StatusCode);
-        Assert.Equal(HttpStatusCode.Forbidden, (await staff.PostAsync("/api/jobs/trigger-delay-detection", null)).StatusCode);
-        Assert.Equal(HttpStatusCode.Forbidden, (await staff.PostAsync($"/api/kpi/{someId}/approve", null)).StatusCode);
-        Assert.Equal(HttpStatusCode.Forbidden, (await staff.PostAsJsonAsync("/api/kpi", NewKpi(_factory.DeptA.Id))).StatusCode);
+        Assert.Equal(HttpStatusCode.Forbidden, (await staff.PostAsync("/api/jobs/trigger-maintenance", null)).StatusCode);
+        Assert.Equal(HttpStatusCode.Forbidden, (await staff.PostAsJsonAsync($"/api/issues/{someId}/assign", new { assigneeId = someId })).StatusCode);
         Assert.Equal(HttpStatusCode.Forbidden,
             (await staff.PutAsJsonAsync($"/api/users/{_factory.UserId("staff-a")}/role", new { roleName = "SuperAdmin" })).StatusCode);
     }
@@ -239,12 +224,12 @@ public class ApiIntegrationTests : IClassFixture<ApiFactory>, IAsyncLifetime
     }
 
     [Fact]
-    public async Task Viewer_can_read_but_not_write()
+    public async Task Viewer_can_read_issues_but_not_work_them()
     {
         var viewer = await _factory.ClientAsync("viewer-a");
-        Assert.Equal(HttpStatusCode.OK, (await viewer.GetAsync("/api/kpi")).StatusCode);
-        Assert.Equal(HttpStatusCode.OK, (await viewer.GetAsync("/api/dashboard")).StatusCode);
-        Assert.Equal(HttpStatusCode.Forbidden, (await viewer.PostAsJsonAsync("/api/kpi", NewKpi(_factory.DeptA.Id))).StatusCode);
+        Assert.Equal(HttpStatusCode.OK, (await viewer.GetAsync("/api/issues")).StatusCode);
+        Assert.Equal(HttpStatusCode.Forbidden,
+            (await viewer.PostAsJsonAsync($"/api/issues/{Guid.NewGuid()}/assign", new { assigneeId = Guid.NewGuid() })).StatusCode);
     }
 
     [Fact]
@@ -263,12 +248,12 @@ public class ApiIntegrationTests : IClassFixture<ApiFactory>, IAsyncLifetime
             await db.SaveChangesAsync();
         }
         var temp = await _factory.ClientAsync("temp");
-        Assert.Equal(HttpStatusCode.OK, (await temp.GetAsync("/api/kpi")).StatusCode);
+        Assert.Equal(HttpStatusCode.OK, (await temp.GetAsync("/api/issues")).StatusCode);
 
         var tempId = _factory.UserId("temp");
         Assert.Equal(HttpStatusCode.OK, (await admin.PutAsync($"/api/users/{tempId}/deactivate", null)).StatusCode);
 
-        Assert.Equal(HttpStatusCode.Forbidden, (await temp.GetAsync("/api/kpi")).StatusCode); // same, still-valid JWT
+        Assert.Equal(HttpStatusCode.Forbidden, (await temp.GetAsync("/api/issues")).StatusCode); // same, still-valid JWT
     }
 
     // ───────────── Error mapping ─────────────
@@ -276,97 +261,26 @@ public class ApiIntegrationTests : IClassFixture<ApiFactory>, IAsyncLifetime
     [Fact]
     public async Task Errors_use_the_right_status_codes_and_keep_a_message_field()
     {
+        var admin = await _factory.ClientAsync("admin");
         var manager = await _factory.ClientAsync("manager-a");
 
-        var notFound = await manager.GetAsync($"/api/kpi/{Guid.NewGuid()}");
+        var notFound = await manager.GetAsync($"/api/issues/{Guid.NewGuid()}");
         Assert.Equal(HttpStatusCode.NotFound, notFound.StatusCode);
         Assert.False(string.IsNullOrEmpty((await JsonAsync(notFound)).GetProperty("message").GetString()));
 
-        var invalid = await manager.PostAsJsonAsync("/api/kpi", NewKpi(_factory.DeptA.Id, name: ""));
+        string roleId;
+        using (var scope = _factory.Services.CreateScope())
+            roleId = (await scope.ServiceProvider.GetRequiredService<AppDbContext>().Roles.FirstAsync(r => r.Name == "Staff")).Id.ToString();
+        var invalid = await admin.PostAsJsonAsync("/api/users",
+            new { firstName = "N", lastName = "U", email = "weak@example.com", password = "abc", roleId, departmentId = (string?)null });
         Assert.Equal(HttpStatusCode.BadRequest, invalid.StatusCode);
-        Assert.Contains("Name", (await JsonAsync(invalid)).GetProperty("message").GetString());
+        Assert.Contains("Password", (await JsonAsync(invalid)).GetProperty("message").GetString());
 
-        var wrongDept = await manager.PostAsJsonAsync("/api/kpi", NewKpi(_factory.DeptB.Id));
-        Assert.Equal(HttpStatusCode.Forbidden, wrongDept.StatusCode);
+        var forbidden = await manager.PostAsJsonAsync($"/api/issues/{Guid.NewGuid()}/assign", new { assigneeId = Guid.NewGuid() });
+        Assert.Equal(HttpStatusCode.Forbidden, forbidden.StatusCode);
 
-        var badGuid = await manager.GetAsync("/api/kpi/not-a-guid");
+        var badGuid = await manager.GetAsync("/api/issues/not-a-guid");
         Assert.Equal(HttpStatusCode.NotFound, badGuid.StatusCode); // route constraint {id:guid}
-    }
-
-    // ───────────── The whole workflow, over HTTP ─────────────
-
-    [Fact]
-    public async Task A_kpi_travels_from_draft_to_closed_and_each_step_is_policed()
-    {
-        var manager = await _factory.ClientAsync("manager-a");
-        var director = await _factory.ClientAsync("director");
-        var otherManager = await _factory.ClientAsync("manager-b");
-
-        // create → Draft
-        var created = await manager.PostAsJsonAsync("/api/kpi", NewKpi(_factory.DeptA.Id, "Flow KPI"));
-        Assert.Equal(HttpStatusCode.Created, created.StatusCode);
-        var kpi = await JsonAsync(created);
-        var id = kpi.GetProperty("id").GetGuid();
-        Assert.Equal("Draft", kpi.GetProperty("statusLabel").GetString());
-
-        // progress on a draft is refused (used to silently promote it to Active)
-        var early = await manager.PostAsJsonAsync("/api/kpi/progress", new { kpiId = id, progress = 10, notes = "" });
-        Assert.Equal(HttpStatusCode.Conflict, early.StatusCode);
-
-        // another department cannot even see it
-        Assert.Equal(HttpStatusCode.NotFound, (await otherManager.GetAsync($"/api/kpi/{id}")).StatusCode);
-
-        // submit → PendingApproval; a manager cannot approve
-        Assert.Equal(HttpStatusCode.OK, (await manager.PostAsync($"/api/kpi/{id}/submit", null)).StatusCode);
-        Assert.Equal(HttpStatusCode.Forbidden, (await manager.PostAsync($"/api/kpi/{id}/approve", null)).StatusCode);
-
-        // reject needs a reason, then sends it back
-        var noReason = await director.PostAsJsonAsync($"/api/kpi/{id}/reject", new { reason = " " });
-        Assert.Equal(HttpStatusCode.BadRequest, noReason.StatusCode);
-        var rejected = await JsonAsync(await director.PostAsJsonAsync($"/api/kpi/{id}/reject", new { reason = "Needs a clearer target" }));
-        Assert.Equal("Draft", rejected.GetProperty("statusLabel").GetString());
-        Assert.Equal("Needs a clearer target", rejected.GetProperty("rejectReason").GetString());
-
-        // resubmit → approve → Active
-        await manager.PostAsync($"/api/kpi/{id}/submit", null);
-        var approved = await JsonAsync(await director.PostAsync($"/api/kpi/{id}/approve", null));
-        Assert.Equal("Active", approved.GetProperty("statusLabel").GetString());
-
-        // progress up to the target completes it
-        var done = await JsonAsync(await manager.PostAsJsonAsync("/api/kpi/progress", new { kpiId = id, progress = 100, notes = "done" }));
-        Assert.Equal("Completed", done.GetProperty("statusLabel").GetString());
-
-        // the manager sees "updateProgress" but not "close"; the director the reverse
-        var asManager = (await JsonAsync(await manager.GetAsync($"/api/kpi/{id}"))).GetProperty("allowedActions").EnumerateArray().Select(a => a.GetString()).ToList();
-        var asDirector = (await JsonAsync(await director.GetAsync($"/api/kpi/{id}"))).GetProperty("allowedActions").EnumerateArray().Select(a => a.GetString()).ToList();
-        Assert.Contains("updateProgress", asManager);
-        Assert.DoesNotContain("close", asManager);
-        Assert.Contains("close", asDirector);
-        Assert.DoesNotContain("updateProgress", asDirector);
-
-        // close → frozen
-        Assert.Equal(HttpStatusCode.Forbidden, (await manager.PostAsync($"/api/kpi/{id}/close", null)).StatusCode);
-        var closed = await JsonAsync(await director.PostAsync($"/api/kpi/{id}/close", null));
-        Assert.Equal("Closed", closed.GetProperty("statusLabel").GetString());
-        var afterClose = await manager.PostAsJsonAsync("/api/kpi/progress", new { kpiId = id, progress = 50, notes = "" });
-        Assert.Equal(HttpStatusCode.Conflict, afterClose.StatusCode);
-    }
-
-    [Fact]
-    public async Task Export_only_contains_the_callers_department()
-    {
-        var managerA = await _factory.ClientAsync("manager-a");
-        var managerB = await _factory.ClientAsync("manager-b");
-        await managerA.PostAsJsonAsync("/api/kpi", NewKpi(_factory.DeptA.Id, "Only in A"));
-        await managerB.PostAsJsonAsync("/api/kpi", NewKpi(_factory.DeptB.Id, "Only in B"));
-
-        var excel = await managerA.GetAsync("/api/export/kpi/excel");
-        Assert.Equal(HttpStatusCode.OK, excel.StatusCode);
-        using var workbook = new ClosedXML.Excel.XLWorkbook(await excel.Content.ReadAsStreamAsync());
-        var names = workbook.Worksheet(1).RowsUsed().Skip(1).Select(r => r.Cell(1).GetString()).ToList();
-
-        Assert.Contains("Only in A", names);
-        Assert.DoesNotContain("Only in B", names);
     }
 
     // ───────────── Users ─────────────
@@ -467,81 +381,8 @@ public class ApiIntegrationTests : IClassFixture<ApiFactory>, IAsyncLifetime
         Assert.Equal(HttpStatusCode.OK, viaQuery.StatusCode);
 
         // The query-string token is honoured on hub URLs only.
-        var elsewhere = await client.GetAsync($"/api/kpi?access_token={token}");
+        var elsewhere = await client.GetAsync($"/api/issues?access_token={token}");
         Assert.Equal(HttpStatusCode.Unauthorized, elsewhere.StatusCode);
-    }
-
-    [Fact]
-    public async Task Submitting_pushes_a_notification_to_approvers_only_and_a_change_event_to_the_right_people()
-    {
-        await using var director = Connect(await _factory.TokenAsync("director"));
-        await using var viewerA = Connect(await _factory.TokenAsync("viewer-a"));
-        await using var staffB = Connect(await _factory.TokenAsync("staff-b"));
-
-        var directorNotifications = new List<JsonElement>();
-        var directorChanges = new List<JsonElement>();
-        var viewerChanges = new List<JsonElement>();
-        var viewerNotifications = new List<JsonElement>();
-        var otherDeptChanges = new List<JsonElement>();
-
-        director.On<JsonElement>("Notification", n => { lock (directorNotifications) directorNotifications.Add(n); });
-        director.On<JsonElement>("KpiChanged", e => { lock (directorChanges) directorChanges.Add(e); });
-        viewerA.On<JsonElement>("KpiChanged", e => { lock (viewerChanges) viewerChanges.Add(e); });
-        viewerA.On<JsonElement>("Notification", n => { lock (viewerNotifications) viewerNotifications.Add(n); });
-        staffB.On<JsonElement>("KpiChanged", e => { lock (otherDeptChanges) otherDeptChanges.Add(e); });
-
-        await director.StartAsync();
-        await viewerA.StartAsync();
-        await staffB.StartAsync();
-
-        var manager = await _factory.ClientAsync("manager-a");
-        var created = await JsonAsync(await manager.PostAsJsonAsync("/api/kpi", NewKpi(_factory.DeptA.Id, "Live KPI")));
-        var id = created.GetProperty("id").GetGuid();
-        await manager.PostAsync($"/api/kpi/{id}/submit", null);
-
-        await WaitUntilAsync(() => { lock (directorNotifications) return directorNotifications.Count >= 1; });
-        await WaitUntilAsync(() => { lock (viewerChanges) return viewerChanges.Count >= 2; });
-
-        // Director (sees every department) is told approval is needed, and gets both change events.
-        lock (directorNotifications)
-        {
-            var notification = Assert.Single(directorNotifications);
-            Assert.Equal("Approval needed", notification.GetProperty("title").GetString());
-            Assert.Equal(id, notification.GetProperty("kpiId").GetGuid());
-        }
-        lock (directorChanges) Assert.Contains(directorChanges, e => e.GetProperty("action").GetString() == "submitted");
-
-        // A viewer in the same department refreshes their list but is not pinged for approval.
-        lock (viewerChanges) Assert.Contains(viewerChanges, e => e.GetProperty("kpiId").GetGuid() == id);
-        lock (viewerNotifications) Assert.Empty(viewerNotifications);
-
-        // Someone in another department hears nothing about it.
-        await Task.Delay(300);
-        lock (otherDeptChanges) Assert.Empty(otherDeptChanges);
-    }
-
-    [Fact]
-    public async Task Approval_notifies_only_the_owner()
-    {
-        await using var ownerHub = Connect(await _factory.TokenAsync("manager-a"));
-        await using var bystander = Connect(await _factory.TokenAsync("staff-a"));
-        var ownerMessages = new List<JsonElement>();
-        var bystanderMessages = new List<JsonElement>();
-        ownerHub.On<JsonElement>("Notification", n => { lock (ownerMessages) ownerMessages.Add(n); });
-        bystander.On<JsonElement>("Notification", n => { lock (bystanderMessages) bystanderMessages.Add(n); });
-        await ownerHub.StartAsync();
-        await bystander.StartAsync();
-
-        var manager = await _factory.ClientAsync("manager-a");
-        var director = await _factory.ClientAsync("director");
-        var id = (await JsonAsync(await manager.PostAsJsonAsync("/api/kpi", NewKpi(_factory.DeptA.Id, "Approve me")))).GetProperty("id").GetGuid();
-        await manager.PostAsync($"/api/kpi/{id}/submit", null);
-        await director.PostAsync($"/api/kpi/{id}/approve", null);
-
-        await WaitUntilAsync(() => { lock (ownerMessages) return ownerMessages.Count >= 1; });
-        lock (ownerMessages) Assert.Contains(ownerMessages, m => m.GetProperty("title").GetString() == "KPI approved");
-        await Task.Delay(300);
-        lock (bystanderMessages) Assert.Empty(bystanderMessages);
     }
 
     [Fact]
@@ -549,11 +390,20 @@ public class ApiIntegrationTests : IClassFixture<ApiFactory>, IAsyncLifetime
     {
         await using var retired = Connect(await TokenForInactiveAsync());
         var received = new List<JsonElement>();
-        retired.On<JsonElement>("KpiChanged", e => { lock (received) received.Add(e); });
+        retired.On<JsonElement>("IssueChanged", e => { lock (received) received.Add(e); });
         await retired.StartAsync(); // the token is still cryptographically valid
 
-        var manager = await _factory.ClientAsync("manager-a");
-        await manager.PostAsJsonAsync("/api/kpi", NewKpi(_factory.DeptA.Id, "Nobody told retired"));
+        // "retired" was a Manager of department A, so a live account would hear about this department's new issue
+        var reporter = await _factory.ClientAsync("staff-a");
+        var form = new MultipartFormDataContent
+        {
+            { new StringContent("Nobody told retired"), "Title" },
+            { new StringContent("A problem that the retired manager must not hear about"), "Description" },
+            { new StringContent("Bug"), "Category" },
+            { new StringContent("Login"), "Module" },
+            { new StringContent("Degraded"), "Impact" },
+        };
+        Assert.Equal(HttpStatusCode.Created, (await reporter.PostAsync("/api/issues", form)).StatusCode);
 
         await Task.Delay(400);
         lock (received) Assert.Empty(received);

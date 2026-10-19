@@ -39,14 +39,13 @@ export function useNavGroups(): { groups: NavGroup[]; overdue: number } {
 
   const all: { title: string; items: (NavItem & { permission?: string })[] }[] = [
     {
-      title: 'ภาพรวม',
+      title: 'หน้าหลัก',
       items: [
-        { to: '/dashboard', icon: 'layout-dashboard', label: 'แดชบอร์ด', permission: 'kpi.view' },
-        { to: '/kpi', icon: 'target-arrow', label: 'KPI', permission: 'kpi.view' },
+        { to: '/dashboard', icon: 'layout-dashboard', label: 'แดชบอร์ด', permission: 'issue.view' },
       ],
     },
     {
-      title: 'ซัพพอร์ต',
+      title: 'ขอความช่วยเหลือ',
       items: [
         { to: '/issues', icon: 'lifebuoy', label: isIt ? 'งานแจ้งปัญหา' : 'เรื่องที่ฉันแจ้ง', permission: 'issue.view', badge: openIssues },
       ],

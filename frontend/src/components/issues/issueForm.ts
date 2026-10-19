@@ -5,7 +5,7 @@ export const emptyIssueForm: IssueFormValues = {
   title: '',
   description: '',
   category: IssueCategory.Bug,
-  module: IssueModule.Kpi,
+  module: IssueModule.Application,
   impact: IssueImpact.Degraded,
 }
 

@@ -19,21 +19,21 @@ public static class IssueEmailTemplates
         {
             IssueEmailKind.Received => (
                 $"[{m.Number}] รับเรื่องแล้ว: {m.Title}",
-                Layout("#FF5A1F", "รับเรื่องแจ้งปัญหาแล้ว", greeting,
+                Layout("#066FD1", "รับเรื่องแจ้งปัญหาแล้ว", greeting,
                     $"<p>ระบบบันทึกเรื่อง <strong>{number}</strong> เรียบร้อย</p>{Box(title)}" +
                     $"<p>ทีม IT จะตอบรับภายใน <strong>{FormatDue(m.ResponseDueAt)}</strong> และแจ้งความคืบหน้าให้ทราบทางอีเมลนี้</p>",
                     link, appBaseUrl, "ดูสถานะ")),
 
             IssueEmailKind.NewForIt => (
                 $"[{m.Number}] เรื่องใหม่: {m.Title}",
-                Layout("#FF5A1F", "มีเรื่องแจ้งปัญหาใหม่", greeting,
+                Layout("#066FD1", "มีเรื่องแจ้งปัญหาใหม่", greeting,
                     $"<p><strong>{actor}</strong> แจ้งปัญหา <strong>{number}</strong>:</p>{Box(title)}" +
                     $"<p>ต้องตอบรับภายใน <strong>{FormatDue(m.ResponseDueAt)}</strong></p>",
                     link, appBaseUrl, "เปิดเรื่อง")),
 
             IssueEmailKind.Assigned => (
                 $"[{m.Number}] มอบหมายให้คุณ: {m.Title}",
-                Layout("#0E0F11", "คุณได้รับมอบหมายงาน", greeting,
+                Layout("#182433", "คุณได้รับมอบหมายงาน", greeting,
                     $"<p><strong>{actor}</strong> มอบหมายเรื่อง <strong>{number}</strong> ให้คุณ:</p>{Box(title)}",
                     link, appBaseUrl, "เปิดเรื่อง")),
 
@@ -46,13 +46,13 @@ public static class IssueEmailTemplates
 
             IssueEmailKind.ReporterReplied => (
                 $"[{m.Number}] ผู้แจ้งตอบกลับ: {m.Title}",
-                Layout("#FF5A1F", "ผู้แจ้งตอบกลับแล้ว", greeting,
+                Layout("#066FD1", "ผู้แจ้งตอบกลับแล้ว", greeting,
                     $"<p><strong>{actor}</strong> ตอบกลับเรื่อง <strong>{number}</strong>:</p>{Box(title)}{detail}",
                     link, appBaseUrl, "เปิดเรื่อง")),
 
             IssueEmailKind.StaffReplied => (
                 $"[{m.Number}] ทีม IT ตอบกลับ: {m.Title}",
-                Layout("#FF5A1F", "ทีม IT ตอบกลับเรื่องของคุณ", greeting,
+                Layout("#066FD1", "ทีม IT ตอบกลับเรื่องของคุณ", greeting,
                     $"<p>เรื่อง <strong>{number}</strong> {Box(title)}</p>{detail}",
                     link, appBaseUrl, "ดูข้อความ")),
 
@@ -92,13 +92,17 @@ public static class IssueEmailTemplates
         return $"{Math.Round(left.TotalDays)} วัน";
     }
 
+    /// <summary>A mail header value must be a single line.</summary>
+    public static string SingleLine(string subject) =>
+        System.Text.RegularExpressions.Regex.Replace(subject, @"\s+", " ").Trim();
+
     private static string Encode(string value) => WebUtility.HtmlEncode(value);
 
     private static string Box(string encoded) =>
-        $"<p style=\"background:#F5F6F8;padding:12px 14px;border-radius:10px\"><strong>{encoded}</strong></p>";
+        $"<p style=\"background:#F6F8FB;padding:12px 14px;border-radius:10px\"><strong>{encoded}</strong></p>";
 
     private static string Quote(string encoded) =>
-        $"<p style=\"border-left:3px solid #FF5A1F;margin:0;padding:6px 12px;white-space:pre-wrap\">{encoded}</p>";
+        $"<p style=\"border-left:3px solid #066FD1;margin:0;padding:6px 12px;white-space:pre-wrap\">{encoded}</p>";
 
     private static string Layout(string color, string heading, string greeting, string body,
         string path, string? appBaseUrl, string buttonText)
@@ -106,11 +110,11 @@ public static class IssueEmailTemplates
         var button = string.IsNullOrWhiteSpace(appBaseUrl)
             ? ""
             : $"<p><a href=\"{WebUtility.HtmlEncode(appBaseUrl.TrimEnd('/'))}{path}\" " +
-              "style=\"display:inline-block;background:#FF5A1F;color:#fff;padding:10px 18px;border-radius:10px;text-decoration:none\">" +
+              "style=\"display:inline-block;background:#066FD1;color:#fff;padding:10px 18px;border-radius:10px;text-decoration:none\">" +
               $"{buttonText}</a></p>";
 
         return $"""
-            <div style="font-family:'Noto Sans Thai',Segoe UI,sans-serif;max-width:520px;margin:0 auto;color:#0E0F11">
+            <div style="font-family:'Noto Sans Thai',Segoe UI,sans-serif;max-width:520px;margin:0 auto;color:#182433">
               <h2 style="color:{color};margin-bottom:4px">{heading}</h2>
               <p>{greeting}</p>
               {body}

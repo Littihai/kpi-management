@@ -1,7 +1,6 @@
 using KPI.Application.Notifications;
 using KPI.Domain.Constants;
 using KPI.Domain.Entities;
-using KPI.Domain.Enums;
 using KPI.Domain.Issues;
 using KPI.Infrastructure.Data;
 using KPI.Infrastructure.Repositories;
@@ -14,17 +13,9 @@ namespace KPI.Tests;
 
 public class RecordingNotifier : IRealtimeNotifier
 {
-    public List<KpiChangedEvent> Events { get; } = [];
     public List<IssueChangedEvent> IssueEvents { get; } = [];
     public List<(RealtimeNotification Notification, RealtimeAudience Audience)> Notifications { get; } = [];
     public bool Throw { get; set; }
-
-    public Task PublishKpiChangedAsync(KpiChangedEvent evt, CancellationToken ct = default)
-    {
-        if (Throw) throw new InvalidOperationException("hub is down");
-        Events.Add(evt);
-        return Task.CompletedTask;
-    }
 
     public Task PublishIssueChangedAsync(IssueChangedEvent evt, CancellationToken ct = default)
     {
@@ -43,7 +34,6 @@ public class RecordingNotifier : IRealtimeNotifier
 
 public class RecordingEmail : IEmailService
 {
-    public List<KpiEmailMessage> Sent { get; } = [];
     public List<IssueEmailMessage> IssueSent { get; } = [];
     public bool Throw { get; set; }
 
@@ -56,14 +46,6 @@ public class RecordingEmail : IEmailService
         return Task.CompletedTask;
     }
 
-    public IEnumerable<string> To(KpiEmailKind kind) => Sent.Where(m => m.Kind == kind).Select(m => m.ToEmail);
-
-    public Task SendAsync(KpiEmailMessage message, CancellationToken cancellationToken = default)
-    {
-        if (Throw) throw new InvalidOperationException("mail provider down");
-        Sent.Add(message);
-        return Task.CompletedTask;
-    }
 }
 
 /// <summary>A clock tests can move forward, so deadlines and auto-close can be checked without waiting.</summary>
@@ -82,8 +64,6 @@ public class TestWorld
     public DbContextOptions<AppDbContext> Options { get; }
     public RecordingNotifier Notifier { get; } = new();
     public RecordingEmail Email { get; } = new();
-    public KpiEventPublisher Events { get; }
-    public KpiService Service { get; }
     public IssueService Issues { get; }
     public TestClock Clock { get; } = new();
 
@@ -113,9 +93,6 @@ public class TestWorld
             ["Email:PacingMs"] = "0",
             ["Email:Enabled"] = emailEnabled ? "true" : "false",
         }).Build();
-        var emails = new KpiEmailNotifier(Db, Email, config, NullLogger<KpiEmailNotifier>.Instance);
-        Events = new KpiEventPublisher(Notifier, emails, NullLogger<KpiEventPublisher>.Instance);
-        Service = new KpiService(new KpiRepository(Db), new UserRepository(Db), Db, Events, Clock);
         var issueEvents = new IssueEventPublisher(Notifier, Db, Email, config, NullLogger<IssueEventPublisher>.Instance);
         Issues = new IssueService(Db, new UserRepository(Db), issueEvents, IssueSlaPolicy.Default, Clock);
     }
@@ -162,34 +139,6 @@ public class TestWorld
         Db.Users.Add(user);
         await Db.SaveChangesAsync();
         return user;
-    }
-
-    /// <summary>Inserts a KPI directly (bypassing the service) so tests can start from any status.</summary>
-    public async Task<Kpi> AddKpiAsync(
-        KpiStatus status,
-        User owner,
-        Department? department = null,
-        decimal progress = 0,
-        decimal target = 100,
-        DateTime? start = null,
-        DateTime? due = null)
-    {
-        var kpi = new Kpi
-        {
-            Name = $"KPI {Guid.NewGuid():N}"[..12],
-            Description = "",
-            Year = 2026,
-            Target = target,
-            Progress = progress,
-            Status = status,
-            StartDate = start ?? Clock.UtcNow.AddDays(-10),
-            DueDate = due ?? Clock.UtcNow.AddDays(90),
-            DepartmentId = (department ?? DeptA).Id,
-            OwnerId = owner.Id,
-        };
-        Db.Kpis.Add(kpi);
-        await Db.SaveChangesAsync();
-        return kpi;
     }
 
     public void Clear() => Db.ChangeTracker.Clear();

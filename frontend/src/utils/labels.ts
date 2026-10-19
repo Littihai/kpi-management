@@ -40,7 +40,7 @@ export const categoryLabel: Record<number, string> = {
 }
 
 export const moduleLabel: Record<number, string> = {
-  0: 'KPI',
+  0: 'โปรแกรม / ระบบงานหลัก',
   1: 'เข้าสู่ระบบ',
   2: 'Dashboard',
   3: 'ส่งออกรายงาน',
@@ -50,7 +50,7 @@ export const moduleLabel: Record<number, string> = {
   7: 'อื่น ๆ',
 }
 export const moduleShort: Record<number, string> = {
-  0: 'KPI', 1: 'เข้าสู่ระบบ', 2: 'Dashboard', 3: 'ส่งออก', 4: 'ผู้ใช้งาน', 5: 'แจ้งปัญหา', 6: 'IT ทั่วไป', 7: 'อื่น ๆ',
+  0: 'ระบบงานหลัก', 1: 'เข้าสู่ระบบ', 2: 'Dashboard', 3: 'ส่งออก', 4: 'ผู้ใช้งาน', 5: 'แจ้งปัญหา', 6: 'IT ทั่วไป', 7: 'อื่น ๆ',
 }
 
 export const rootCauseLabel: Record<number, string> = {
@@ -62,22 +62,6 @@ export const rootCauseLabel: Record<number, string> = {
   5: 'โครงสร้างพื้นฐาน / บริการภายนอก',
   6: 'จำลองปัญหาไม่ได้',
   7: 'อื่น ๆ',
-}
-
-export const kpiStatusLabel: Record<string, string> = {
-  Draft: 'แบบร่าง',
-  PendingApproval: 'รออนุมัติ',
-  Approved: 'อนุมัติแล้ว',
-  Active: 'กำลังดำเนินการ',
-  AtRisk: 'เสี่ยงล่าช้า',
-  Delayed: 'ล่าช้า',
-  Completed: 'ครบเป้าหมาย',
-  Closed: 'ปิดแล้ว',
-}
-
-export const kpiStatusTone: Record<string, Tone> = {
-  Draft: 'gray', PendingApproval: 'amber', Approved: 'blue', Active: 'green',
-  AtRisk: 'amber', Delayed: 'red', Completed: 'green', Closed: 'gray',
 }
 
 export const roleLabel: Record<string, string> = {

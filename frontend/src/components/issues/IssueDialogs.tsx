@@ -17,7 +17,7 @@ export function RequestInfoDialog({ open, onClose, busy, onSubmit }: DialogProps
       </>}>
       <p className="mb-3 text-sm text-ink-2">เรื่องจะเปลี่ยนเป็น "รอข้อมูลจากผู้แจ้ง" และหยุดนับเวลาจนกว่าผู้แจ้งจะตอบ</p>
       <TextArea label="ต้องการทราบอะไรเพิ่ม" rows={4} maxLength={4000} value={message} onChange={(e) => setMessage(e.target.value)}
-        placeholder="เช่น เกิดกับ KPI ตัวไหน และกดตอนกี่โมง" />
+        placeholder="เช่น เกิดกับเครื่อง/โปรแกรมไหน และเกิดตอนกี่โมง" />
     </Modal>
   )
 }
