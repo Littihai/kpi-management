@@ -83,7 +83,7 @@ export default function IssueNewPage() {
 
         <aside className="space-y-4">
           <Card className="p-5">
-            <p className="text-[11px] font-medium uppercase tracking-[0.08em] text-ink-3">ระบบกรอกให้อัตโนมัติ</p>
+            <p className="text-xs font-semibold text-ink-3">ระบบกรอกให้อัตโนมัติ</p>
             <dl className="mt-3 space-y-3 text-sm">
               <div><dt className="text-ink-3">ผู้แจ้ง</dt><dd className="font-medium">{user?.fullName}</dd></div>
               <div><dt className="text-ink-3">แผนก</dt><dd className="font-medium">{user?.departmentName ?? 'ไม่ระบุ'}</dd></div>

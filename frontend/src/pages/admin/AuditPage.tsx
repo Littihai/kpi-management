@@ -183,10 +183,10 @@ export default function AuditPage() {
         ) : tab === 'audit' ? (
           <div className="overflow-x-auto">
             <table className="w-full min-w-[920px] text-left text-[13px]">
-              <thead className="border-b border-line text-[11px] uppercase tracking-[0.08em] text-ink-3">
-                <tr><th className="px-5 py-3 font-medium">เวลา</th><th className="px-3 py-3 font-medium">ผู้ใช้</th>
-                  <th className="px-3 py-3 font-medium">การกระทำ</th><th className="px-3 py-3 font-medium">รายละเอียด</th>
-                  <th className="px-5 py-3 font-medium">IP</th></tr>
+              <thead className="border-b border-line bg-surface text-xs font-semibold text-ink-3">
+                <tr><th className="px-5 py-3">เวลา</th><th className="px-3 py-3">ผู้ใช้</th>
+                  <th className="px-3 py-3">การกระทำ</th><th className="px-3 py-3">รายละเอียด</th>
+                  <th className="px-5 py-3">IP</th></tr>
               </thead>
               <tbody className="divide-y divide-line">
                 {audit!.items.map((a) => (
@@ -227,10 +227,10 @@ export default function AuditPage() {
         ) : (
           <div className="overflow-x-auto">
             <table className="w-full min-w-[860px] text-left text-[13px]">
-              <thead className="border-b border-line text-[11px] uppercase tracking-[0.08em] text-ink-3">
-                <tr><th className="px-5 py-3 font-medium">เวลา</th><th className="px-3 py-3 font-medium">ผู้ใช้</th>
-                  <th className="px-3 py-3 font-medium">คำขอ</th><th className="px-3 py-3 font-medium">ผล</th>
-                  <th className="px-3 py-3 font-medium">ใช้เวลา</th><th className="px-5 py-3 font-medium">IP</th></tr>
+              <thead className="border-b border-line bg-surface text-xs font-semibold text-ink-3">
+                <tr><th className="px-5 py-3">เวลา</th><th className="px-3 py-3">ผู้ใช้</th>
+                  <th className="px-3 py-3">คำขอ</th><th className="px-3 py-3">ผล</th>
+                  <th className="px-3 py-3">ใช้เวลา</th><th className="px-5 py-3">IP</th></tr>
               </thead>
               <tbody className="divide-y divide-line">
                 {requests!.items.map((r) => (

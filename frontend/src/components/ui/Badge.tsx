@@ -14,7 +14,7 @@ interface BadgeProps {
 export default function Badge({ tone = 'gray', children, dot, icon, className = '' }: BadgeProps) {
   const t = toneClasses[tone]
   return (
-    <span className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-xs font-medium whitespace-nowrap ${t.chip} ${className}`}>
+    <span className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-[11.5px] font-semibold whitespace-nowrap ${t.chip} ${className}`}>
       {dot && <span className={`h-1.5 w-1.5 rounded-full ${t.dot}`} aria-hidden="true" />}
       {icon && <i className={`ti ti-${icon} text-sm`} aria-hidden="true" />}
       {children}

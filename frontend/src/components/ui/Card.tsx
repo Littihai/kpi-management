@@ -8,19 +8,19 @@ export function Card({ className = '', children, ...rest }: HTMLAttributes<HTMLD
   )
 }
 
-/** Small uppercase caption, like the labels on the colour board. */
+/** Small label above a title or a group (Lotline "eyebrow"). */
 export function Eyebrow({ children, className = '' }: { children: ReactNode; className?: string }) {
   return (
-    <p className={`text-[11px] font-medium uppercase tracking-[0.08em] text-ink-3 ${className}`}>{children}</p>
+    <p className={`text-xs font-semibold text-ink-3 ${className}`}>{children}</p>
   )
 }
 
 export function CardHeader({ title, action, eyebrow }: { title: ReactNode; action?: ReactNode; eyebrow?: string }) {
   return (
-    <div className="flex items-start justify-between gap-3 px-5 pt-5">
+    <div className="flex items-start justify-between gap-3 px-5 pt-4">
       <div className="min-w-0">
         {eyebrow && <Eyebrow className="mb-0.5">{eyebrow}</Eyebrow>}
-        <h2 className="text-[15px] font-semibold text-ink leading-snug">{title}</h2>
+        <h2 className="text-base font-semibold text-ink leading-snug">{title}</h2>
       </div>
       {action}
     </div>
@@ -51,13 +51,13 @@ export function Stat({ label, value, hint, icon, dark, tone = 'default', onClick
           <i className={`ti ti-${icon} text-lg ${dark ? 'text-accent' : 'text-ink-3'}`} aria-hidden="true" />
         )}
       </div>
-      <p className={`mt-3 text-[28px] leading-none font-semibold tabular ${dark ? 'text-white' : toneText[tone]}`}>
+      <p className={`mt-2.5 text-[28px] leading-none font-semibold tabular ${dark ? 'text-white' : toneText[tone]}`}>
         {value}
       </p>
       {hint && <div className={`mt-2 text-xs ${dark ? 'text-white/60' : 'text-ink-2'}`}>{hint}</div>}
     </>
   )
-  const base = `block w-full text-left rounded-card p-5 border ${
+  const base = `block w-full text-left rounded-card px-5 py-4 border ${
     dark ? 'bg-ink border-ink' : 'bg-white border-line shadow-card'
   }`
   return onClick

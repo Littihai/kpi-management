@@ -6,7 +6,7 @@ import { CompactSelect } from './Field'
 export function Page({ children, wide }: { children: ReactNode; wide?: boolean }) {
   return (
     // Room at the bottom so the floating "report a problem" button never covers the last row or the pager.
-    <div className={`mx-auto w-full px-4 pb-24 pt-6 sm:px-6 lg:px-8 lg:pt-8 ${wide ? 'max-w-[1360px]' : 'max-w-6xl'}`}>
+    <div className={`mx-auto w-full px-4 pb-24 pt-5 sm:px-6 lg:pt-7 ${wide ? 'max-w-[1480px]' : 'max-w-[1320px]'}`}>
       {children}
     </div>
   )
@@ -25,8 +25,8 @@ export function PageHeader({
       {back && <div className="mb-3">{back}</div>}
       <div className="flex flex-wrap items-end justify-between gap-3">
         <div className="min-w-0">
-          <h1 className="text-[22px] font-semibold leading-tight text-ink sm:text-2xl">{title}</h1>
-          {subtitle && <p className="mt-1 text-sm text-ink-2">{subtitle}</p>}
+          <h1 className="text-[22px] font-semibold leading-snug text-ink">{title}</h1>
+          {subtitle && <p className="mt-0.5 text-[13px] text-ink-3">{subtitle}</p>}
         </div>
         {actions && <div className="flex flex-wrap items-center gap-2">{actions}</div>}
       </div>
@@ -38,11 +38,11 @@ export function EmptyState({
   icon = 'inbox', title, children, action,
 }: { icon?: string; title: string; children?: ReactNode; action?: ReactNode }) {
   return (
-    <div className="flex flex-col items-center justify-center px-6 py-14 text-center">
-      <div className="mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-surface-2 text-ink-3">
-        <i className={`ti ti-${icon} text-2xl`} aria-hidden="true" />
+    <div className="flex flex-col items-center justify-center px-6 py-10 text-center">
+      <div className="mb-3 flex h-10 w-10 items-center justify-center rounded-full bg-surface-2 text-ink-3">
+        <i className={`ti ti-${icon} text-xl`} aria-hidden="true" />
       </div>
-      <p className="text-[15px] font-semibold text-ink">{title}</p>
+      <p className="text-[13.5px] font-semibold text-ink-2">{title}</p>
       {children && <p className="mt-1 max-w-sm text-sm text-ink-2">{children}</p>}
       {action && <div className="mt-5">{action}</div>}
     </div>
@@ -100,7 +100,7 @@ export function Avatar({ name, size = 32 }: { name: string; size?: number }) {
   })()
   return (
     <span aria-hidden="true"
-      className="inline-flex shrink-0 items-center justify-center rounded-full bg-surface-2 font-medium text-ink-2"
+      className="inline-flex shrink-0 items-center justify-center rounded-full bg-accent-200 font-bold text-accent-deep"
       style={{ width: size, height: size, fontSize: size * 0.38 }}>
       {letters}
     </span>
@@ -117,16 +117,20 @@ export function Segmented<T extends string | number>({
   label: string
 }) {
   return (
-    <div role="tablist" aria-label={label} className="inline-flex flex-wrap gap-1 rounded-control bg-surface-2 p-1">
+    // Lotline's wrapping pill tabs: hairline border, solid accent when selected.
+    <div role="tablist" aria-label={label} className="flex flex-wrap gap-1.5">
       {options.map((o) => {
         const active = o.value === value
         return (
           <button key={String(o.value)} role="tab" aria-selected={active} type="button" onClick={() => onChange(o.value)}
-            className={`rounded-[9px] px-3 py-1.5 text-[13px] font-medium transition-colors
-              ${active ? 'bg-white text-ink shadow-card' : 'text-ink-2 hover:text-ink'}`}>
+            className={`inline-flex min-h-8 items-center gap-1.5 whitespace-nowrap rounded-full border px-3.5 text-[13px] font-semibold transition-colors
+              ${active
+                ? 'border-accent bg-accent text-white'
+                : 'border-line bg-white text-ink-2 hover:border-line-strong hover:text-ink'}`}>
             {o.label}
             {o.count !== undefined && (
-              <span className={`ml-1.5 tabular text-xs ${active ? 'text-accent' : 'text-ink-3'}`}>{o.count}</span>
+              <span className={`tabular min-w-[18px] rounded-full px-1.5 text-[10.5px] font-bold leading-[1.5]
+                ${active ? 'bg-white/25 text-white' : 'bg-surface-2 text-ink-2'}`}>{o.count}</span>
             )}
           </button>
         )

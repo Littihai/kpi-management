@@ -183,7 +183,7 @@ export default function IssuesPage() {
             <div className="hidden overflow-x-auto md:block">
               <table className="w-full min-w-[880px] text-left">
                 <thead>
-                  <tr className="border-b border-line text-[11px] font-medium uppercase tracking-[0.08em] text-ink-3">
+                  <tr className="border-b border-line bg-surface text-xs font-semibold text-ink-3">
                     <th scope="col" className="px-5 py-3">เลขที่</th>
                     <th scope="col" className="px-3 py-3">เรื่อง</th>
                     <th scope="col" className="px-3 py-3">สถานะ</th>

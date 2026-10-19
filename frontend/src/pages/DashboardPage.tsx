@@ -13,7 +13,7 @@ import { dashboardService, type DashboardDto } from '../services/dashboard.servi
 import { apiError } from '../utils/errors'
 import { formatNumber } from '../utils/format'
 
-const lightColor: Record<string, string> = { green: '#22c55e', yellow: '#f5a524', red: '#ef4444', gray: '#bcc0c7' }
+const lightColor: Record<string, string> = { green: '#2fb344', yellow: '#f59f00', red: '#d63939', gray: '#bbc3cd' }
 const lightLabel: Record<string, string> = { green: 'ตามเป้า', yellow: 'ต้องระวัง', red: 'ล่าช้า', gray: 'ยังไม่เริ่ม' }
 
 /** "2569-10" → "ต.ค. 69" */
@@ -72,13 +72,13 @@ export default function DashboardPage() {
                     <div style={{ height: Math.max(160, data.departmentRankings.length * 44) }}>
                       <ResponsiveContainer width="100%" height="100%">
                         <BarChart data={data.departmentRankings} layout="vertical" margin={{ left: 0, right: 28, top: 4, bottom: 4 }}>
-                          <CartesianGrid stroke="#e4e6ea" horizontal={false} />
-                          <XAxis type="number" domain={[0, 100]} tickLine={false} axisLine={false} tick={{ fontSize: 11, fill: '#5f656d' }} />
-                          <YAxis type="category" dataKey="departmentName" width={120} tickLine={false} axisLine={false} tick={{ fontSize: 12, fill: '#0e0f11' }} />
-                          <Tooltip cursor={{ fill: '#f5f6f8' }} formatter={(v) => [`${v}%`, 'ความคืบหน้าเฉลี่ย']} />
+                          <CartesianGrid stroke="#e6e7e9" horizontal={false} />
+                          <XAxis type="number" domain={[0, 100]} tickLine={false} axisLine={false} tick={{ fontSize: 11, fill: '#667382' }} />
+                          <YAxis type="category" dataKey="departmentName" width={120} tickLine={false} axisLine={false} tick={{ fontSize: 12, fill: '#182433' }} />
+                          <Tooltip cursor={{ fill: '#f6f8fb' }} formatter={(v) => [`${v}%`, 'ความคืบหน้าเฉลี่ย']} />
                           <Bar dataKey="averageProgress" radius={[0, 6, 6, 0]} barSize={16}
-                            label={{ position: 'right', fontSize: 12, fill: '#0e0f11', formatter: (v: unknown) => `${v}%` }}>
-                            {data.departmentRankings.map((d) => <Cell key={d.departmentName} fill={lightColor[d.trafficLight] ?? '#bcc0c7'} />)}
+                            label={{ position: 'right', fontSize: 12, fill: '#182433', formatter: (v: unknown) => `${v}%` }}>
+                            {data.departmentRankings.map((d) => <Cell key={d.departmentName} fill={lightColor[d.trafficLight] ?? '#bbc3cd'} />)}
                           </Bar>
                         </BarChart>
                       </ResponsiveContainer>
@@ -99,12 +99,12 @@ export default function DashboardPage() {
                 ) : (
                   <ResponsiveContainer width="100%" height="100%">
                     <AreaChart data={data.monthlyTrend.map((m) => ({ ...m, label: monthLabel(m.month) }))} margin={{ left: 0, right: 16, top: 8 }}>
-                      <CartesianGrid stroke="#e4e6ea" vertical={false} />
-                      <XAxis dataKey="label" tickLine={false} axisLine={false} tick={{ fontSize: 12, fill: '#5f656d' }} />
-                      <YAxis domain={[0, 100]} tickLine={false} axisLine={false} width={34} tick={{ fontSize: 12, fill: '#5f656d' }} />
+                      <CartesianGrid stroke="#e6e7e9" vertical={false} />
+                      <XAxis dataKey="label" tickLine={false} axisLine={false} tick={{ fontSize: 12, fill: '#667382' }} />
+                      <YAxis domain={[0, 100]} tickLine={false} axisLine={false} width={34} tick={{ fontSize: 12, fill: '#667382' }} />
                       <Tooltip formatter={(v) => [`${v}%`, 'ความคืบหน้าเฉลี่ย']} />
-                      <Area type="monotone" dataKey="averageProgress" stroke="#ff5a1f" strokeWidth={2.5} fill="#fff0ea"
-                        dot={{ r: 3, fill: '#ff5a1f', strokeWidth: 0 }} />
+                      <Area type="monotone" dataKey="averageProgress" stroke="#066fd1" strokeWidth={2.5} fill="#e7f1fb"
+                        dot={{ r: 3, fill: '#066fd1', strokeWidth: 0 }} />
                     </AreaChart>
                   </ResponsiveContainer>
                 )}

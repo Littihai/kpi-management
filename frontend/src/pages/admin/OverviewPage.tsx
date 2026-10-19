@@ -12,9 +12,9 @@ import { apiError } from '../../utils/errors'
 import { formatDateTime, formatNumber, formatRelative, formatShortDate, toDate } from '../../utils/format'
 import { auditActionLabel, issueStatusLabel, kpiStatusLabel, moduleShort, roleLabel } from '../../utils/labels'
 
-const INK = '#0e0f11'
-const ACCENT = '#ff5a1f'
-const MUTED = '#bcc0c7'
+const INK = '#182433'
+const ACCENT = '#066fd1'
+const MUTED = '#bbc3cd'
 
 const issueStatusByName: Record<string, string> = Object.fromEntries(
   ['New', 'Assigned', 'InProgress', 'WaitingForReporter', 'Resolved', 'Closed', 'Rejected', 'Reopened']
@@ -32,8 +32,8 @@ function BarList({ rows, labels, color = INK }: { rows: CountByLabel[]; labels?:
       <ResponsiveContainer width="100%" height="100%">
         <BarChart data={data} layout="vertical" margin={{ left: 0, right: 16, top: 4, bottom: 4 }}>
           <XAxis type="number" hide allowDecimals={false} />
-          <YAxis type="category" dataKey="name" width={118} tickLine={false} axisLine={false} tick={{ fontSize: 12, fill: '#5f656d' }} />
-          <Tooltip cursor={{ fill: '#f5f6f8' }} formatter={(v) => [formatNumber(Number(v)), 'จำนวน']} />
+          <YAxis type="category" dataKey="name" width={118} tickLine={false} axisLine={false} tick={{ fontSize: 12, fill: '#667382' }} />
+          <Tooltip cursor={{ fill: '#f6f8fb' }} formatter={(v) => [formatNumber(Number(v)), 'จำนวน']} />
           <Bar dataKey="count" radius={[0, 6, 6, 0]} barSize={14} label={{ position: 'right', fontSize: 12, fill: INK }}>
             {data.map((_, i) => <Cell key={i} fill={i === 0 ? color : MUTED} />)}
           </Bar>
@@ -107,11 +107,11 @@ export default function OverviewPage() {
                   : (
                     <ResponsiveContainer width="100%" height="100%">
                       <AreaChart data={data.trend.map((t) => ({ ...t, label: formatShortDate(t.day + 'T00:00:00Z') }))} margin={{ left: 4, right: 12 }}>
-                        <CartesianGrid stroke="#e4e6ea" vertical={false} />
-                        <XAxis dataKey="label" tickLine={false} axisLine={false} tick={{ fontSize: 12, fill: '#5f656d' }} />
-                        <YAxis allowDecimals={false} tickLine={false} axisLine={false} width={32} tick={{ fontSize: 12, fill: '#5f656d' }} />
+                        <CartesianGrid stroke="#e6e7e9" vertical={false} />
+                        <XAxis dataKey="label" tickLine={false} axisLine={false} tick={{ fontSize: 12, fill: '#667382' }} />
+                        <YAxis allowDecimals={false} tickLine={false} axisLine={false} width={32} tick={{ fontSize: 12, fill: '#667382' }} />
                         <Tooltip />
-                        <Area type="monotone" dataKey="requests" name="คำขอ" stroke={ACCENT} fill="#fff0ea" strokeWidth={2} />
+                        <Area type="monotone" dataKey="requests" name="คำขอ" stroke={ACCENT} fill="#e7f1fb" strokeWidth={2} />
                         <Area type="monotone" dataKey="failures" name="ล้มเหลว (4xx/5xx)" stroke={INK} fill="transparent" strokeWidth={1.5} strokeDasharray="4 3" />
                       </AreaChart>
                     </ResponsiveContainer>
@@ -168,9 +168,9 @@ export default function OverviewPage() {
                 : (
                   <div className="overflow-x-auto px-5 pb-4 pt-3">
                     <table className="w-full min-w-[560px] text-left text-[13px]">
-                      <thead className="text-[11px] uppercase tracking-[0.08em] text-ink-3">
-                        <tr><th className="py-2 pr-3 font-medium">เวลา</th><th className="py-2 pr-3 font-medium">ผู้ใช้</th>
-                          <th className="py-2 pr-3 font-medium">คำขอ</th><th className="py-2 pr-3 font-medium">ผล</th><th className="py-2 font-medium">IP</th></tr>
+                      <thead className="text-xs font-semibold text-ink-3">
+                        <tr><th className="py-2 pr-3">เวลา</th><th className="py-2 pr-3">ผู้ใช้</th>
+                          <th className="py-2 pr-3">คำขอ</th><th className="py-2 pr-3">ผล</th><th className="py-2">IP</th></tr>
                       </thead>
                       <tbody className="divide-y divide-line">
                         {data.securityEvents.map((e) => (
