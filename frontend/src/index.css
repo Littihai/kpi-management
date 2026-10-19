@@ -1,65 +1,67 @@
 @import "tailwindcss";
+@import "./styles/tokens.css";
 
 /*
-  Design tokens, aligned with the Lotline platform so both programs look and feel the same:
-  a steel-blue accent on cool blue-greys, ink #182433, small corners (3-8px), hairline borders,
-  soft status tints. Components read these names only; never hard-code a colour in a component.
+  Design tokens, shared with the Lotline platform. The runtime values (light / dark theme, accent, grey base, corner
+  radius, typeface, page width, contrast) live in styles/tokens.css as --lt-* variables and change through attributes
+  on <html> (see lib/appearance.ts). Tailwind's names below only point at them, so every utility follows a choice
+  the moment it is made. Components use these names; never hard-code a colour in a component.
 */
-@theme {
-  --font-sans: "Inter", "Noto Sans Thai", ui-sans-serif, system-ui, sans-serif;
+@theme inline {
+  --font-sans: var(--lt-font);
 
-  /* accent ramp (Lotline: accent-100 / 200 / 600 / 700 / 800) */
-  --color-accent: #066fd1;
-  --color-accent-hover: #0558a6;
-  --color-accent-soft: #e7f1fb;
-  --color-accent-200: #cfe3f7;
-  --color-accent-ink: #0558a6;
-  --color-accent-deep: #04427c;
+  /* accent ramp */
+  --color-accent: var(--lt-accent);
+  --color-accent-hover: var(--lt-a700);
+  --color-accent-soft: var(--lt-a100);
+  --color-accent-200: var(--lt-a200);
+  --color-accent-ink: var(--lt-a700);
+  --color-accent-deep: var(--lt-a800);
+  --color-on-accent: var(--lt-on-accent);
 
-  /* grounds and lines (Lotline: bg, neutral-50, neutral-100, neutral-200, neutral-300) */
-  --color-canvas: #f6f8fb;
-  --color-surface: #f8fafc;
-  --color-surface-2: #edf0f4;
-  --color-line: #e6e7e9;
-  --color-line-strong: #d6dbe1;
+  /* grounds and lines */
+  --color-canvas: var(--lt-bg);
+  --color-card: var(--lt-surface);
+  --color-surface: var(--lt-n50);
+  --color-surface-2: color-mix(in srgb, var(--lt-n200) 60%, var(--lt-n100));
+  --color-line: var(--lt-n200);
+  --color-line-strong: var(--lt-n300);
+  --color-deep: var(--lt-deep);
+  --color-on-deep: var(--lt-on-deep);
+  --color-scrim: var(--lt-scrim);
 
-  /* text (Lotline: text, neutral-700, neutral-600, neutral-400) */
-  --color-ink: #182433;
-  --color-ink-2: #49566c;
-  --color-ink-3: #667382;
-  --color-ink-4: #bbc3cd;
+  /* text */
+  --color-ink: var(--lt-text);
+  --color-ink-2: var(--lt-n700);
+  --color-ink-3: var(--lt-n600);
+  --color-ink-4: var(--lt-n400);
 
-  /* status tones (Lotline TONE map); "blue" is the informational tone and follows the accent */
-  --color-blue-soft: #e7f1fb;
-  --color-blue-ink: #0558a6;
-  --color-blue-dot: #4299e1;
-  --color-green-soft: #e3f5e7;
-  --color-green-ink: #1f7a32;
-  --color-green-dot: #2fb344;
-  --color-amber-soft: #fdf1d6;
-  --color-amber-ink: #9a5b00;
-  --color-amber-dot: #f59f00;
-  --color-red-soft: #fbe4e4;
-  --color-red-ink: #a62828;
-  --color-red-dot: #d63939;
-  --color-gray-soft: #edf0f4;
-  --color-gray-ink: #49566c;
-  --color-gray-dot: #bbc3cd;
+  /* status tones; "blue" is the informational tone and follows the accent */
+  --color-blue-soft: var(--lt-a100);
+  --color-blue-ink: var(--lt-a700);
+  --color-blue-dot: var(--lt-a500);
+  --color-green-soft: var(--tone-ok-bg);
+  --color-green-ink: var(--tone-ok-fg);
+  --color-green-dot: var(--tone-ok-solid);
+  --color-amber-soft: var(--tone-warn-bg);
+  --color-amber-ink: var(--tone-warn-fg);
+  --color-amber-dot: var(--tone-warn-solid);
+  --color-red-soft: var(--tone-stop-bg);
+  --color-red-ink: var(--tone-stop-fg);
+  --color-red-dot: var(--tone-stop-solid);
+  --color-gray-soft: color-mix(in srgb, var(--lt-n200) 60%, var(--lt-n100));
+  --color-gray-ink: var(--lt-n700);
+  --color-gray-dot: var(--lt-n400);
 
-  /* corners: Lotline radius sm 3 / md 4 / lg 6 / xl 8 */
-  --radius-sm: 3px;
-  --radius-md: 4px;
-  --radius-lg: 6px;
-  --radius-xl: 8px;
-  --radius-card: 6px;
-  --radius-control: 4px;
-
-  /* elevation: Lotline shadow-sm / shadow-lg */
-  --shadow-card: 0 1px 2px rgb(24 36 51 / 0.08);
-  --shadow-pop: 0 12px 32px rgb(24 36 51 / 0.18);
-
-  /* page frame */
-  --spacing-side: 252px;
+  /* corners and elevation follow the Customize choices */
+  --radius-sm: var(--lt-r-sm);
+  --radius-md: var(--lt-r-md);
+  --radius-lg: var(--lt-r-lg);
+  --radius-xl: var(--lt-r-xl);
+  --radius-card: var(--lt-r-lg);
+  --radius-control: var(--lt-r-md);
+  --shadow-card: var(--shadow-sm);
+  --shadow-pop: var(--shadow-lg);
 }
 
 @layer base {
@@ -70,15 +72,15 @@
     scrollbar-gutter: stable;
   }
   body {
-    background: var(--color-canvas);
-    color: var(--color-ink);
-    font-family: var(--font-sans);
+    background: var(--lt-bg);
+    color: var(--lt-text);
+    font-family: var(--lt-font);
     font-size: 14px;
     line-height: 1.6;
     -webkit-font-smoothing: antialiased;
   }
   :focus-visible {
-    outline: 2px solid var(--color-accent);
+    outline: 2px solid var(--lt-accent);
     outline-offset: 2px;
   }
   /* a field shows the ring on its own border instead of a halo outside it */
@@ -86,11 +88,11 @@
   select:focus-visible,
   textarea:focus-visible {
     outline: none;
-    border-color: var(--color-accent);
-    box-shadow: 0 0 0 3px var(--color-accent-200);
+    border-color: var(--lt-accent);
+    box-shadow: 0 0 0 3px var(--lt-a200);
   }
   ::selection {
-    background: var(--color-accent-200);
+    background: var(--lt-a200);
   }
   /* numbers line up in tables and stat cards */
   .tabular {
@@ -106,11 +108,31 @@
   }
 }
 
+/* "Motion: auto" follows the operating system; "reduce" is forced in tokens.css */
 @media (prefers-reduced-motion: reduce) {
-  *,
-  *::before,
-  *::after {
+  html:not([data-motion="full"]) *,
+  html:not([data-motion="full"]) *::before,
+  html:not([data-motion="full"]) *::after {
     animation-duration: 0.01ms !important;
     transition-duration: 0.01ms !important;
   }
 }
+
+/* Customize panel (off-canvas from the right edge) */
+@keyframes offcanvas-in {
+  from { opacity: 0; transform: translateX(24px); }
+  to { opacity: 1; transform: none; }
+}
+.offcanvas-in { animation: offcanvas-in 0.22s cubic-bezier(0.2, 0.7, 0.2, 1); }
+
+/* a picture above a label, picked like a radio (option cards in the Customize panel) */
+.opt-preview {
+  display: block;
+  height: 64px;
+  border-radius: var(--lt-r-lg);
+  overflow: hidden;
+  outline: 1px solid var(--lt-n300);
+  transition: outline-color 0.12s ease;
+}
+.opt-card:hover .opt-preview { outline-color: var(--lt-n500); }
+.opt-card[aria-checked="true"] .opt-preview { outline: 2px solid var(--lt-accent); outline-offset: 2px; }

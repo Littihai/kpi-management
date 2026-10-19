@@ -87,8 +87,8 @@ export default function IssueFormFields({ values, onChange, files, onFilesChange
             ${dragging ? 'border-accent bg-accent-soft' : 'border-line-strong bg-surface'}`}>
           <i className="ti ti-photo-up text-2xl text-ink-3" aria-hidden="true" />
           <p className="mt-1 text-[13px] text-ink-2">
-            ลากรูปมาวาง, กด <kbd className="rounded border border-line bg-white px-1.5 py-0.5 text-xs">Ctrl</kbd>+
-            <kbd className="rounded border border-line bg-white px-1.5 py-0.5 text-xs">V</kbd> เพื่อวางภาพหน้าจอ หรือ{' '}
+            ลากรูปมาวาง, กด <kbd className="rounded border border-line bg-card px-1.5 py-0.5 text-xs">Ctrl</kbd>+
+            <kbd className="rounded border border-line bg-card px-1.5 py-0.5 text-xs">V</kbd> เพื่อวางภาพหน้าจอ หรือ{' '}
             <button type="button" className="font-medium text-accent hover:underline" onClick={() => input.current?.click()}>
               เลือกไฟล์
             </button>
@@ -107,7 +107,7 @@ export default function IssueFormFields({ values, onChange, files, onFilesChange
                 <img src={url} alt={file.name} className="h-20 w-20 rounded-control border border-line object-cover" />
                 <button type="button" aria-label={`เอา ${file.name} ออก`}
                   onClick={() => onFilesChange(files.filter((f) => f !== file))}
-                  className="absolute -right-2 -top-2 flex h-6 w-6 items-center justify-center rounded-full bg-ink text-white hover:bg-black">
+                  className="absolute -right-2 -top-2 flex h-6 w-6 items-center justify-center rounded-full bg-deep text-on-deep hover:brightness-125">
                   <i className="ti ti-x text-xs" aria-hidden="true" />
                 </button>
               </li>

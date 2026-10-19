@@ -3,10 +3,10 @@ import { PAGE_SIZES } from '../../utils/paging'
 import { CompactSelect } from './Field'
 
 /** Page frame: consistent padding and a readable maximum width. */
-export function Page({ children, wide }: { children: ReactNode; wide?: boolean }) {
+export function Page({ children }: { children: ReactNode; wide?: boolean }) {
   return (
     // Room at the bottom so the floating "report a problem" button never covers the last row or the pager.
-    <div className={`mx-auto w-full px-4 pb-24 pt-5 sm:px-6 lg:pt-7 ${wide ? 'max-w-[1480px]' : 'max-w-[1320px]'}`}>
+    <div className={`mx-auto w-full px-4 pb-24 pt-5 sm:px-6 lg:pt-7 max-w-[var(--page-max)]`}>
       {children}
     </div>
   )
@@ -125,12 +125,12 @@ export function Segmented<T extends string | number>({
           <button key={String(o.value)} role="tab" aria-selected={active} type="button" onClick={() => onChange(o.value)}
             className={`inline-flex min-h-8 items-center gap-1.5 whitespace-nowrap rounded-full border px-3.5 text-[13px] font-semibold transition-colors
               ${active
-                ? 'border-accent bg-accent text-white'
-                : 'border-line bg-white text-ink-2 hover:border-line-strong hover:text-ink'}`}>
+                ? 'border-accent bg-accent text-on-accent'
+                : 'border-line bg-card text-ink-2 hover:border-line-strong hover:text-ink'}`}>
             {o.label}
             {o.count !== undefined && (
               <span className={`tabular min-w-[18px] rounded-full px-1.5 text-[10.5px] font-bold leading-[1.5]
-                ${active ? 'bg-white/25 text-white' : 'bg-surface-2 text-ink-2'}`}>{o.count}</span>
+                ${active ? 'bg-on-accent/20 text-on-accent' : 'bg-surface-2 text-ink-2'}`}>{o.count}</span>
             )}
           </button>
         )

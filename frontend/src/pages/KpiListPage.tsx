@@ -99,7 +99,7 @@ export default function KpiListPage() {
             <i className="ti ti-search pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-ink-3" aria-hidden="true" />
             <input type="search" value={search} onChange={(e) => setSearch(e.target.value)} aria-label="ค้นหา KPI"
               placeholder="ค้นหาชื่อ แผนก หรือเจ้าของ"
-              className="h-9 w-full rounded-control border border-line bg-white pl-9 pr-3 text-[13px] focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/20" />
+              className="h-9 w-full rounded-control border border-line bg-card pl-9 pr-3 text-[13px] focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/20" />
           </div>
         </div>
 

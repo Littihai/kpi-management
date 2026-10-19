@@ -13,7 +13,50 @@ import { dashboardService, type DashboardDto } from '../services/dashboard.servi
 import { apiError } from '../utils/errors'
 import { formatNumber } from '../utils/format'
 
-const lightColor: Record<string, string> = { green: '#2fb344', yellow: '#f59f00', red: '#d63939', gray: '#bbc3cd' }
+/** Chart colours are CSS variables, so the charts follow the theme and the accent. */
+const lightColor: Record<string, string> = {
+  green: 'var(--tone-ok-solid)', yellow: 'var(--tone-warn-solid)', red: 'var(--tone-stop-solid)', gray: 'var(--lt-n400)',
+}
+const axisTick = { fontSize: 12, fill: 'var(--lt-n600)' }
+const gridStroke = 'var(--lt-n200)'
+const tooltipStyle = {
+  contentStyle: { background: 'var(--lt-surface)', border: '1px solid var(--lt-n200)', borderRadius: 6, color: 'var(--lt-text)', fontSize: 12.5, boxShadow: 'var(--shadow-md)' },
+  labelStyle: { color: 'var(--lt-text)', fontWeight: 600 },
+  itemStyle: { color: 'var(--lt-n700)' },
+}
+
+/** A ring showing one percentage, with the number in the middle. */
+function ArcGauge({ value, label }: { value: number; label: string }) {
+  const r = 46
+  const c = 2 * Math.PI * r
+  const pct = Math.max(0, Math.min(100, value))
+  return (
+    <div className="relative h-[132px] w-[132px] flex-none" role="img" aria-label={`${label} ${formatNumber(value, 1)}%`}>
+      <svg viewBox="0 0 120 120" className="h-full w-full -rotate-90">
+        <circle cx="60" cy="60" r={r} fill="none" stroke="var(--lt-n200)" strokeWidth="11" />
+        <circle cx="60" cy="60" r={r} fill="none" stroke="var(--lt-accent)" strokeWidth="11" strokeLinecap="round"
+          strokeDasharray={`${(pct / 100) * c} ${c}`} style={{ transition: 'stroke-dasharray 0.6s ease' }} />
+      </svg>
+      <div className="absolute inset-0 flex flex-col items-center justify-center">
+        <span className="tabular text-[26px] font-semibold leading-none text-ink">{formatNumber(value, 1)}%</span>
+        <span className="mt-1 text-[11px] text-ink-3">{label}</span>
+      </div>
+    </div>
+  )
+}
+
+/** A small number with a thin bar showing its share of the whole (the welcome card). */
+function MiniStat({ label, value, share, color }: { label: string; value: number; share: number; color: string }) {
+  return (
+    <div className="min-w-[110px]">
+      <p className="text-xs font-semibold text-ink-3">{label}</p>
+      <p className="tabular mt-0.5 text-2xl font-semibold leading-tight text-ink">{formatNumber(value)}</p>
+      <div className="mt-1.5 h-1.5 w-full overflow-hidden rounded-full bg-surface-2" aria-hidden="true">
+        <div className="h-full rounded-full" style={{ width: `${Math.round(Math.max(0, Math.min(1, share)) * 100)}%`, background: color }} />
+      </div>
+    </div>
+  )
+}
 const lightLabel: Record<string, string> = { green: 'ตามเป้า', yellow: 'ต้องระวัง', red: 'ล่าช้า', gray: 'ยังไม่เริ่ม' }
 
 /** "2569-10" → "ต.ค. 69" */
@@ -49,14 +92,29 @@ export default function DashboardPage() {
 
       {data && (
         <div className="space-y-6">
-          <section aria-label="ตัวเลขสำคัญ" className="grid grid-cols-2 gap-3 lg:grid-cols-4 lg:gap-4">
-            <div className="col-span-2 lg:col-span-1">
-              <Stat dark label="ความคืบหน้ารวม" value={`${formatNumber(data.overallProgress, 1)}%`} icon="chart-donut-3"
-                hint={<Progress value={data.overallProgress} className="mt-1 !bg-white/15" />} />
-            </div>
-            <Stat label="KPI ทั้งหมด" value={data.totalKpis} icon="target-arrow" onClick={() => navigate('/kpi')} />
-            <Stat label="กำลังดำเนินการ" value={data.activeKpis} icon="player-play" tone="green"
-              hint={`ตามเป้า ${data.onTrackKpis} รายการ`} onClick={() => navigate('/kpi')} />
+          <section aria-label="ตัวเลขสำคัญ" className="grid gap-4 lg:grid-cols-4">
+            <Card className="flex flex-wrap items-center justify-between gap-5 px-6 py-5 lg:col-span-2"
+              style={{ background: 'linear-gradient(135deg, var(--lt-a100), var(--lt-surface) 70%)' }}>
+              <div className="flex min-w-0 flex-1 basis-56 flex-col justify-between gap-5">
+                <div>
+                  <p className="text-xl font-semibold text-ink">สวัสดี {user?.fullName ?? ''}</p>
+                  <p className="mt-1.5 max-w-sm text-[13.5px] text-ink-3">
+                    ภาพรวม KPI ของ {user?.departmentName ?? 'องค์กร'} — {data.delayedKpis > 0
+                      ? `มี ${data.delayedKpis} รายการที่ล่าช้า ควรติดตามก่อน`
+                      : 'ตอนนี้ไม่มี KPI ที่ล่าช้า'}
+                  </p>
+                </div>
+                <div className="flex flex-wrap gap-6">
+                  <MiniStat label="กำลังดำเนินการ" value={data.activeKpis}
+                    share={data.totalKpis ? data.activeKpis / data.totalKpis : 0} color="var(--lt-accent)" />
+                  <MiniStat label="ตามเป้า" value={data.onTrackKpis}
+                    share={data.activeKpis ? data.onTrackKpis / data.activeKpis : 0} color="var(--tone-ok-solid)" />
+                </div>
+              </div>
+              <ArcGauge value={data.overallProgress} label="ความคืบหน้ารวม" />
+            </Card>
+            <Stat label="KPI ทั้งหมด" value={data.totalKpis} icon="target-arrow"
+              hint="ดูรายการทั้งหมด" onClick={() => navigate('/kpi')} />
             <Stat label="ล่าช้า" value={data.delayedKpis} icon="alarm" tone={data.delayedKpis ? 'red' : 'default'}
               hint={data.delayedKpis ? 'ต้องติดตามด่วน' : 'ไม่มี KPI ล่าช้า'} onClick={() => navigate('/kpi')} />
           </section>
@@ -72,13 +130,13 @@ export default function DashboardPage() {
                     <div style={{ height: Math.max(160, data.departmentRankings.length * 44) }}>
                       <ResponsiveContainer width="100%" height="100%">
                         <BarChart data={data.departmentRankings} layout="vertical" margin={{ left: 0, right: 28, top: 4, bottom: 4 }}>
-                          <CartesianGrid stroke="#e6e7e9" horizontal={false} />
-                          <XAxis type="number" domain={[0, 100]} tickLine={false} axisLine={false} tick={{ fontSize: 11, fill: '#667382' }} />
-                          <YAxis type="category" dataKey="departmentName" width={120} tickLine={false} axisLine={false} tick={{ fontSize: 12, fill: '#182433' }} />
-                          <Tooltip cursor={{ fill: '#f6f8fb' }} formatter={(v) => [`${v}%`, 'ความคืบหน้าเฉลี่ย']} />
+                          <CartesianGrid stroke={gridStroke} horizontal={false} />
+                          <XAxis type="number" domain={[0, 100]} tickLine={false} axisLine={false} tick={{ ...axisTick, fontSize: 11 }} />
+                          <YAxis type="category" dataKey="departmentName" width={120} tickLine={false} axisLine={false} tick={axisTick} />
+                          <Tooltip {...tooltipStyle} cursor={{ fill: 'var(--lt-n100)' }} formatter={(v) => [`${v}%`, 'ความคืบหน้าเฉลี่ย']} />
                           <Bar dataKey="averageProgress" radius={[0, 6, 6, 0]} barSize={16}
-                            label={{ position: 'right', fontSize: 12, fill: '#182433', formatter: (v: unknown) => `${v}%` }}>
-                            {data.departmentRankings.map((d) => <Cell key={d.departmentName} fill={lightColor[d.trafficLight] ?? '#bbc3cd'} />)}
+                            label={{ position: 'right', fontSize: 12, fill: 'var(--lt-text)', formatter: (v: unknown) => `${v}%` }}>
+                            {data.departmentRankings.map((d) => <Cell key={d.departmentName} fill={lightColor[d.trafficLight] ?? 'var(--lt-n400)'} />)}
                           </Bar>
                         </BarChart>
                       </ResponsiveContainer>
@@ -99,12 +157,12 @@ export default function DashboardPage() {
                 ) : (
                   <ResponsiveContainer width="100%" height="100%">
                     <AreaChart data={data.monthlyTrend.map((m) => ({ ...m, label: monthLabel(m.month) }))} margin={{ left: 0, right: 16, top: 8 }}>
-                      <CartesianGrid stroke="#e6e7e9" vertical={false} />
-                      <XAxis dataKey="label" tickLine={false} axisLine={false} tick={{ fontSize: 12, fill: '#667382' }} />
-                      <YAxis domain={[0, 100]} tickLine={false} axisLine={false} width={34} tick={{ fontSize: 12, fill: '#667382' }} />
-                      <Tooltip formatter={(v) => [`${v}%`, 'ความคืบหน้าเฉลี่ย']} />
-                      <Area type="monotone" dataKey="averageProgress" stroke="#066fd1" strokeWidth={2.5} fill="#e7f1fb"
-                        dot={{ r: 3, fill: '#066fd1', strokeWidth: 0 }} />
+                      <CartesianGrid stroke={gridStroke} vertical={false} />
+                      <XAxis dataKey="label" tickLine={false} axisLine={false} tick={axisTick} />
+                      <YAxis domain={[0, 100]} tickLine={false} axisLine={false} width={34} tick={axisTick} />
+                      <Tooltip {...tooltipStyle} formatter={(v) => [`${v}%`, 'ความคืบหน้าเฉลี่ย']} />
+                      <Area type="monotone" dataKey="averageProgress" stroke="var(--lt-accent)" strokeWidth={2.5} fill="var(--lt-a200)" fillOpacity={0.55}
+                        dot={{ r: 3, fill: 'var(--lt-accent)', strokeWidth: 0 }} />
                     </AreaChart>
                   </ResponsiveContainer>
                 )}

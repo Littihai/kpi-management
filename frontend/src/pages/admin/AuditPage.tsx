@@ -125,12 +125,12 @@ export default function AuditPage() {
             <label htmlFor="q" className="mb-1 block text-xs text-ink-3">ค้นหา</label>
             <input id="q" type="search" value={searchText} onChange={(e) => setSearchText(e.target.value)}
               placeholder={tab === 'audit' ? 'ชื่อ อีเมล หรือข้อความ' : 'อีเมลหรือ path'}
-              className="h-9 w-52 rounded-control border border-line bg-white px-3 text-[13px] focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/20" />
+              className="h-9 w-52 rounded-control border border-line bg-card px-3 text-[13px] focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/20" />
           </div>
           <div>
             <label htmlFor="ip" className="mb-1 block text-xs text-ink-3">IP</label>
             <input id="ip" value={ipText} onChange={(e) => setIpText(e.target.value)} placeholder="203.0.113.7"
-              className="h-9 w-36 rounded-control border border-line bg-white px-3 text-[13px] tabular focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/20" />
+              className="h-9 w-36 rounded-control border border-line bg-card px-3 text-[13px] tabular focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/20" />
           </div>
           {tab === 'audit' ? (
             <div>
@@ -158,12 +158,12 @@ export default function AuditPage() {
           <div>
             <label htmlFor="from" className="mb-1 block text-xs text-ink-3">ตั้งแต่วันที่</label>
             <input id="from" type="date" value={from} max={to || undefined} onChange={(e) => update({ from: e.target.value })}
-              className="h-9 rounded-control border border-line bg-white px-2 text-[13px]" />
+              className="h-9 rounded-control border border-line bg-card px-2 text-[13px]" />
           </div>
           <div>
             <label htmlFor="to" className="mb-1 block text-xs text-ink-3">ถึงวันที่</label>
             <input id="to" type="date" value={to} min={from || undefined} onChange={(e) => update({ to: e.target.value })}
-              className="h-9 rounded-control border border-line bg-white px-2 text-[13px]" />
+              className="h-9 rounded-control border border-line bg-card px-2 text-[13px]" />
           </div>
           {hasFilters && (
             <Button size="sm" variant="ghost" icon="x" onClick={() => { setSearchText(''); setIpText(''); update({ q: null, entity: null, ip: null, method: null, minStatus: null, from: null, to: null }) }}>

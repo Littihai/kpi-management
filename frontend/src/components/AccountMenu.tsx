@@ -5,7 +5,7 @@ import { Avatar } from './ui/Layout'
 import { roleLabel } from '../utils/labels'
 
 /** The signed-in person in the top bar; opens a small menu with who they are and the way out (as in Lotline). */
-export default function AccountMenu() {
+export default function AccountMenu({ onOpenSettings }: { onOpenSettings?: () => void }) {
   const navigate = useNavigate()
   const { user, logout } = useAuthStore()
   const [open, setOpen] = useState(false)
@@ -39,12 +39,19 @@ export default function AccountMenu() {
       </button>
 
       {open && (
-        <div role="menu" className="absolute right-0 top-full z-40 mt-2 w-64 overflow-hidden rounded-card border border-line bg-white shadow-pop">
+        <div role="menu" className="absolute right-0 top-full z-40 mt-2 w-64 overflow-hidden rounded-card border border-line bg-card shadow-pop">
           <div className="border-b border-line px-4 py-3">
             <p className="truncate text-sm font-semibold text-ink">{user.fullName}</p>
             <p className="truncate text-xs text-ink-3">{role}{user.departmentName ? ` · ${user.departmentName}` : ''}</p>
           </div>
           <div className="p-1.5">
+            {onOpenSettings && (
+              <button type="button" role="menuitem" onClick={() => { setOpen(false); onOpenSettings() }}
+                className="flex w-full items-center gap-2.5 rounded-control px-2.5 py-2 text-left text-sm font-medium text-ink hover:bg-surface">
+                <i className="ti ti-adjustments-horizontal text-lg text-ink-3" aria-hidden="true" />
+                ตั้งค่า
+              </button>
+            )}
             <button type="button" role="menuitem"
               onClick={() => { setOpen(false); logout(); navigate('/login') }}
               className="flex w-full items-center gap-2.5 rounded-control px-2.5 py-2 text-left text-sm font-medium text-ink hover:bg-surface">

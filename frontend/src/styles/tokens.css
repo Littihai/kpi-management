@@ -1,0 +1,440 @@
+/* GENERATED from Lotline (frontend/src/styles/tokens.css) and renamed to --lt-*. Change a value in both places. */
+/*
+ * Lotline design-system tokens.
+ * Retune colors, space and elevation here;
+ * every component reads these variables — never hard-code a hex in a component.
+ *
+ * Themes: the light palette is the default. `<html data-theme="dark">` swaps the
+ * color tokens below; everything that reads a token follows automatically.
+ */
+:root,
+.theme-light {
+  color-scheme: light;
+
+  /* base ground */
+  --lt-bg: #f6f8fb;
+  --lt-surface: #ffffff;
+  --lt-text: #182433;
+  --lt-accent: #066fd1;
+  --lt-accent-2: #4299e1;
+  --lt-divider: color-mix(in srgb, #182433 14%, transparent);
+  /* text/icons that sit on an accent or tone-solid fill */
+  --lt-on-accent: #ffffff;
+  /* dimmed backdrop behind modals */
+  --lt-scrim: color-mix(in srgb, #182433 50%, transparent);
+  /* deep brand panel (login hero, toasts) — dark in both themes, white text */
+  --lt-deep: #182433;
+  --lt-on-deep: #ffffff;
+  /* text on a solid status fill (red/green/amber) — white in both themes */
+  --tone-on-solid: #ffffff;
+
+  /* neutral ramp */
+  --lt-n50: #f8fafc;
+  --lt-n100: #f6f8fb;
+  --lt-n200: #e6e7e9;
+  --lt-n300: #d6dbe1;
+  --lt-n400: #bbc3cd;
+  --lt-n500: #929dab;
+  --lt-n600: #667382;
+  --lt-n700: #49566c;
+  --lt-n800: #2c3b4e;
+  --lt-n900: #182433;
+  --muted: var(--lt-n600);
+
+  /* accent ramp */
+  --lt-a100: #e7f1fb;
+  --lt-a200: #cfe3f7;
+  --lt-a300: #9fc8ef;
+  --lt-a400: #6faee7;
+  --lt-a500: #3f94de;
+  --lt-a600: #066fd1;
+  --lt-a700: #0558a6;
+  --lt-a800: #04427c;
+  --lt-a900: #022c52;
+
+  /* semantic status tones (from design TONE map) */
+  --tone-warn-fg: #9a5b00;
+  --tone-warn-bg: #fdf1d6;
+  --tone-warn-solid: #f59f00;
+  --tone-ok-fg: #1f7a32;
+  --tone-ok-bg: #e3f5e7;
+  --tone-ok-solid: #2fb344;
+  --tone-stop-fg: #a62828;
+  --tone-stop-bg: #fbe4e4;
+  --tone-stop-solid: #d63939;
+  --tone-danger: #d63939;
+  --tone-go-fg: var(--tone-ok-fg);
+  --tone-go-bg: var(--tone-ok-bg);
+
+  /* chart series (hand-drawn SVG charts) */
+  --chart-1: #066fd1;
+  --chart-2: #f59f00;
+  --chart-3: #2fb344;
+  --chart-4: #d63939;
+  --chart-5: #4263eb;
+
+  /* elevation */
+  --shadow-sm: 0 1px 2px color-mix(in srgb, #182433 8%, transparent);
+  --shadow-md: 0 4px 12px color-mix(in srgb, #182433 12%, transparent);
+  --shadow-lg: 0 12px 32px color-mix(in srgb, #182433 18%, transparent);
+}
+
+:root {
+  /* type */
+  --lt-font-heading: "Inter", "Noto Sans Thai", system-ui, sans-serif;
+  --lt-font: "Inter", "Noto Sans Thai", system-ui, sans-serif;
+  --lt-font-num: "Inter", system-ui, sans-serif;
+
+
+  /* page frame */
+  --page-max: 1320px;
+  --page-pad: 24px;
+
+  /* radius */
+  --lt-r-sm: 3px;
+  --lt-r-md: 4px;
+  --lt-r-lg: 6px;
+  --lt-r-xl: 8px;
+}
+
+/*
+ * Customize (Settings > General and the Customize panel). Each choice is one attribute on <html>; a default has no
+ * attribute, so the values above stay the single source for the default look. See lib/appearance.ts.
+ */
+
+/* corner radius */
+:root[data-radius="none"] { --lt-r-sm: 0; --lt-r-md: 0; --lt-r-lg: 0; --lt-r-xl: 0; }
+:root[data-radius="md"]   { --lt-r-sm: 4px; --lt-r-md: 6px; --lt-r-lg: 10px; --lt-r-xl: 14px; }
+:root[data-radius="lg"]   { --lt-r-sm: 6px; --lt-r-md: 9px; --lt-r-lg: 14px; --lt-r-xl: 20px; }
+:root[data-radius="xl"]   { --lt-r-sm: 8px; --lt-r-md: 12px; --lt-r-lg: 18px; --lt-r-xl: 26px; }
+
+/* page width */
+:root[data-container="narrow"] { --page-max: 1140px; }
+:root[data-container="wide"]   { --page-max: 1640px; }
+:root[data-container="fluid"]  { --page-max: none; }
+
+/* typeface (the packages are loaded on demand: lib/fonts.ts) */
+:root[data-font="plex"] {
+  --lt-font-heading: "IBM Plex Sans Thai", "Noto Sans Thai", system-ui, sans-serif;
+  --lt-font: "IBM Plex Sans Thai", "Noto Sans Thai", system-ui, sans-serif;
+  --lt-font-num: "IBM Plex Sans Thai", system-ui, sans-serif;
+}
+:root[data-font="sarabun"] {
+  --lt-font-heading: "Sarabun", "Noto Sans Thai", system-ui, sans-serif;
+  --lt-font: "Sarabun", "Noto Sans Thai", system-ui, sans-serif;
+  --lt-font-num: "Sarabun", system-ui, sans-serif;
+}
+:root[data-font="system"] {
+  --lt-font-heading: system-ui, -apple-system, "Segoe UI", "Leelawadee UI", "Noto Sans Thai", sans-serif;
+  --lt-font: system-ui, -apple-system, "Segoe UI", "Leelawadee UI", "Noto Sans Thai", sans-serif;
+  --lt-font-num: system-ui, -apple-system, "Segoe UI", sans-serif;
+}
+
+/*
+ * Dark palette. The ramps are mirrored rather than recolored: `neutral-100` is
+ * still "the faintest tint above the surface" and `accent-700` is still "accent
+ * text", so a component written against the light theme reads correctly here.
+ * `.theme-dark` / `.theme-light` pin a subtree to one palette (theme previews).
+ */
+:root[data-theme="dark"],
+.theme-dark {
+  color-scheme: dark;
+
+  --lt-bg: #121b27;
+  --lt-surface: #182433;
+  --lt-text: #e6e9ee;
+  --lt-accent: #4299e1;
+  --lt-accent-2: #63b3ed;
+  --lt-divider: color-mix(in srgb, #e6e9ee 14%, transparent);
+  --lt-on-accent: #0f1418;
+  --lt-scrim: color-mix(in srgb, #000000 62%, transparent);
+  --lt-deep: #0f1722;
+
+  --lt-n50: #1d2a3b;
+  --lt-n100: #1f2d40;
+  --lt-n200: #263548;
+  --lt-n300: #33465c;
+  --lt-n400: #4d6178;
+  --lt-n500: #7d8da1;
+  --lt-n600: #9aa8ba;
+  --lt-n700: #b6c1ce;
+  --lt-n800: #d0d8e1;
+  --lt-n900: #e6e9ee;
+
+  --lt-a100: #12263d;
+  --lt-a200: #163355;
+  --lt-a300: #1c4676;
+  --lt-a400: #2a64a3;
+  --lt-a500: #3b82cc;
+  --lt-a600: #4299e1;
+  --lt-a700: #6cb2ee;
+  --lt-a800: #9ccbf4;
+  --lt-a900: #cfe5fa;
+
+  --tone-warn-fg: #f5c25a;
+  --tone-warn-bg: #3a2c0b;
+  --tone-warn-solid: #f59f00;
+  --tone-ok-fg: #7fd48f;
+  --tone-ok-bg: #14301c;
+  --tone-ok-solid: #2fb344;
+  --tone-stop-fg: #f08a8a;
+  --tone-stop-bg: #3b1818;
+  --tone-stop-solid: #d63939;
+  --tone-danger: #ef6b6b;
+
+  --chart-1: #4299e1;
+  --chart-2: #f5b73d;
+  --chart-3: #4ccf63;
+  --chart-4: #ef6b6b;
+  --chart-5: #7c8cf5;
+
+  --shadow-sm: 0 1px 2px color-mix(in srgb, #000000 45%, transparent);
+  --shadow-md: 0 3px 10px color-mix(in srgb, #000000 50%, transparent);
+  --shadow-lg: 0 12px 32px color-mix(in srgb, #000000 60%, transparent);
+}
+
+/*
+ * Accent colours (Settings > General). `data-accent` carries one base colour per palette
+ * (--ac in light, --ad in dark) and the whole accent ramp is mixed from it, so a new colour
+ * is two lines. The default (steel) has no attribute and keeps the hand-tuned ramps above.
+ * Printed forms (.pr-paper / .mt-paper) declare their own palette and stay as they are.
+ */
+:root[data-accent="teal"]   { --ac: #2f7f86; --ad: #62b5bb; }
+:root[data-accent="green"]  { --ac: #3f7f58; --ad: #6fbd8f; }
+:root[data-accent="violet"] { --ac: #6b5fb0; --ad: #a69ce3; }
+:root[data-accent="rose"]   { --ac: #b0566f; --ad: #e58ea5; }
+:root[data-accent="amber"]  { --ac: #a8612a; --ad: #e3a463; }
+:root[data-accent="indigo"] { --ac: #4c58c4; --ad: #8d96ee; }
+:root[data-accent="azure"]  { --ac: #0b78a8; --ad: #5cbde8; }
+:root[data-accent="slate"]  { --ac: #4f6076; --ad: #9fb0c4; }
+
+:root[data-accent]:not([data-theme="dark"]),
+:root[data-accent] .theme-light {
+  --lt-accent: var(--ac);
+  --lt-accent-2: color-mix(in srgb, var(--ac) 82%, white);
+  --lt-a100: color-mix(in srgb, var(--ac) 10%, white);
+  --lt-a200: color-mix(in srgb, var(--ac) 22%, white);
+  --lt-a300: color-mix(in srgb, var(--ac) 38%, white);
+  --lt-a400: color-mix(in srgb, var(--ac) 60%, white);
+  --lt-a500: color-mix(in srgb, var(--ac) 80%, white);
+  --lt-a600: var(--ac);
+  --lt-a700: color-mix(in srgb, var(--ac) 75%, black);
+  --lt-a800: color-mix(in srgb, var(--ac) 50%, black);
+  --lt-a900: color-mix(in srgb, var(--ac) 33%, black);
+  --chart-1: var(--ac);
+}
+:root[data-theme="dark"][data-accent],
+:root[data-accent] .theme-dark {
+  --lt-accent: var(--ad);
+  --lt-accent-2: color-mix(in srgb, var(--ad) 85%, #1c1f23);
+  --lt-a100: color-mix(in srgb, var(--ad) 14%, #1c1f23);
+  --lt-a200: color-mix(in srgb, var(--ad) 22%, #1c1f23);
+  --lt-a300: color-mix(in srgb, var(--ad) 34%, #1c1f23);
+  --lt-a400: color-mix(in srgb, var(--ad) 50%, #1c1f23);
+  --lt-a500: color-mix(in srgb, var(--ad) 72%, #1c1f23);
+  --lt-a600: var(--ad);
+  --lt-a700: color-mix(in srgb, var(--ad) 75%, white);
+  --lt-a800: color-mix(in srgb, var(--ad) 50%, white);
+  --lt-a900: color-mix(in srgb, var(--ad) 30%, white);
+  --chart-1: var(--ad);
+}
+
+/*
+ * Grey base (Customize > Theme base). "slate" is the palette above and has no attribute. The others keep the lightness of
+ * every step of the neutral ramp (so every text/background pair keeps its contrast) and change only the hue and saturation;
+ * the muted grey is checked at 4.5:1. Generated, then pasted: change a base by re-running the generator, not by hand.
+ * The `[data-base].theme-*` selectors let a preview tile show a base inside a page that uses another.
+ */
+:root[data-base="gray"]:not([data-theme="dark"]),
+[data-base="gray"].theme-light {
+  --lt-bg: #f7f8fa;
+  --lt-text: #1e232d;
+  --lt-deep: #1e232d;
+  --lt-n50: #f9fafb;
+  --lt-n100: #f7f8fa;
+  --lt-n200: #e7e7e8;
+  --lt-n300: #d8dadf;
+  --lt-n400: #bfc2c9;
+  --lt-n500: #989ca5;
+  --lt-n600: #6c717c;
+  --lt-n700: #515764;
+  --lt-n800: #343a46;
+  --lt-n900: #1e232d;
+  --lt-divider: color-mix(in srgb, #1e232d 14%, transparent);
+}
+
+:root[data-base="gray"][data-theme="dark"],
+[data-base="gray"].theme-dark {
+  --lt-bg: #171b22;
+  --lt-surface: #1e232d;
+  --lt-text: #e8e9ec;
+  --lt-deep: #13171e;
+  --lt-n50: #242934;
+  --lt-n100: #262c39;
+  --lt-n200: #2e3440;
+  --lt-n300: #3c4453;
+  --lt-n400: #575f6e;
+  --lt-n500: #858c99;
+  --lt-n600: #a1a7b3;
+  --lt-n700: #bbc0c9;
+  --lt-n800: #d4d7dd;
+  --lt-n900: #e8e9ec;
+  --lt-divider: color-mix(in srgb, #e8e9ec 14%, transparent);
+}
+
+:root[data-base="zinc"]:not([data-theme="dark"]),
+[data-base="zinc"].theme-light {
+  --lt-bg: #f8f8f9;
+  --lt-text: #232328;
+  --lt-deep: #232328;
+  --lt-n50: #fafafa;
+  --lt-n100: #f8f8f9;
+  --lt-n200: #e7e7e8;
+  --lt-n300: #dbdbdc;
+  --lt-n400: #c3c3c5;
+  --lt-n500: #9c9ca0;
+  --lt-n600: #727276;
+  --lt-n700: #58585d;
+  --lt-n800: #3a3a40;
+  --lt-n900: #232328;
+  --lt-divider: color-mix(in srgb, #232328 14%, transparent);
+}
+
+:root[data-base="zinc"][data-theme="dark"],
+[data-base="zinc"].theme-dark {
+  --lt-bg: #1b1b1e;
+  --lt-surface: #232328;
+  --lt-text: #e9e9eb;
+  --lt-deep: #17171a;
+  --lt-n50: #2a2a2e;
+  --lt-n100: #2d2d32;
+  --lt-n200: #34343a;
+  --lt-n300: #44444b;
+  --lt-n400: #5f5f66;
+  --lt-n500: #8c8c92;
+  --lt-n600: #a7a7ad;
+  --lt-n700: #c0c0c4;
+  --lt-n800: #d7d7da;
+  --lt-n900: #e9e9eb;
+  --lt-divider: color-mix(in srgb, #e9e9eb 14%, transparent);
+}
+
+:root[data-base="neutral"]:not([data-theme="dark"]),
+[data-base="neutral"].theme-light {
+  --lt-bg: #f8f8f8;
+  --lt-text: #262626;
+  --lt-deep: #262626;
+  --lt-n50: #fafafa;
+  --lt-n100: #f8f8f8;
+  --lt-n200: #e8e8e8;
+  --lt-n300: #dcdcdc;
+  --lt-n400: #c4c4c4;
+  --lt-n500: #9e9e9e;
+  --lt-n600: #727272;
+  --lt-n700: #5a5a5a;
+  --lt-n800: #3d3d3d;
+  --lt-n900: #262626;
+  --lt-divider: color-mix(in srgb, #262626 14%, transparent);
+}
+
+:root[data-base="neutral"][data-theme="dark"],
+[data-base="neutral"].theme-dark {
+  --lt-bg: #1c1c1c;
+  --lt-surface: #262626;
+  --lt-text: #eaeaea;
+  --lt-deep: #181818;
+  --lt-n50: #2c2c2c;
+  --lt-n100: #303030;
+  --lt-n200: #373737;
+  --lt-n300: #484848;
+  --lt-n400: #626262;
+  --lt-n500: #8f8f8f;
+  --lt-n600: #aaaaaa;
+  --lt-n700: #c2c2c2;
+  --lt-n800: #d8d8d8;
+  --lt-n900: #eaeaea;
+  --lt-divider: color-mix(in srgb, #eaeaea 14%, transparent);
+}
+
+:root[data-base="stone"]:not([data-theme="dark"]),
+[data-base="stone"].theme-light {
+  --lt-bg: #f9f9f8;
+  --lt-text: #2b2620;
+  --lt-deep: #2b2620;
+  --lt-n50: #fbfaf9;
+  --lt-n100: #f9f9f8;
+  --lt-n200: #e8e8e7;
+  --lt-n300: #dedcd9;
+  --lt-n400: #c8c4c0;
+  --lt-n500: #a39f9a;
+  --lt-n600: #78726c;
+  --lt-n700: #625b53;
+  --lt-n800: #443d36;
+  --lt-n900: #2b2620;
+  --lt-divider: color-mix(in srgb, #2b2620 14%, transparent);
+}
+
+:root[data-base="stone"][data-theme="dark"],
+[data-base="stone"].theme-dark {
+  --lt-bg: #211d18;
+  --lt-surface: #2b2620;
+  --lt-text: #eceae8;
+  --lt-deep: #1c1915;
+  --lt-n50: #322c26;
+  --lt-n100: #363029;
+  --lt-n200: #3e3730;
+  --lt-n300: #50483f;
+  --lt-n400: #6b635a;
+  --lt-n500: #968f88;
+  --lt-n600: #b0aaa4;
+  --lt-n700: #c7c2bd;
+  --lt-n800: #dcd9d5;
+  --lt-n900: #eceae8;
+  --lt-divider: color-mix(in srgb, #eceae8 14%, transparent);
+}
+
+/*
+ * High contrast (Settings > General): text black/white, the muted greys pulled apart from the
+ * surface, borders you can see on a glary shop-floor screen. Only the neutral ramp changes, so it
+ * combines with any accent and with both themes.
+ */
+:root[data-contrast="high"]:not([data-theme="dark"]) {
+  --lt-text: #000000;
+  --lt-divider: color-mix(in srgb, #000000 38%, transparent);
+  --lt-n900: #000000;
+  --lt-n800: #1a1a1c;
+  --lt-n700: #2f2f31;
+  --lt-n600: #454547;
+  --lt-n500: #58585b;
+  --lt-n400: #77777a;
+  --lt-n300: #8c8c90;
+  --lt-n200: #a9a9ad;
+  --muted: var(--lt-n600);
+}
+:root[data-contrast="high"][data-theme="dark"] {
+  --lt-text: #ffffff;
+  --lt-divider: color-mix(in srgb, #ffffff 40%, transparent);
+  --lt-n900: #ffffff;
+  --lt-n800: #f0f1f2;
+  --lt-n700: #dcdee0;
+  --lt-n600: #c6c9cd;
+  --lt-n500: #aeb2b7;
+  --lt-n400: #8a9096;
+  --lt-n300: #6f757c;
+  --lt-n200: #565c63;
+  --muted: var(--lt-n600);
+}
+
+/* Text size S / M / L: CSS zoom scales the whole interface (text, controls, spacing), as in Lotline. */
+:root { --vh100: 100vh; }
+html[data-size="s"] { zoom: 0.92; --vh100: calc(100vh / 0.92); }
+html[data-size="l"] { zoom: 1.18; --vh100: calc(100vh / 1.18); }
+
+/* "Reduce motion" switches animation and transition off; "auto" follows the operating system (see index.css). */
+html[data-motion="reduce"] *,
+html[data-motion="reduce"] *::before,
+html[data-motion="reduce"] *::after {
+  animation-duration: 0.01ms !important;
+  animation-iteration-count: 1 !important;
+  transition-duration: 0.01ms !important;
+}

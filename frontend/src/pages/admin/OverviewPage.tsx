@@ -12,9 +12,9 @@ import { apiError } from '../../utils/errors'
 import { formatDateTime, formatNumber, formatRelative, formatShortDate, toDate } from '../../utils/format'
 import { auditActionLabel, issueStatusLabel, kpiStatusLabel, moduleShort, roleLabel } from '../../utils/labels'
 
-const INK = '#182433'
-const ACCENT = '#066fd1'
-const MUTED = '#bbc3cd'
+const INK = 'var(--lt-text)'
+const ACCENT = 'var(--lt-accent)'
+const MUTED = 'var(--lt-n400)'
 
 const issueStatusByName: Record<string, string> = Object.fromEntries(
   ['New', 'Assigned', 'InProgress', 'WaitingForReporter', 'Resolved', 'Closed', 'Rejected', 'Reopened']
@@ -32,8 +32,8 @@ function BarList({ rows, labels, color = INK }: { rows: CountByLabel[]; labels?:
       <ResponsiveContainer width="100%" height="100%">
         <BarChart data={data} layout="vertical" margin={{ left: 0, right: 16, top: 4, bottom: 4 }}>
           <XAxis type="number" hide allowDecimals={false} />
-          <YAxis type="category" dataKey="name" width={118} tickLine={false} axisLine={false} tick={{ fontSize: 12, fill: '#667382' }} />
-          <Tooltip cursor={{ fill: '#f6f8fb' }} formatter={(v) => [formatNumber(Number(v)), 'จำนวน']} />
+          <YAxis type="category" dataKey="name" width={118} tickLine={false} axisLine={false} tick={{ fontSize: 12, fill: 'var(--lt-n600)' }} />
+          <Tooltip contentStyle={{ background: 'var(--lt-surface)', border: '1px solid var(--lt-n200)', borderRadius: 6, color: 'var(--lt-text)', fontSize: 12.5 }} cursor={{ fill: 'var(--lt-n100)' }} formatter={(v) => [formatNumber(Number(v)), 'จำนวน']} />
           <Bar dataKey="count" radius={[0, 6, 6, 0]} barSize={14} label={{ position: 'right', fontSize: 12, fill: INK }}>
             {data.map((_, i) => <Cell key={i} fill={i === 0 ? color : MUTED} />)}
           </Bar>
@@ -107,11 +107,11 @@ export default function OverviewPage() {
                   : (
                     <ResponsiveContainer width="100%" height="100%">
                       <AreaChart data={data.trend.map((t) => ({ ...t, label: formatShortDate(t.day + 'T00:00:00Z') }))} margin={{ left: 4, right: 12 }}>
-                        <CartesianGrid stroke="#e6e7e9" vertical={false} />
-                        <XAxis dataKey="label" tickLine={false} axisLine={false} tick={{ fontSize: 12, fill: '#667382' }} />
-                        <YAxis allowDecimals={false} tickLine={false} axisLine={false} width={32} tick={{ fontSize: 12, fill: '#667382' }} />
+                        <CartesianGrid stroke="var(--lt-n200)" vertical={false} />
+                        <XAxis dataKey="label" tickLine={false} axisLine={false} tick={{ fontSize: 12, fill: 'var(--lt-n600)' }} />
+                        <YAxis allowDecimals={false} tickLine={false} axisLine={false} width={32} tick={{ fontSize: 12, fill: 'var(--lt-n600)' }} />
                         <Tooltip />
-                        <Area type="monotone" dataKey="requests" name="คำขอ" stroke={ACCENT} fill="#e7f1fb" strokeWidth={2} />
+                        <Area type="monotone" dataKey="requests" name="คำขอ" stroke={ACCENT} fill="var(--lt-a200)" fillOpacity={0.55} strokeWidth={2} />
                         <Area type="monotone" dataKey="failures" name="ล้มเหลว (4xx/5xx)" stroke={INK} fill="transparent" strokeWidth={1.5} strokeDasharray="4 3" />
                       </AreaChart>
                     </ResponsiveContainer>

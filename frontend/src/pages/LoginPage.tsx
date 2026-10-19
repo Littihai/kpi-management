@@ -38,9 +38,9 @@ export default function LoginPage() {
   }
 
   return (
-    <div className="grid min-h-screen lg:grid-cols-[minmax(0,1fr)_minmax(0,1.05fr)]">
+    <div className="grid min-h-[var(--vh100)] lg:grid-cols-[minmax(0,1fr)_minmax(0,1.05fr)]">
       {/* Brand panel */}
-      <aside className="relative hidden overflow-hidden bg-ink p-12 text-white lg:flex lg:flex-col lg:justify-between">
+      <aside className="relative hidden overflow-hidden bg-deep p-12 text-on-deep lg:flex lg:flex-col lg:justify-between">
         <div className="flex items-center gap-3">
           <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-accent" aria-hidden="true">
             <i className="ti ti-chart-donut-3 text-2xl" />
@@ -49,11 +49,11 @@ export default function LoginPage() {
         </div>
 
         <div>
-          <p className="text-xs font-semibold text-white/50">ระบบภายในองค์กร</p>
+          <p className="text-xs font-semibold text-on-deep/50">ระบบภายในองค์กร</p>
           <h1 className="mt-3 max-w-md text-4xl font-semibold leading-tight">
             ติดตามเป้าหมาย<br />และแก้ปัญหาให้จบ <span className="text-accent">ในที่เดียว</span>
           </h1>
-          <ul className="mt-8 max-w-sm space-y-3 text-[15px] text-white/75">
+          <ul className="mt-8 max-w-sm space-y-3 text-[15px] text-on-deep/75">
             {[
               ['target-arrow', 'KPI รายแผนก พร้อมขั้นตอนอนุมัติและแจ้งเตือนอัตโนมัติ'],
               ['lifebuoy', 'แจ้งปัญหา ติดตามสถานะ และดูวิธีแก้ไขได้ทุกขั้นตอน'],
@@ -66,7 +66,7 @@ export default function LoginPage() {
           </ul>
         </div>
 
-        <p className="text-xs text-white/40">ทีม IT พร้อมตอบรับทุกเรื่องภายใน 2 ชั่วโมง</p>
+        <p className="text-xs text-on-deep/40">ทีม IT พร้อมตอบรับทุกเรื่องภายใน 2 ชั่วโมง</p>
         <span className="pointer-events-none absolute -bottom-32 -right-32 h-96 w-96 rounded-full border border-white/10" aria-hidden="true" />
         <span className="pointer-events-none absolute -bottom-12 -right-12 h-56 w-56 rounded-full border border-white/10" aria-hidden="true" />
       </aside>
@@ -75,7 +75,7 @@ export default function LoginPage() {
       <main className="flex items-center justify-center bg-canvas px-4 py-12 sm:px-8">
         <div className="w-full max-w-sm">
           <div className="mb-8 flex items-center gap-3 lg:hidden">
-            <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-accent text-white" aria-hidden="true">
+            <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-accent text-on-accent" aria-hidden="true">
               <i className="ti ti-chart-donut-3 text-2xl" />
             </span>
             <span className="text-lg font-semibold">KPI และแจ้งปัญหา</span>
@@ -103,7 +103,7 @@ export default function LoginPage() {
             <Button type="submit" variant="primary" size="lg" loading={loading} className="w-full">เข้าสู่ระบบ</Button>
           </form>
 
-          <div className="mt-8 rounded-card border border-line bg-white p-4 text-sm">
+          <div className="mt-8 rounded-card border border-line bg-card p-4 text-sm">
             <p className="flex items-center gap-2 font-medium"><i className="ti ti-lifebuoy text-lg text-accent" aria-hidden="true" />เข้าสู่ระบบไม่ได้?</p>
             <p className="mt-1 text-ink-2">ลืมรหัสผ่านหรือบัญชีถูกล็อก แจ้งทีม IT ได้โดยไม่ต้องเข้าสู่ระบบ</p>
             <Link to="/report" className="mt-2 inline-flex items-center gap-1 font-medium text-accent hover:underline">

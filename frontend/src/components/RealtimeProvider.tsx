@@ -109,7 +109,7 @@ export function RealtimeProvider({ children }: { children: React.ReactNode }) {
           const clickable = Boolean(toast.issueId || toast.kpiId)
           return (
             <div key={toast.id} role="status"
-              className="pointer-events-auto relative flex gap-3 overflow-hidden rounded-card border border-line bg-white p-3.5 pl-5 shadow-pop">
+              className="pointer-events-auto relative flex gap-3 overflow-hidden rounded-card border border-line bg-card p-3.5 pl-5 shadow-pop">
               <span className={`absolute inset-y-0 left-0 w-1 ${style.bar}`} aria-hidden="true" />
               <i className={`ti ti-${style.icon} mt-0.5 text-lg text-ink-2`} aria-hidden="true" />
               <div className="min-w-0 flex-1">
