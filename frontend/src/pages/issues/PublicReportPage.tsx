@@ -48,7 +48,7 @@ export default function PublicReportPage() {
 
   return (
     <div className="min-h-screen bg-canvas">
-      <header className="border-b border-line bg-surface">
+      <header className="border-b border-line bg-white">
         <div className="mx-auto flex max-w-3xl items-center justify-between px-4 py-4">
           <div className="flex items-center gap-3">
             <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-accent text-white" aria-hidden="true">
@@ -88,7 +88,7 @@ export default function PublicReportPage() {
                 {error && <Alert tone="error">{error}</Alert>}
 
                 <section aria-labelledby="who" className="space-y-4">
-                  <h2 id="who" className="text-[11px] font-medium uppercase tracking-[0.08em] text-ink-3">ข้อมูลของคุณ</h2>
+                  <h2 id="who" className="text-xs font-semibold text-ink-3">ข้อมูลของคุณ</h2>
                   <div className="grid gap-4 sm:grid-cols-2">
                     <TextInput label="ชื่อ-นามสกุล" required value={contact.name} maxLength={100} error={errors.name}
                       autoComplete="name" onChange={(e) => setContact({ ...contact, name: e.target.value })} />
@@ -108,7 +108,7 @@ export default function PublicReportPage() {
                 </section>
 
                 <section aria-labelledby="what" className="space-y-4 border-t border-line pt-6">
-                  <h2 id="what" className="text-[11px] font-medium uppercase tracking-[0.08em] text-ink-3">ปัญหาที่พบ</h2>
+                  <h2 id="what" className="text-xs font-semibold text-ink-3">ปัญหาที่พบ</h2>
                   <IssueFormFields values={values} onChange={setValues} files={files} onFilesChange={setFiles} errors={errors} />
                 </section>
 

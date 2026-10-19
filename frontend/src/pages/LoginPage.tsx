@@ -49,7 +49,7 @@ export default function LoginPage() {
         </div>
 
         <div>
-          <p className="text-[11px] font-medium uppercase tracking-[0.12em] text-white/50">ระบบภายในองค์กร</p>
+          <p className="text-xs font-semibold text-white/50">ระบบภายในองค์กร</p>
           <h1 className="mt-3 max-w-md text-4xl font-semibold leading-tight">
             ติดตามเป้าหมาย<br />และแก้ปัญหาให้จบ <span className="text-accent">ในที่เดียว</span>
           </h1>
