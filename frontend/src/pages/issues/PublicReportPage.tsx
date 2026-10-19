@@ -47,11 +47,11 @@ export default function PublicReportPage() {
   }
 
   return (
-    <div className="min-h-screen bg-canvas">
-      <header className="border-b border-line bg-white">
+    <div className="min-h-[var(--vh100)] bg-canvas">
+      <header className="border-b border-line bg-card">
         <div className="mx-auto flex max-w-3xl items-center justify-between px-4 py-4">
           <div className="flex items-center gap-3">
-            <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-accent text-white" aria-hidden="true">
+            <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-accent text-on-accent" aria-hidden="true">
               <i className="ti ti-lifebuoy text-xl" />
             </span>
             <span className="text-[15px] font-semibold">แจ้งปัญหา</span>

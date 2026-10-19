@@ -127,7 +127,7 @@ export default function IssuesPage() {
             <i className="ti ti-search pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-ink-3" aria-hidden="true" />
             <input type="search" value={searchText} onChange={(e) => setSearchText(e.target.value)}
               placeholder="ค้นหาเลขที่ หัวข้อ หรือชื่อผู้แจ้ง" aria-label="ค้นหาเรื่อง"
-              className="h-9 w-full rounded-control border border-line bg-white pl-9 pr-3 text-[13px] focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/20" />
+              className="h-9 w-full rounded-control border border-line bg-card pl-9 pr-3 text-[13px] focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/20" />
           </div>
         </div>
 

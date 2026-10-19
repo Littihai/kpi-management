@@ -2,7 +2,7 @@ import type { HTMLAttributes, ReactNode } from 'react'
 
 export function Card({ className = '', children, ...rest }: HTMLAttributes<HTMLDivElement>) {
   return (
-    <div className={`bg-white border border-line rounded-card shadow-card ${className}`} {...rest}>
+    <div className={`bg-card border border-line rounded-card shadow-card ${className}`} {...rest}>
       {children}
     </div>
   )
@@ -46,21 +46,21 @@ export function Stat({ label, value, hint, icon, dark, tone = 'default', onClick
   const body = (
     <>
       <div className="flex items-center justify-between">
-        <Eyebrow className={dark ? '!text-white/60' : ''}>{label}</Eyebrow>
+        <Eyebrow className={dark ? '!text-on-deep/60' : ''}>{label}</Eyebrow>
         {icon && (
           <i className={`ti ti-${icon} text-lg ${dark ? 'text-accent' : 'text-ink-3'}`} aria-hidden="true" />
         )}
       </div>
-      <p className={`mt-2.5 text-[28px] leading-none font-semibold tabular ${dark ? 'text-white' : toneText[tone]}`}>
+      <p className={`mt-2.5 text-[28px] leading-none font-semibold tabular ${dark ? 'text-on-deep' : toneText[tone]}`}>
         {value}
       </p>
-      {hint && <div className={`mt-2 text-xs ${dark ? 'text-white/60' : 'text-ink-2'}`}>{hint}</div>}
+      {hint && <div className={`mt-2 text-xs ${dark ? 'text-on-deep/60' : 'text-ink-2'}`}>{hint}</div>}
     </>
   )
   const base = `block w-full text-left rounded-card px-5 py-4 border ${
-    dark ? 'bg-ink border-ink' : 'bg-white border-line shadow-card'
+    dark ? 'bg-deep border-deep' : 'bg-card border-line shadow-card'
   }`
   return onClick
-    ? <button type="button" onClick={onClick} className={`${base} transition-colors ${dark ? 'hover:bg-black' : 'hover:border-line-strong'}`}>{body}</button>
+    ? <button type="button" onClick={onClick} className={`${base} transition-colors ${dark ? 'hover:brightness-125' : 'hover:border-line-strong'}`}>{body}</button>
     : <div className={base}>{body}</div>
 }

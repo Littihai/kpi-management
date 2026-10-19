@@ -3,7 +3,7 @@ import type { InputHTMLAttributes, ReactNode, SelectHTMLAttributes, TextareaHTML
 
 const controlBase =
   // Lotline fields: neutral-300 border; the accent border + 3px ring on focus is drawn in index.css.
-  'rounded-control border border-line-strong bg-white px-3 text-sm text-ink placeholder:text-ink-3 ' +
+  'rounded-control border border-line-strong bg-card px-3 text-sm text-ink placeholder:text-ink-3 ' +
   'transition-colors hover:border-ink-4 focus:outline-none ' +
   'disabled:bg-surface-2 disabled:text-ink-3'
 const control = `w-full ${controlBase}`
@@ -113,7 +113,7 @@ export function ChoiceCards<T extends number>({
           return (
             <label key={o.value}
               className={`relative cursor-pointer rounded-control border p-3 transition-colors
-                ${active ? 'border-accent bg-accent-soft' : 'border-line bg-white hover:border-line-strong'}`}>
+                ${active ? 'border-accent bg-accent-soft' : 'border-line bg-card hover:border-line-strong'}`}>
               <input type="radio" className="sr-only" checked={active} onChange={() => onChange(o.value)} />
               <i className={`ti ti-${o.icon} text-lg ${active ? 'text-accent' : 'text-ink-3'}`} aria-hidden="true" />
               <span className="mt-1 block text-[13px] font-medium text-ink">{o.title}</span>

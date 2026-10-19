@@ -33,10 +33,10 @@ export default function Modal({ open, title, onClose, children, footer, width = 
   if (!open) return null
 
   return (
-    <div className="fixed inset-0 z-50 flex items-end justify-center bg-ink/40 sm:items-center sm:p-4" onMouseDown={onClose}>
+    <div className="fixed inset-0 z-50 flex items-end justify-center bg-scrim sm:items-center sm:p-4" onMouseDown={onClose}>
       <div ref={panel} role="dialog" aria-modal="true" aria-label={title}
         onMouseDown={(e) => e.stopPropagation()}
-        className={`flex max-h-[92vh] w-full flex-col rounded-t-2xl bg-white shadow-pop sm:rounded-card ${widths[width]}`}>
+        className={`flex max-h-[92vh] w-full flex-col rounded-t-2xl bg-card shadow-pop sm:rounded-card ${widths[width]}`}>
         <div className="flex items-center justify-between border-b border-line px-5 py-4">
           <h2 className="text-base font-semibold text-ink">{title}</h2>
           <button type="button" onClick={onClose} aria-label="ปิด"

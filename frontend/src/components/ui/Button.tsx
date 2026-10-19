@@ -6,9 +6,9 @@ type Size = 'sm' | 'md' | 'lg'
 // Same look and states as Lotline's .btn: filled primary with a soft shadow, bordered secondary,
 // solid danger / success, and a plain accent link-style ghost.
 const variants: Record<Variant, string> = {
-  primary: 'bg-accent text-white shadow-card hover:bg-accent-hover active:bg-accent-deep active:shadow-none',
-  dark: 'bg-ink text-white hover:bg-ink-2',
-  secondary: 'bg-white text-ink border border-line-strong hover:bg-surface hover:border-ink-4 active:bg-surface-2',
+  primary: 'bg-accent text-on-accent shadow-card hover:bg-accent-hover active:bg-accent-deep active:shadow-none',
+  dark: 'bg-deep text-on-deep hover:brightness-125',
+  secondary: 'bg-card text-ink border border-line-strong hover:bg-surface hover:border-ink-4 active:bg-surface-2',
   ghost: 'text-accent-ink hover:bg-surface hover:text-accent-deep',
   danger: 'bg-red-dot text-white hover:brightness-90 active:brightness-75',
   success: 'bg-green-dot text-white hover:brightness-90 active:brightness-75',
