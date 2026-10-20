@@ -86,6 +86,13 @@ public class ControllerAuthorizationTests
 
     [Theory]
     [InlineData(typeof(UsersController), nameof(UsersController.Create), Permissions.User.Create)]
+    [InlineData(typeof(UsersController), nameof(UsersController.Search), Permissions.User.View)]
+    [InlineData(typeof(UsersController), nameof(UsersController.Update), Permissions.User.Edit)]
+    [InlineData(typeof(UsersController), nameof(UsersController.Reactivate), Permissions.User.Edit)]
+    [InlineData(typeof(UsersController), nameof(UsersController.ResetPassword), Permissions.User.Edit)]
+    [InlineData(typeof(DepartmentsController), nameof(DepartmentsController.ListAll), Permissions.Department.Manage)]
+    [InlineData(typeof(DepartmentsController), nameof(DepartmentsController.Create), Permissions.Department.Manage)]
+    [InlineData(typeof(DepartmentsController), nameof(DepartmentsController.Update), Permissions.Department.Manage)]
     [InlineData(typeof(UsersController), nameof(UsersController.ChangeRole), Permissions.User.Edit)]
     [InlineData(typeof(UsersController), nameof(UsersController.Deactivate), Permissions.User.Edit)]
     [InlineData(typeof(AuthController), nameof(AuthController.Register), Permissions.User.Create)]

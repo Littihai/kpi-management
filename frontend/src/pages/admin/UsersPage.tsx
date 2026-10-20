@@ -1,27 +1,19 @@
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import AddUserModal from '../../components/admin/AddUserModal'
+import { EditUserModal, ResetPasswordModal } from '../../components/admin/UserDialogs'
 import Badge from '../../components/ui/Badge'
 import Button from '../../components/ui/Button'
-import { Card, Stat } from '../../components/ui/Card'
+import { Card } from '../../components/ui/Card'
 import { CompactSelect } from '../../components/ui/Field'
 import { Alert, Avatar, EmptyState, Page, PageHeader, Pagination, Skeleton } from '../../components/ui/Layout'
 import Modal from '../../components/ui/Modal'
 import api from '../../services/api'
+import { orgService, type UserRow } from '../../services/org.service'
 import { useAuthStore, useCan } from '../../stores/authStore'
 import { apiError } from '../../utils/errors'
 import { roleLabel } from '../../utils/labels'
-import { usePaging } from '../../utils/paging'
-import type { Tone } from '../../types/issue'
-
-interface UserDto {
-  id: string
-  firstName: string
-  lastName: string
-  email: string
-  role: string
-  department: string | null
-  isActive: boolean
-}
+import { usePageSize } from '../../utils/paging'
+import type { Paged, Tone } from '../../types/issue'
 
 const roleTone: Record<string, Tone> = {
   SuperAdmin: 'orange', Director: 'blue', Manager: 'blue', TeamLeader: 'green', Staff: 'gray', Viewer: 'gray', ITSupport: 'amber',
@@ -31,38 +23,56 @@ export default function UsersPage() {
   const me = useAuthStore((s) => s.user)
   const canCreate = useCan('user.create')
   const canEdit = useCan('user.edit')
-  const [users, setUsers] = useState<UserDto[]>([])
+  const [pageSize, setPageSize] = usePageSize()
+
+  const [data, setData] = useState<Paged<UserRow> | null>(null)
   const [roles, setRoles] = useState<{ id: string; name: string }[]>([])
-  const [loading, setLoading] = useState(true)
-  const [search, setSearch] = useState('')
-  const [showModal, setShowModal] = useState(false)
+  const [departments, setDepartments] = useState<{ id: string; name: string }[]>([])
   const [error, setError] = useState('')
-  const [confirmDeactivate, setConfirmDeactivate] = useState<UserDto | null>(null)
   const [busy, setBusy] = useState(false)
 
-  // State is only set in the promise callbacks (never synchronously inside the effect).
-  const loadUsers = useCallback(() => (
-    api.get('/api/users')
-      .then((res) => { setUsers(res.data); setError('') })
-      .catch((err) => setError(apiError(err, 'โหลดรายชื่อผู้ใช้ไม่สำเร็จ')))
-      .finally(() => setLoading(false))
-  ), [])
+  const [searchText, setSearchText] = useState('')
+  const [search, setSearch] = useState('')
+  const [role, setRole] = useState('')
+  const [departmentId, setDepartmentId] = useState('')
+  const [status, setStatus] = useState('')
+  const [page, setPage] = useState(1)
 
-  useEffect(() => { loadUsers() }, [loadUsers])
-  useEffect(() => { if (canEdit) api.get('/api/roles').then((r) => setRoles(r.data)).catch(() => {}) }, [canEdit])
+  const [showAdd, setShowAdd] = useState(false)
+  const [editing, setEditing] = useState<UserRow | null>(null)
+  const [resetting, setResetting] = useState<UserRow | null>(null)
+  const [confirmDeactivate, setConfirmDeactivate] = useState<UserRow | null>(null)
 
-  const filtered = useMemo(() => {
-    const term = search.trim().toLowerCase()
-    return users.filter((u) => !term || `${u.firstName} ${u.lastName} ${u.email}`.toLowerCase().includes(term))
-  }, [users, search])
+  // Typing searches after a short pause, and always from the first page.
+  useEffect(() => {
+    const id = window.setTimeout(() => { setSearch(searchText.trim()); setPage(1) }, 350)
+    return () => window.clearTimeout(id)
+  }, [searchText])
 
-  const paging = usePaging(filtered, search)
+  // Only the newest request may show its result (a slow older one must not overwrite it).
+  const latest = useRef(0)
+  const load = useCallback(() => {
+    const mine = ++latest.current
+    return orgService.users({
+      search: search || undefined, role: role || undefined, departmentId: departmentId || undefined,
+      active: status === '' ? undefined : status === 'active', page, pageSize,
+    })
+      .then((result) => { if (mine === latest.current) { setData(result); setError('') } })
+      .catch((err) => { if (mine === latest.current) setError(apiError(err, 'โหลดรายชื่อผู้ใช้ไม่สำเร็จ')) })
+  }, [search, role, departmentId, status, page, pageSize])
 
-  const changeRole = async (user: UserDto, roleName: string) => {
+  useEffect(() => { load() }, [load])
+  useEffect(() => {
+    if (!canEdit) return
+    api.get('/api/roles').then((r) => setRoles(r.data)).catch(() => {})
+    orgService.departmentOptions().then(setDepartments).catch(() => {})
+  }, [canEdit])
+
+  const run = async (action: () => Promise<unknown>) => {
     setBusy(true)
     try {
-      await api.put(`/api/users/${user.id}/role`, { roleName })
-      await loadUsers()
+      await action()
+      await load()
     } catch (err) {
       setError(apiError(err))
     } finally {
@@ -70,55 +80,49 @@ export default function UsersPage() {
     }
   }
 
-  const deactivate = async () => {
-    if (!confirmDeactivate) return
-    setBusy(true)
-    try {
-      await api.put(`/api/users/${confirmDeactivate.id}/deactivate`)
-      setConfirmDeactivate(null)
-      await loadUsers()
-    } catch (err) {
-      setError(apiError(err))
-      setConfirmDeactivate(null)
-    } finally {
-      setBusy(false)
-    }
-  }
-
-  const active = users.filter((u) => u.isActive).length
+  const filtered = Boolean(search || role || departmentId || status)
+  const clear = () => { setSearchText(''); setSearch(''); setRole(''); setDepartmentId(''); setStatus(''); setPage(1) }
+  const pick = (setter: (v: string) => void) => (e: React.ChangeEvent<HTMLSelectElement>) => { setter(e.target.value); setPage(1) }
 
   return (
     <Page wide>
-      <PageHeader title="ผู้ใช้งาน" subtitle={`${users.length} บัญชีในระบบ`}
-        actions={canCreate ? <Button variant="primary" icon="user-plus" onClick={() => setShowModal(true)}>เพิ่มผู้ใช้งาน</Button> : undefined} />
+      <PageHeader title="ผู้ใช้งาน" subtitle={data ? `${data.total} บัญชี${filtered ? 'ตามเงื่อนไขที่เลือก' : 'ในระบบ'}` : undefined}
+        actions={canCreate ? <Button variant="primary" icon="user-plus" onClick={() => setShowAdd(true)}>เพิ่มผู้ใช้งาน</Button> : undefined} />
 
       {error && <div className="mb-4"><Alert tone="error" onClose={() => setError('')}>{error}</Alert></div>}
 
-      <section aria-label="สรุป" className="mb-6 grid grid-cols-2 gap-3 lg:grid-cols-4 lg:gap-4">
-        <Stat dark label="ทั้งหมด" value={users.length} icon="users" />
-        <Stat label="ใช้งานอยู่" value={active} icon="circle-check" tone="green" />
-        <Stat label="ปิดใช้งาน" value={users.length - active} icon="user-off" tone={users.length - active ? 'red' : 'default'} />
-        <Stat label="แผนก" value={new Set(users.map((u) => u.department).filter(Boolean)).size} icon="building" />
-      </section>
-
       <Card>
-        <div className="flex items-center border-b border-line p-4">
-          <div className="relative w-full sm:ml-auto sm:w-72">
+        <div className="flex flex-wrap items-center gap-2 border-b border-line bg-surface px-4 py-3">
+          <div className="relative w-full sm:w-72">
             <i className="ti ti-search pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-ink-3" aria-hidden="true" />
-            <input type="search" value={search} onChange={(e) => setSearch(e.target.value)} aria-label="ค้นหาผู้ใช้"
+            <input type="search" value={searchText} onChange={(e) => setSearchText(e.target.value)} aria-label="ค้นหาผู้ใช้"
               placeholder="ค้นหาชื่อหรืออีเมล"
-              className="h-9 w-full rounded-control border border-line bg-card pl-9 pr-3 text-[13px] focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/20" />
+              className="h-9 w-full rounded-control border border-line-strong bg-card pl-9 pr-3 text-[13px]" />
           </div>
+          <CompactSelect aria-label="กรองตามบทบาท" value={role} onChange={pick(setRole)}>
+            <option value="">ทุกบทบาท</option>
+            {Object.keys(roleLabel).map((name) => <option key={name} value={name}>{roleLabel[name]}</option>)}
+          </CompactSelect>
+          <CompactSelect aria-label="กรองตามแผนก" value={departmentId} onChange={pick(setDepartmentId)}>
+            <option value="">ทุกแผนก</option>
+            {departments.map((d) => <option key={d.id} value={d.id}>{d.name}</option>)}
+          </CompactSelect>
+          <CompactSelect aria-label="กรองตามสถานะ" value={status} onChange={pick(setStatus)}>
+            <option value="">ทุกสถานะ</option>
+            <option value="active">ใช้งานอยู่</option>
+            <option value="inactive">ปิดใช้งาน</option>
+          </CompactSelect>
+          {filtered && <Button size="sm" variant="ghost" icon="x" onClick={clear}>ล้างตัวกรอง</Button>}
         </div>
 
-        {loading ? (
+        {!data ? (
           <div className="space-y-3 p-4" role="status" aria-label="กำลังโหลด">{[0, 1, 2, 3].map((i) => <Skeleton key={i} className="h-14" />)}</div>
-        ) : filtered.length === 0 ? (
-          <EmptyState icon="users" title="ไม่พบผู้ใช้">{search ? 'ลองเปลี่ยนคำค้นหา' : 'ยังไม่มีผู้ใช้ในส่วนที่คุณดูได้'}</EmptyState>
+        ) : data.items.length === 0 ? (
+          <EmptyState icon="users" title="ไม่พบผู้ใช้">{filtered ? 'ลองเปลี่ยนหรือล้างตัวกรอง' : 'ยังไม่มีผู้ใช้ในส่วนที่คุณดูได้'}</EmptyState>
         ) : (
           <>
             <div className="overflow-x-auto">
-              <table className="w-full min-w-[720px] text-left">
+              <table className="w-full min-w-[820px] text-left">
                 <thead>
                   <tr className="border-b border-line bg-surface text-xs font-semibold text-ink-3">
                     <th scope="col" className="px-5 py-3">ผู้ใช้</th>
@@ -129,7 +133,7 @@ export default function UsersPage() {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-line">
-                  {paging.pageItems.map((u) => {
+                  {data.items.map((u) => {
                     const isMe = u.email.toLowerCase() === me?.email.toLowerCase()
                     return (
                       <tr key={u.id} className={u.isActive ? '' : 'bg-surface'}>
@@ -145,7 +149,7 @@ export default function UsersPage() {
                         <td className="px-3 py-3.5">
                           {canEdit && !isMe && u.isActive && roles.length > 0 ? (
                             <CompactSelect aria-label={`บทบาทของ ${u.firstName}`} value={u.role} disabled={busy}
-                              onChange={(e) => changeRole(u, e.target.value)}>
+                              onChange={(e) => run(() => orgService.changeRole(u.id, e.target.value))}>
                               {roles.map((r) => <option key={r.id} value={r.name}>{roleLabel[r.name] ?? r.name}</option>)}
                             </CompactSelect>
                           ) : <Badge tone={roleTone[u.role] ?? 'gray'}>{roleLabel[u.role] ?? u.role}</Badge>}
@@ -156,9 +160,17 @@ export default function UsersPage() {
                         </td>
                         {canEdit && (
                           <td className="px-5 py-3.5 text-right">
-                            {u.isActive && !isMe && (
-                              <Button size="sm" variant="ghost" icon="user-off" onClick={() => setConfirmDeactivate(u)}>ปิดใช้งาน</Button>
-                            )}
+                            <div className="flex flex-wrap items-center justify-end gap-x-3 gap-y-1">
+                              <Button size="sm" variant="ghost" icon="pencil" onClick={() => setEditing(u)}>แก้ไข</Button>
+                              <Button size="sm" variant="ghost" icon="key" onClick={() => setResetting(u)}>รหัสผ่าน</Button>
+                              {u.isActive && !isMe && (
+                                <Button size="sm" variant="ghost" icon="user-off" onClick={() => setConfirmDeactivate(u)}>ปิดใช้งาน</Button>
+                              )}
+                              {!u.isActive && (
+                                <Button size="sm" variant="ghost" icon="user-check" disabled={busy}
+                                  onClick={() => run(() => orgService.reactivate(u.id))}>เปิดใช้งาน</Button>
+                              )}
+                            </div>
                           </td>
                         )}
                       </tr>
@@ -167,21 +179,27 @@ export default function UsersPage() {
                 </tbody>
               </table>
             </div>
-            <Pagination page={paging.page} pageSize={paging.pageSize} total={paging.total}
-              onChange={paging.setPage} onPageSizeChange={paging.setPageSize} />
+            <Pagination page={data.page} pageSize={data.pageSize} total={data.total} onChange={setPage}
+              onPageSizeChange={(size) => { setPageSize(size); setPage(1) }} />
           </>
         )}
       </Card>
 
-      {showModal && <AddUserModal onClose={() => setShowModal(false)} onSuccess={loadUsers} />}
+      {showAdd && <AddUserModal onClose={() => setShowAdd(false)} onSuccess={load} />}
+      {editing && <EditUserModal user={editing} onClose={() => setEditing(null)} onSaved={load} />}
+      {resetting && <ResetPasswordModal user={resetting} onClose={() => setResetting(null)} onDone={load} />}
 
       <Modal open={confirmDeactivate !== null} onClose={() => setConfirmDeactivate(null)} width="sm" title="ปิดใช้งานบัญชีนี้?"
         footer={<>
           <Button onClick={() => setConfirmDeactivate(null)}>ยกเลิก</Button>
-          <Button variant="danger" loading={busy} onClick={deactivate}>ปิดใช้งาน</Button>
+          <Button variant="danger" loading={busy} onClick={async () => {
+            const target = confirmDeactivate
+            setConfirmDeactivate(null)
+            if (target) await run(() => orgService.deactivate(target.id))
+          }}>ปิดใช้งาน</Button>
         </>}>
         <p className="text-sm text-ink-2">
-          {confirmDeactivate?.firstName} {confirmDeactivate?.lastName} จะเข้าสู่ระบบไม่ได้ทันที (เปิดกลับต้องให้ผู้พัฒนาแก้ในฐานข้อมูล)
+          {confirmDeactivate?.firstName} {confirmDeactivate?.lastName} จะเข้าสู่ระบบไม่ได้ทันที เปิดกลับได้จากหน้านี้ภายหลัง
         </p>
       </Modal>
     </Page>
