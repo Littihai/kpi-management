@@ -2,7 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import AttachmentImage from '../../components/issues/AttachmentImage'
 import { DueLabel, PriorityBadge, StatusBadge } from '../../components/issues/IssueBadges'
-import { RejectDialog, ReopenDialog, RequestInfoDialog, ResolveDialog } from '../../components/issues/IssueDialogs'
+import { HoldDialog, RejectDialog, ReopenDialog, RequestInfoDialog, ResolveDialog, ResumeDialog } from '../../components/issues/IssueDialogs'
 import { useIssueEvents } from '../../components/realtimeContext'
 import Badge from '../../components/ui/Badge'
 import Button from '../../components/ui/Button'
@@ -20,12 +20,12 @@ import {
 import { IssueStatus } from '../../types/issue'
 import type { Assignee, IssueActionName, IssueDetail, IssueEvent } from '../../types/issue'
 
-type Dialog = null | 'requestInfo' | 'resolve' | 'reject' | 'reopen'
+type Dialog = null | 'requestInfo' | 'resolve' | 'reject' | 'reopen' | 'hold' | 'resume'
 
 const statusByName: Record<string, string> = {
   New: issueStatusLabel[0], Assigned: issueStatusLabel[1], InProgress: issueStatusLabel[2],
   WaitingForReporter: issueStatusLabel[3], Resolved: issueStatusLabel[4], Closed: issueStatusLabel[5],
-  Rejected: issueStatusLabel[6], Reopened: issueStatusLabel[7],
+  Rejected: issueStatusLabel[6], Reopened: issueStatusLabel[7], OnHold: issueStatusLabel[8],
   Low: priorityLabel[0], Medium: priorityLabel[1], High: priorityLabel[2], Critical: priorityLabel[3],
 }
 
@@ -356,6 +356,8 @@ export default function IssueDetailPage() {
                   {can('start') && <Button variant="primary" icon="player-play" disabled={busy} onClick={() => run(() => issueService.start(issue.id))}>เริ่มแก้ไข</Button>}
                   {can('resolve') && <Button variant="dark" icon="circle-check" disabled={busy} onClick={() => setDialog('resolve')}>แก้ไขแล้ว</Button>}
                   {can('requestInfo') && <Button icon="message-question" disabled={busy} onClick={() => setDialog('requestInfo')}>ขอข้อมูลเพิ่ม</Button>}
+                  {can('hold') && <Button icon="player-pause" disabled={busy} onClick={() => setDialog('hold')}>พักเรื่อง (รออะไหล่/ผู้ขาย)</Button>}
+                  {can('resume') && <Button variant="primary" icon="player-play" disabled={busy} onClick={() => setDialog('resume')}>กลับมาดำเนินการ</Button>}
                   {can('confirm') && <Button variant="primary" icon="thumb-up" disabled={busy} onClick={() => run(() => issueService.confirm(issue.id))}>ใช้งานได้แล้ว ปิดเรื่อง</Button>}
                   {can('reopen') && <Button icon="rotate" disabled={busy} onClick={() => setDialog('reopen')}>ยังไม่หาย / เปิดใหม่</Button>}
                   {can('reject') && <Button variant="danger" icon="ban" disabled={busy} onClick={() => setDialog('reject')}>ไม่ดำเนินการ</Button>}
@@ -390,6 +392,10 @@ export default function IssueDetailPage() {
 
       <RequestInfoDialog open={dialog === 'requestInfo'} onClose={() => setDialog(null)} busy={busy}
         onSubmit={async (message) => { if (await run(() => issueService.requestInfo(issue.id, message))) setDialog(null) }} />
+      <HoldDialog open={dialog === 'hold'} onClose={() => setDialog(null)} busy={busy}
+        onSubmit={async (reason) => { if (await run(() => issueService.hold(issue.id, reason))) setDialog(null) }} />
+      <ResumeDialog open={dialog === 'resume'} onClose={() => setDialog(null)} busy={busy}
+        onSubmit={async (note) => { if (await run(() => issueService.resume(issue.id, note))) setDialog(null) }} />
       <ResolveDialog open={dialog === 'resolve'} onClose={() => setDialog(null)} busy={busy}
         onSubmit={async (body) => { if (await run(() => issueService.resolve(issue.id, body))) setDialog(null) }} />
       <ReopenDialog open={dialog === 'reopen'} onClose={() => setDialog(null)} busy={busy}

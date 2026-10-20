@@ -24,6 +24,18 @@ public sealed record IssueSlaPolicy(
         _ => ResolveLow,
     };
 
+    /// <summary>
+    /// The resolve deadline after the priority changes: the same moment moved by the difference between the two windows.
+    /// Recomputing "created + window" instead would drop the time already credited for waiting on the reporter and the
+    /// fresh target a reopened issue was given, and could make the issue instantly overdue.
+    /// </summary>
+    public DateTime ShiftResolveDue(DateTime resolveDue, IssuePriority from, IssuePriority to) =>
+        resolveDue + (ResolveFor(to) - ResolveFor(from));
+
+    /// <summary>The deadline pushed back by the time the clock was paused (waiting for the reporter, or on hold).</summary>
+    public static DateTime PushBackForPause(DateTime resolveDue, DateTime pausedSince, DateTime now) =>
+        now > pausedSince ? resolveDue + (now - pausedSince) : resolveDue;
+
     public DateTime ResponseDue(DateTime createdAt) => createdAt + FirstResponse;
     public DateTime ResolveDue(DateTime createdAt, IssuePriority priority) => createdAt + ResolveFor(priority);
 

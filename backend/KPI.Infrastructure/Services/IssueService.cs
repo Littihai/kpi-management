@@ -314,7 +314,9 @@ public class IssueService : IIssueService
         AddComment(issue, actor, body, now, staff, internalNote);
 
         var isReporter = issue.ReporterUserId == actor.Id;
-        string audit = internalNote ? "InternalNote" : staff ? "StaffReply" : "ReporterReply";
+        // Someone who is neither the reporter nor on the queue (a Manager reading their department's issue, say) is a
+        // bystander: their comment is recorded as such, and is never mistaken for the reporter answering.
+        string audit = internalNote ? "InternalNote" : staff ? "StaffReply" : isReporter ? "ReporterReply" : "Comment";
         string? from = null, to = null;
 
         if (staff && !internalNote) MarkFirstResponse(issue, now);
@@ -338,14 +340,16 @@ public class IssueService : IIssueService
                 await _events.PublishAsync(issue, "comment", actor.FullName, actor.Id,
                     Toast(issue, "IT ตอบกลับแล้ว", body.Truncate(80)), ToReporter(issue),
                     IssueEmailKind.StaffReplied, body);
-            else
+            else if (isReporter)
                 await _events.PublishAsync(issue, "comment", actor.FullName, actor.Id,
                     Toast(issue, "ผู้แจ้งตอบกลับ", body.Truncate(80)), ToAssigneeOrIt(issue),
                     IssueEmailKind.ReporterReplied, body);
+            else
+                await _events.PublishAsync(issue, "comment", actor.FullName, actor.Id);
         }
         else
         {
-            await _events.PublishAsync(issue, "note", actor.FullName, actor.Id);
+            await _events.PublishAsync(issue, "note", actor.FullName, actor.Id, staffOnly: true);
         }
 
         return await DetailAsync(issue.Id, actor);
@@ -425,6 +429,51 @@ public class IssueService : IIssueService
         await _events.PublishAsync(issue, "needsInfo", actor.FullName, actor.Id,
             Toast(issue, "IT ขอข้อมูลเพิ่ม", message.Truncate(80), "warning"), ToReporter(issue),
             IssueEmailKind.NeedsInfo, message);
+
+        return await DetailAsync(issue.Id, actor);
+    }
+
+    public async Task<IssueDetailDto> HoldAsync(Guid id, string reason, Guid userId)
+    {
+        var actor = await GetActorAsync(userId);
+        var issue = await LoadAsync(id, actor);
+        Authorize(actor, issue, IssueAction.Hold);
+
+        reason = RequireText(reason, 1, 1000, "กรุณาระบุว่ารออะไร (เช่น รออะไหล่ รอผู้ขาย)", "ข้อความยาวเกินไป (สูงสุด 1,000 ตัวอักษร)");
+
+        var now = Now;
+        var old = issue.Status;
+        issue.Status = IssueStatus.OnHold;
+        issue.WaitingSince = now; // the resolve clock stops until the work resumes
+        MarkFirstResponse(issue, now);
+        AddComment(issue, actor, $"พักเรื่องไว้ชั่วคราว: {reason}", now, staff: true);
+
+        StageAudit(actor, issue, "Hold", old.ToString(), $"{issue.Status}: {reason.Truncate(200)}");
+        await Touch(issue, now);
+        await _events.PublishAsync(issue, "onHold", actor.FullName, actor.Id,
+            Toast(issue, "พักเรื่องไว้ชั่วคราว", reason.Truncate(80), "warning"), ToReporter(issue));
+
+        return await DetailAsync(issue.Id, actor);
+    }
+
+    public async Task<IssueDetailDto> ResumeAsync(Guid id, string note, Guid userId)
+    {
+        var actor = await GetActorAsync(userId);
+        var issue = await LoadAsync(id, actor);
+        Authorize(actor, issue, IssueAction.Resume);
+
+        note = RequireText(note, 1, 4000, "กรุณาระบุเหตุผลที่กลับมาดำเนินการ", "ข้อความยาวเกินไป (สูงสุด 4,000 ตัวอักษร)");
+
+        var now = Now;
+        var old = issue.Status;
+        ResumeFromWaiting(issue, now);
+        issue.Status = IssueStatus.InProgress;
+        AddComment(issue, actor, note, now, staff: true);
+
+        StageAudit(actor, issue, "Resume", old.ToString(), $"{issue.Status}: {note.Truncate(200)}");
+        await Touch(issue, now);
+        await _events.PublishAsync(issue, "resumed", actor.FullName, actor.Id,
+            Toast(issue, "กลับมาดำเนินการแล้ว", note.Truncate(80)), ToReporter(issue));
 
         return await DetailAsync(issue.Id, actor);
     }
@@ -555,9 +604,10 @@ public class IssueService : IIssueService
         var old = issue.Priority;
         if (old == priority) return await DetailAsync(issue.Id, actor);
 
-        // The target counts from when the issue was reported (plus any time spent waiting on the reporter).
+        // Move the deadline by the difference between the two windows, so the waiting time already credited and the
+        // fresh target of a reopened issue are kept (a plain "created + window" would drop both).
+        issue.ResolveDueAt = _sla.ShiftResolveDue(issue.ResolveDueAt, old, priority);
         issue.Priority = priority;
-        issue.ResolveDueAt = _sla.ResolveDue(issue.CreatedAt, priority);
 
         StageAudit(actor, issue, "SetPriority", old.ToString(), priority.ToString());
         await Touch(issue, now);
@@ -668,7 +718,8 @@ public class IssueService : IIssueService
         return action switch
         {
             IssueAction.Assign or IssueAction.Start or IssueAction.RequestInfo
-                or IssueAction.Resolve or IssueAction.Reject => staff,
+                or IssueAction.Resolve or IssueAction.Reject
+                or IssueAction.Hold or IssueAction.Resume => staff,
             IssueAction.Confirm => staff || reporter,
             IssueAction.Reopen => staff || (reporter && issue.Status switch
             {
@@ -706,6 +757,8 @@ public class IssueService : IIssueService
         Add(IssueAction.Confirm, IssueActionNames.Confirm);
         Add(IssueAction.Reopen, IssueActionNames.Reopen);
         Add(IssueAction.Reject, IssueActionNames.Reject);
+        Add(IssueAction.Hold, IssueActionNames.Hold);
+        Add(IssueAction.Resume, IssueActionNames.Resume);
 
         var staff = IsStaff(actor);
         if (staff && IssueStateMachine.IsOpen(issue.Status)) allowed.Add(IssueActionNames.SetPriority);
@@ -871,8 +924,8 @@ public class IssueService : IIssueService
     /// <summary>The reporter answered: push the resolve deadline back by the time IT spent waiting.</summary>
     private static void ResumeFromWaiting(Issue issue, DateTime now)
     {
-        if (issue.WaitingSince is { } since && now > since)
-            issue.ResolveDueAt += now - since;
+        if (issue.WaitingSince is { } since)
+            issue.ResolveDueAt = IssueSlaPolicy.PushBackForPause(issue.ResolveDueAt, since, now);
         issue.WaitingSince = null;
     }
 

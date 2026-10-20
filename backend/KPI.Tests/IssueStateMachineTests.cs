@@ -8,13 +8,15 @@ public class IssueStateMachineTests
     // action → the only statuses it may start from
     private static readonly Dictionary<IssueAction, IssueStatus[]> Allowed = new()
     {
-        [IssueAction.Assign] = [IssueStatus.New, IssueStatus.Assigned, IssueStatus.InProgress, IssueStatus.WaitingForReporter, IssueStatus.Reopened],
+        [IssueAction.Assign] = [IssueStatus.New, IssueStatus.Assigned, IssueStatus.InProgress, IssueStatus.WaitingForReporter, IssueStatus.Reopened, IssueStatus.OnHold],
         [IssueAction.Start] = [IssueStatus.New, IssueStatus.Assigned, IssueStatus.Reopened],
         [IssueAction.RequestInfo] = [IssueStatus.Assigned, IssueStatus.InProgress, IssueStatus.Reopened],
         [IssueAction.Resolve] = [IssueStatus.Assigned, IssueStatus.InProgress, IssueStatus.Reopened],
         [IssueAction.Confirm] = [IssueStatus.Resolved],
         [IssueAction.Reopen] = [IssueStatus.Resolved, IssueStatus.Closed, IssueStatus.Rejected],
-        [IssueAction.Reject] = [IssueStatus.New, IssueStatus.Assigned, IssueStatus.InProgress, IssueStatus.WaitingForReporter, IssueStatus.Reopened],
+        [IssueAction.Reject] = [IssueStatus.New, IssueStatus.Assigned, IssueStatus.InProgress, IssueStatus.WaitingForReporter, IssueStatus.Reopened, IssueStatus.OnHold],
+        [IssueAction.Hold] = [IssueStatus.Assigned, IssueStatus.InProgress, IssueStatus.Reopened],
+        [IssueAction.Resume] = [IssueStatus.WaitingForReporter, IssueStatus.OnHold],
     };
 
     public static IEnumerable<object[]> EveryStatusAndAction() =>
@@ -31,6 +33,8 @@ public class IssueStateMachineTests
     [InlineData(IssueStatus.New, IssueAction.Assign, IssueStatus.Assigned)]
     [InlineData(IssueStatus.InProgress, IssueAction.Assign, IssueStatus.InProgress)] // reassigning keeps the status
     [InlineData(IssueStatus.Assigned, IssueAction.Start, IssueStatus.InProgress)]
+    [InlineData(IssueStatus.InProgress, IssueAction.Hold, IssueStatus.OnHold)]
+    [InlineData(IssueStatus.OnHold, IssueAction.Resume, IssueStatus.InProgress)]
     [InlineData(IssueStatus.InProgress, IssueAction.RequestInfo, IssueStatus.WaitingForReporter)]
     [InlineData(IssueStatus.InProgress, IssueAction.Resolve, IssueStatus.Resolved)]
     [InlineData(IssueStatus.Resolved, IssueAction.Confirm, IssueStatus.Closed)]
@@ -42,7 +46,7 @@ public class IssueStateMachineTests
     [Fact]
     public void Open_means_not_resolved_closed_or_rejected()
     {
-        Assert.All([IssueStatus.New, IssueStatus.Assigned, IssueStatus.InProgress, IssueStatus.WaitingForReporter, IssueStatus.Reopened],
+        Assert.All([IssueStatus.New, IssueStatus.Assigned, IssueStatus.InProgress, IssueStatus.WaitingForReporter, IssueStatus.Reopened, IssueStatus.OnHold],
             s => Assert.True(IssueStateMachine.IsOpen(s)));
         Assert.All([IssueStatus.Resolved, IssueStatus.Closed, IssueStatus.Rejected],
             s => Assert.False(IssueStateMachine.IsOpen(s)));

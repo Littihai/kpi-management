@@ -160,6 +160,8 @@ public static class IssueActionNames
     public const string Confirm = "confirm";
     public const string Reopen = "reopen";
     public const string Reject = "reject";
+    public const string Hold = "hold";
+    public const string Resume = "resume";
     public const string SetPriority = "setPriority";
     public const string Comment = "comment";
     public const string InternalNote = "internalNote";
