@@ -1,6 +1,7 @@
 import { lazy, Suspense } from 'react'
 import { BrowserRouter, Navigate, Route, Routes, useLocation } from 'react-router-dom'
 import AppShell from './components/AppShell'
+import UpdateBanner from './components/UpdateBanner'
 import ProtectedRoute, { RequirePermission } from './components/ProtectedRoute'
 import { Page, PageSkeleton } from './components/ui/Layout'
 import PasswordGate from './components/PasswordGate'
@@ -72,6 +73,7 @@ export default function App() {
   return (
     <BrowserRouter>
       <AppRoutes />
+      <UpdateBanner />
     </BrowserRouter>
   )
 }

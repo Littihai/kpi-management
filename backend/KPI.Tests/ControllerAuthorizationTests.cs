@@ -54,6 +54,7 @@ public class ControllerAuthorizationTests
             new[]
             {
                 $"{nameof(AuthController)}.{nameof(AuthController.Login)}",
+                $"{nameof(ClientConfigController)}.{nameof(ClientConfigController.Get)}", // desktop version guard
                 $"{nameof(PublicController)}.{nameof(PublicController.Departments)}",
                 $"{nameof(PublicController)}.{nameof(PublicController.ReportIssue)}",
             }.OrderBy(n => n),

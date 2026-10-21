@@ -3,6 +3,7 @@ import Button from '../ui/Button'
 import { Card, CardHeader } from '../ui/Card'
 import { Alert } from '../ui/Layout'
 import api from '../../services/api'
+import { useDesktopUpdate } from '../../lib/desktop'
 
 type Check = { ok: boolean; ms: number } | { ok: false; ms?: undefined }
 
@@ -11,7 +12,17 @@ export default function AboutSection() {
   const [check, setCheck] = useState<Check | null>(null)
   const [busy, setBusy] = useState(false)
   const base = String(api.defaults.baseURL ?? '')
-  const desktop = typeof navigator !== 'undefined' && navigator.userAgent.includes('Electron')
+  const app = typeof window !== 'undefined' ? window.desktop : undefined
+  const desktop = !!app || (typeof navigator !== 'undefined' && navigator.userAgent.includes('Electron'))
+  const update = useDesktopUpdate()
+  const [checking, setChecking] = useState(false)
+  const [asked, setAsked] = useState(false)
+
+  const checkUpdate = async () => {
+    setAsked(true)
+    setChecking(true)
+    try { await app?.checkForUpdates() } finally { setChecking(false) }
+  }
 
   const test = async () => {
     setBusy(true)
@@ -29,6 +40,7 @@ export default function AboutSection() {
   const rows: [string, string][] = [
     ['ระบบ', 'Helpdesk — ศูนย์ช่วยเหลือ'],
     ['ใช้งานผ่าน', desktop ? 'แอปบน Windows' : 'เว็บเบราว์เซอร์'],
+    ...(app ? [['เวอร์ชันแอป', app.version] as [string, string]] : []),
     ['เซิร์ฟเวอร์ (API)', base],
   ]
 
@@ -45,6 +57,28 @@ export default function AboutSection() {
           ))}
         </dl>
       </Card>
+
+      {app && (
+        <Card>
+          <CardHeader eyebrow="แอปบน Windows" title="อัปเดตแอป"
+            action={<Button size="sm" icon="refresh" loading={checking || update?.status === 'checking'} onClick={checkUpdate}>ตรวจหาอัปเดต</Button>} />
+          <div className="space-y-3 px-5 pb-5 pt-3">
+            <p className="text-[13px] text-ink-3">แอปตรวจหาเวอร์ชันใหม่เองทุกไม่กี่ชั่วโมง และอัปเดตให้เมื่อปิดโปรแกรม</p>
+            {asked && update?.status === 'not-available' && <Alert tone="success">คุณใช้เวอร์ชันล่าสุดแล้ว</Alert>}
+            {update?.status === 'available' && <Alert tone="info">พบเวอร์ชันใหม่ {update.version} กำลังเริ่มดาวน์โหลด</Alert>}
+            {update?.status === 'downloading' && <Alert tone="info">กำลังดาวน์โหลดเวอร์ชันใหม่ {update.percent ?? 0}%</Alert>}
+            {update?.status === 'downloaded' && (
+              <Alert tone="success">
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <span>ดาวน์โหลดเวอร์ชัน {update.version} เรียบร้อย พร้อมอัปเดต</span>
+                  <Button size="sm" variant="primary" onClick={() => app.restartToUpdate()}>รีสตาร์ตเพื่ออัปเดต</Button>
+                </div>
+              </Alert>
+            )}
+            {asked && update?.status === 'error' && <Alert tone="error">ตรวจหาอัปเดตไม่สำเร็จ ตรวจสอบอินเทอร์เน็ตแล้วลองอีกครั้ง</Alert>}
+          </div>
+        </Card>
+      )}
 
       <Card>
         <CardHeader eyebrow="การเชื่อมต่อ" title="ทดสอบการเชื่อมต่อเซิร์ฟเวอร์"

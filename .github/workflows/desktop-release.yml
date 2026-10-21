@@ -1,0 +1,39 @@
+name: Desktop release
+
+# Push a tag like v1.1.0 to build the Windows installer and publish it as a GitHub release.
+# Installed apps pick it up through electron-updater.
+on:
+  push:
+    tags: ['v*']
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Install
+        working-directory: desktop
+        run: npm ci
+
+      - name: Build the web app into desktop/app
+        working-directory: desktop
+        run: npm run web
+
+      - name: Set the package version from the tag (not committed)
+        working-directory: desktop
+        shell: bash
+        run: npm version "${GITHUB_REF_NAME#v}" --no-git-tag-version --allow-same-version
+
+      - name: Build and publish the installer
+        working-directory: desktop
+        run: npx electron-builder --win nsis --x64 --publish always
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
