@@ -1,6 +1,8 @@
 using System.Text;
 using Hangfire;
 using Hangfire.PostgreSql;
+using Hangfire.SqlServer;
+using KPI.Infrastructure.Data;
 using KPI.API.Audit;
 using KPI.API.Authorization;
 using KPI.API.Realtime;
@@ -163,13 +165,15 @@ public static class ServiceRegistration
         return services;
     }
 
-    /// <summary>Hangfire, on PostgreSQL (or in memory for a test that starts the whole app).</summary>
+    /// <summary>Hangfire, in the same database as the data (PostgreSQL or SQL Server), or in memory for a test that starts the whole app.</summary>
     public static IServiceCollection AddBackgroundJobs(this IServiceCollection services, IConfiguration config)
     {
         services.AddHangfire(hangfire =>
         {
             if (string.Equals(config["Jobs:Storage"], "InMemory", StringComparison.OrdinalIgnoreCase))
                 hangfire.UseInMemoryStorage();
+            else if (DatabaseProvider.EngineOf(config) == DatabaseEngine.SqlServer)
+                hangfire.UseSqlServerStorage(config.GetConnectionString("DefaultConnection"));
             else
                 hangfire.UsePostgreSqlStorage(config.GetConnectionString("DefaultConnection"));
         });

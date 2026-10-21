@@ -10,6 +10,7 @@
     <PackageReference Include="Hangfire.AspNetCore" Version="1.8.23" />
     <PackageReference Include="Hangfire.InMemory" Version="1.0.0" />
     <PackageReference Include="Hangfire.PostgreSql" Version="1.21.1" />
+    <PackageReference Include="Hangfire.SqlServer" Version="1.8.25" />
     <PackageReference Include="Microsoft.AspNetCore.Authentication.JwtBearer" Version="10.0.8" />
     <PackageReference Include="Microsoft.AspNetCore.OpenApi" Version="10.0.5" />
     <!-- Pinned above the version Microsoft.AspNetCore.OpenApi pulls in (2.0.0, GHSA-v5pm-xwqc-g5wc). -->
@@ -24,6 +25,7 @@
   <ItemGroup>
     <ProjectReference Include="..\KPI.Application\KPI.Application.csproj" />
     <ProjectReference Include="..\KPI.Infrastructure\KPI.Infrastructure.csproj" />
+    <ProjectReference Include="..\KPI.Migrations.SqlServer\KPI.Migrations.SqlServer.csproj" />
   </ItemGroup>
 
 </Project>
