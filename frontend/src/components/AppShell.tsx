@@ -4,15 +4,16 @@ import Sidebar from './Sidebar'
 import TopNav from './TopNav'
 import AccountMenu from './AccountMenu'
 import ConnectionStatus from './ConnectionStatus'
-import SettingsPanel from './SettingsPanel'
+import { useOpenSettings } from './settings/settingsNav'
 import { useAppearance } from './appearanceContext'
 import { RealtimeProvider } from './RealtimeProvider'
 import { authService } from '../services/auth.service'
 import { useAuthStore } from '../stores/authStore'
 
 /** Round icon buttons in the top bar: light/dark switch and the settings panel. */
-function BarButtons({ onOpenSettings, settingsOpen }: { onOpenSettings: () => void; settingsOpen: boolean }) {
+function BarButtons() {
   const { resolvedTheme, set } = useAppearance()
+  const openSettings = useOpenSettings()
   const dark = resolvedTheme === 'dark'
   const cls = 'flex h-9 w-9 items-center justify-center rounded-control text-ink-2 transition-colors hover:bg-surface hover:text-ink'
   return (
@@ -21,8 +22,8 @@ function BarButtons({ onOpenSettings, settingsOpen }: { onOpenSettings: () => vo
         aria-label={dark ? 'เปลี่ยนเป็นธีมสว่าง' : 'เปลี่ยนเป็นธีมมืด'} title={dark ? 'ธีมสว่าง' : 'ธีมมืด'}>
         <i className={`ti ti-${dark ? 'sun' : 'moon'} text-lg`} aria-hidden="true" />
       </button>
-      <button type="button" id="open-settings" className={`${cls} ${settingsOpen ? 'bg-surface' : ''}`} onClick={onOpenSettings}
-        aria-label="ตั้งค่า" aria-expanded={settingsOpen} aria-controls="settings-panel" title="ตั้งค่า">
+      <button type="button" id="open-settings" className={cls} onClick={() => openSettings('general')}
+        aria-label="ตั้งค่า" aria-haspopup="dialog" title="ตั้งค่า">
         <i className="ti ti-adjustments-horizontal text-lg" aria-hidden="true" />
       </button>
     </>
@@ -39,7 +40,6 @@ export default function AppShell() {
   const [menuPath, setMenuPath] = useState<string | null>(null)
   const menuOpen = menuPath === location.pathname
   const setMenuOpen = (open: boolean) => setMenuPath(open ? location.pathname : null)
-  const [settingsOpen, setSettingsOpen] = useState(false)
 
   // Permissions are decided by the server and can change between sign-ins, so refresh them on load.
   useEffect(() => {
@@ -85,7 +85,7 @@ export default function AppShell() {
             <i className="ti ti-chart-donut-3" />
           </span>
           <span className="ml-1.5 min-w-0 flex-1 truncate text-base font-bold tracking-tight text-ink">Helpdesk</span>
-          <BarButtons onOpenSettings={() => setSettingsOpen((v) => !v)} settingsOpen={settingsOpen} />
+          <BarButtons />
         </header>
 
         {menuOpen && (
@@ -112,8 +112,8 @@ export default function AppShell() {
               <ConnectionStatus />
             </div>
             <div className="flex items-center gap-1">
-              <BarButtons onOpenSettings={() => setSettingsOpen((v) => !v)} settingsOpen={settingsOpen} />
-              <AccountMenu onOpenSettings={() => setSettingsOpen(true)} />
+              <BarButtons />
+              <AccountMenu />
             </div>
           </header>
           {!sideLayout && <TopNav />}
@@ -121,8 +121,6 @@ export default function AppShell() {
             <Outlet />
           </main>
         </div>
-
-        <SettingsPanel open={settingsOpen} onClose={() => setSettingsOpen(false)} returnFocusId="open-settings" />
 
         {canReport && !onIssuePages && (
           <Link to="/issues/new" state={{ from: location.pathname }}

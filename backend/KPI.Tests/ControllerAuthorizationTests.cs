@@ -80,8 +80,10 @@ public class ControllerAuthorizationTests
             .Select(a => $"{a.Controller.Name}.{a.Action.Name}")
             .ToList();
 
-        // /auth/me only: it returns the caller's own profile and re-checks that the account is active.
-        Assert.Equal([$"{nameof(AuthController)}.{nameof(AuthController.Me)}"], authOnly);
+        // The caller's own profile and own password only; both re-check that the account is active.
+        Assert.Equal(
+            [$"{nameof(AuthController)}.{nameof(AuthController.ChangePassword)}", $"{nameof(AuthController)}.{nameof(AuthController.Me)}"],
+            authOnly.OrderBy(x => x, StringComparer.Ordinal));
     }
 
     [Theory]

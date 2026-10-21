@@ -79,6 +79,22 @@ public class AuthService : IAuthService
             PermissionNames(user));
     }
 
+    public async Task ChangePasswordAsync(Guid userId, ChangePasswordRequest request)
+    {
+        var user = await _userRepository.GetByIdAsync(userId);
+        if (user == null || !user.IsActive)
+            throw new ForbiddenException("Your account is not active.");
+        if (string.IsNullOrEmpty(request.CurrentPassword) || !BCrypt.Net.BCrypt.Verify(request.CurrentPassword, user.PasswordHash))
+            throw new RequestValidationException("Current password is incorrect.");
+        EnsurePasswordPolicy(request.NewPassword);
+        if (request.NewPassword == request.CurrentPassword)
+            throw new RequestValidationException("The new password must be different from the current one.");
+
+        user.PasswordHash = BCrypt.Net.BCrypt.HashPassword(request.NewPassword);
+        user.UpdatedAt = DateTime.UtcNow;
+        await _userRepository.UpdateAsync(user);
+    }
+
     public static string NormalizeEmail(string? email) => (email ?? string.Empty).Trim().ToLowerInvariant();
 
     public static void EnsurePasswordPolicy(string? password)

@@ -1,9 +1,11 @@
 import type { ReactNode } from 'react'
 import { PAGE_SIZES } from '../../utils/paging'
 import { CompactSelect } from './Field'
+import { useEmbedded } from './embedded'
 
 /** Page frame: consistent padding and a readable maximum width. */
 export function Page({ children }: { children: ReactNode; wide?: boolean }) {
+  if (useEmbedded()) return <div className="w-full">{children}</div>
   return (
     // Room at the bottom so the floating "report a problem" button never covers the last row or the pager.
     <div className={`mx-auto w-full px-4 pb-24 pt-5 sm:px-6 lg:pt-7 max-w-[var(--page-max)]`}>
@@ -20,6 +22,16 @@ export function PageHeader({
   actions?: ReactNode
   back?: ReactNode
 }) {
+  if (useEmbedded()) {
+    // The settings window already shows the section's title; keep only the description and the actions.
+    return (
+      <header className="mb-4 flex flex-wrap items-center justify-between gap-3">
+        <h2 className="sr-only">{title}</h2>
+        <p className="min-w-0 text-[13px] text-ink-3">{subtitle}</p>
+        {actions && <div className="flex flex-wrap items-center gap-2">{actions}</div>}
+      </header>
+    )
+  }
   return (
     <header className="mb-6">
       {back && <div className="mb-3">{back}</div>}
