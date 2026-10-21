@@ -17,7 +17,7 @@ const ACCENT = 'var(--lt-accent)'
 const MUTED = 'var(--lt-n400)'
 
 const issueStatusByName: Record<string, string> = Object.fromEntries(
-  ['New', 'Assigned', 'InProgress', 'WaitingForReporter', 'Resolved', 'Closed', 'Rejected', 'Reopened']
+  ['New', 'Assigned', 'InProgress', 'WaitingForReporter', 'Resolved', 'Closed', 'Rejected', 'Reopened', 'OnHold']
     .map((name, i) => [name, issueStatusLabel[i]]),
 )
 const moduleByName: Record<string, string> = Object.fromEntries(

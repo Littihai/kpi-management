@@ -22,6 +22,36 @@ export function RequestInfoDialog({ open, onClose, busy, onSubmit }: DialogProps
   )
 }
 
+export function HoldDialog({ open, onClose, busy, onSubmit }: DialogProps<string>) {
+  const [reason, setReason] = useState('')
+  return (
+    <Modal open={open} onClose={onClose} title="พักเรื่อง (รออะไหล่/ผู้ขาย)"
+      footer={<>
+        <Button onClick={onClose}>ยกเลิก</Button>
+        <Button variant="primary" loading={busy} disabled={!reason.trim()} onClick={() => { onSubmit(reason.trim()); setReason('') }}>พักเรื่อง</Button>
+      </>}>
+      <p className="mb-3 text-sm text-ink-2">เรื่องจะหยุดนับเวลาและไม่ถูกนับว่าเกินกำหนดจนกว่าจะกลับมาดำเนินการ ผู้แจ้งจะเห็นเหตุผลนี้</p>
+      <TextArea label="รออะไรอยู่" rows={4} maxLength={4000} value={reason} onChange={(e) => setReason(e.target.value)}
+        placeholder="เช่น รออะไหล่จากผู้ขาย คาดว่าได้รับวันศุกร์" />
+    </Modal>
+  )
+}
+
+export function ResumeDialog({ open, onClose, busy, onSubmit }: DialogProps<string>) {
+  const [note, setNote] = useState('')
+  return (
+    <Modal open={open} onClose={onClose} title="กลับมาดำเนินการ"
+      footer={<>
+        <Button onClick={onClose}>ยกเลิก</Button>
+        <Button variant="primary" loading={busy} disabled={!note.trim()} onClick={() => { onSubmit(note.trim()); setNote('') }}>กลับมาดำเนินการ</Button>
+      </>}>
+      <p className="mb-3 text-sm text-ink-2">เวลาที่หยุดไว้จะถูกเพิ่มให้กำหนดแก้ไข แล้วเริ่มนับต่อ</p>
+      <TextArea label="สาเหตุที่กลับมาทำต่อ" rows={3} maxLength={4000} value={note} onChange={(e) => setNote(e.target.value)}
+        placeholder="เช่น อะไหล่มาถึงแล้ว หรือผู้แจ้งไม่ตอบแต่ตรวจพบเองแล้ว" />
+    </Modal>
+  )
+}
+
 export function ReopenDialog({ open, onClose, busy, onSubmit }: DialogProps<string>) {
   const [reason, setReason] = useState('')
   return (

@@ -14,7 +14,9 @@ public record IssueChangedEvent(
     Guid? AssigneeId,
     Guid? DepartmentId,
     string? ActorName,
-    DateTime At);
+    DateTime At,
+    /// <summary>Internal notes: only the people who work the queue (and the assignee) hear about it, never the reporter.</summary>
+    bool StaffOnly = false);
 
 /// <summary>A toast-style message for specific people.</summary>
 public record RealtimeNotification(

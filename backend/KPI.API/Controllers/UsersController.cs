@@ -1,4 +1,5 @@
 using KPI.API.Security;
+using KPI.Application.Admin;
 using KPI.Application.Auth;
 using KPI.Domain.Constants;
 using KPI.Domain.Exceptions;
@@ -16,44 +17,38 @@ namespace KPI.API.Controllers;
 public class UsersController : ControllerBase
 {
     private readonly AppDbContext _context;
+    private readonly IOrgAdminService _org;
 
-    public UsersController(AppDbContext context)
+    public UsersController(AppDbContext context, IOrgAdminService org)
     {
         _context = context;
+        _org = org;
     }
 
     private Guid CurrentUserId => User.GetUserId();
 
-    /// <summary>SuperAdmin and Director see everyone; a Manager sees only their own department.</summary>
+    /// <summary>One page of people. SuperAdmin and Director see everyone; a Manager only their own department.</summary>
     [HttpGet]
     [Authorize(Policy = Permissions.User.View)]
-    public async Task<IActionResult> GetAll()
+    public async Task<IActionResult> Search([FromQuery] UserQuery query)
+        => Ok(await _org.SearchUsersAsync(CurrentUserId, query));
+
+    [HttpPut("{id:guid}")]
+    [Authorize(Policy = Permissions.User.Edit)]
+    public async Task<IActionResult> Update(Guid id, [FromBody] UpdateUserRequest request)
+        => Ok(await _org.UpdateUserAsync(CurrentUserId, id, request));
+
+    [HttpPut("{id:guid}/reactivate")]
+    [Authorize(Policy = Permissions.User.Edit)]
+    public async Task<IActionResult> Reactivate(Guid id) => Ok(await _org.ReactivateUserAsync(CurrentUserId, id));
+
+    /// <summary>An administrator sets a new password (for someone who forgot theirs).</summary>
+    [HttpPost("{id:guid}/reset-password")]
+    [Authorize(Policy = Permissions.User.Edit)]
+    public async Task<IActionResult> ResetPassword(Guid id, [FromBody] ResetPasswordRequest request)
     {
-        var caller = await _context.Users.Include(u => u.Role).AsNoTracking()
-            .FirstAsync(u => u.Id == CurrentUserId);
-
-        var query = _context.Users.AsQueryable();
-        if (!RoleNames.SeesAllDepartments(caller.Role.Name))
-        {
-            var departmentId = caller.DepartmentId;
-            query = query.Where(u => departmentId != null && u.DepartmentId == departmentId);
-        }
-
-        var users = await query
-            .OrderBy(u => u.FirstName)
-            .Select(u => new
-            {
-                u.Id,
-                u.FirstName,
-                u.LastName,
-                u.Email,
-                u.IsActive,
-                Role = u.Role.Name,
-                Department = u.Department != null ? u.Department.Name : null
-            })
-            .ToListAsync();
-
-        return Ok(users);
+        await _org.ResetPasswordAsync(CurrentUserId, id, request);
+        return Ok(new { message = "Password reset" });
     }
 
     [HttpPost]

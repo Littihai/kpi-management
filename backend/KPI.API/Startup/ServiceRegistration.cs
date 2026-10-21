@@ -39,6 +39,7 @@ public static class ServiceRegistration
 
         services.AddScoped<IUserRepository, UserRepository>();
         services.AddScoped<IAuthService, AuthService>();
+        services.AddScoped<IOrgAdminService, OrgAdminService>();
         return services;
     }
 

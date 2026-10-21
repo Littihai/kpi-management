@@ -22,6 +22,9 @@ export function DueLabel({ issue, now }: { issue: DueSource; now?: Date }) {
   if (issue.status === IssueStatus.WaitingForReporter) {
     return <span className="text-[13px] text-amber-ink">หยุดนับ · รอผู้แจ้ง</span>
   }
+  if (issue.status === IssueStatus.OnHold) {
+    return <span className="text-[13px] text-amber-ink">หยุดนับ · พักเรื่อง</span>
+  }
   if (!clockRuns(issue.status)) return <span className="text-[13px] text-ink-3">–</span>
 
   const needsFirstResponse = issue.status === IssueStatus.New

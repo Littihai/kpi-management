@@ -10,6 +10,10 @@ public enum IssueStatus
     Closed = 5,
     Rejected = 6,
     Reopened = 7,
+
+    /// <summary>Waiting for a vendor, a spare part, a budget... The resolve clock is paused, like WaitingForReporter.</summary>
+    OnHold = 8,
+    // Reserved (append-only numbers, stored as ints): Merged = 9, PendingApproval = 10.
 }
 
 public enum IssuePriority

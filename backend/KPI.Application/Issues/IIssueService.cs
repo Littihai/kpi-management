@@ -22,6 +22,11 @@ public interface IIssueService
     Task<IssueDetailDto> AssignAsync(Guid id, Guid assigneeId, Guid userId);
     Task<IssueDetailDto> StartAsync(Guid id, Guid userId);
     Task<IssueDetailDto> RequestInfoAsync(Guid id, string message, Guid userId);
+    /// <summary>Park the issue (waiting for a vendor or a part). The resolve clock pauses until it is resumed.</summary>
+    Task<IssueDetailDto> HoldAsync(Guid id, string reason, Guid userId);
+
+    /// <summary>Continue from WaitingForReporter or OnHold. The note says why (for example: the reporter cannot reply).</summary>
+    Task<IssueDetailDto> ResumeAsync(Guid id, string note, Guid userId);
     Task<IssueDetailDto> ResolveAsync(Guid id, ResolveIssueRequest request, Guid userId);
     Task<IssueDetailDto> ConfirmAsync(Guid id, Guid userId);
     Task<IssueDetailDto> ReopenAsync(Guid id, string reason, Guid userId);

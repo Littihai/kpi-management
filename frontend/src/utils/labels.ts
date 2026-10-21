@@ -11,10 +11,11 @@ export const issueStatusLabel: Record<number, string> = {
   5: 'ปิดงาน',
   6: 'ไม่ดำเนินการ',
   7: 'เปิดใหม่',
+  8: 'พักเรื่อง',
 }
 
 export const issueStatusTone: Record<number, Tone> = {
-  0: 'orange', 1: 'blue', 2: 'blue', 3: 'amber', 4: 'green', 5: 'gray', 6: 'gray', 7: 'orange',
+  0: 'orange', 1: 'blue', 2: 'blue', 3: 'amber', 4: 'green', 5: 'gray', 6: 'gray', 7: 'orange', 8: 'amber',
 }
 
 export const priorityLabel: Record<number, string> = { 0: 'ต่ำ', 1: 'ปานกลาง', 2: 'สูง', 3: 'วิกฤต' }
@@ -94,6 +95,9 @@ export const auditActionLabel: Record<string, string> = {
   SetPriority: 'เปลี่ยนความสำคัญ',
   StaffReply: 'IT ตอบกลับ',
   ReporterReply: 'ผู้แจ้งตอบกลับ',
+  Comment: 'ความคิดเห็น',
+  Hold: 'พักเรื่อง',
+  Resume: 'กลับมาดำเนินการ',
   InternalNote: 'บันทึกภายใน',
   Attach: 'แนบไฟล์',
   AutoClose: 'ระบบปิดงานอัตโนมัติ',

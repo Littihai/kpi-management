@@ -92,9 +92,11 @@ export default function PublicReportPage() {
                   <div className="grid gap-4 sm:grid-cols-2">
                     <TextInput label="ชื่อ-นามสกุล" required value={contact.name} maxLength={100} error={errors.name}
                       autoComplete="name" onChange={(e) => setContact({ ...contact, name: e.target.value })} />
-                    <SelectInput label="แผนก" value={contact.departmentId} placeholder="ไม่ระบุ"
-                      options={departments.map((d) => ({ value: d.id, label: d.name }))}
-                      onChange={(e) => setContact({ ...contact, departmentId: e.target.value })} />
+                    {departments.length > 0 && (
+                      <SelectInput label="แผนก" value={contact.departmentId} placeholder="ไม่ระบุ"
+                        options={departments.map((d) => ({ value: d.id, label: d.name }))}
+                        onChange={(e) => setContact({ ...contact, departmentId: e.target.value })} />
+                    )}
                     <TextInput label="อีเมล" type="email" value={contact.email} autoComplete="email" maxLength={254}
                       placeholder="name@company.com" onChange={(e) => setContact({ ...contact, email: e.target.value })} />
                     <TextInput label="เบอร์โทร" type="tel" value={contact.phone} autoComplete="tel" maxLength={40}

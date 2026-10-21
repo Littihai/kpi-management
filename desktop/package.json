@@ -1,0 +1,37 @@
+{
+  "name": "helpdesk-desktop",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Windows desktop app for the Helpdesk (wraps the web frontend)",
+  "author": "RITZ",
+  "main": "main.cjs",
+  "scripts": {
+    "web": "node scripts/prepare-web.cjs",
+    "start": "npm run web && electron .",
+    "dist": "npm run web && electron-builder --win nsis --x64",
+    "pack": "npm run web && electron-builder --win dir --x64"
+  },
+  "devDependencies": {
+    "electron": "^39.0.0",
+    "electron-builder": "^26.0.0"
+  },
+  "build": {
+    "appId": "com.ritz.helpdesk",
+    "productName": "Helpdesk",
+    "directories": { "output": "dist", "buildResources": "build" },
+    "files": ["main.cjs", "app/**/*"],
+    "win": {
+      "target": [{ "target": "nsis", "arch": ["x64"] }],
+      "icon": "build/icon.png"
+    },
+    "nsis": {
+      "oneClick": false,
+      "perMachine": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "shortcutName": "Helpdesk"
+    },
+    "artifactName": "Helpdesk-Setup-${version}.${ext}"
+  }
+}

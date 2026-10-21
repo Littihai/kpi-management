@@ -10,6 +10,7 @@ import { useAuthStore } from './stores/authStore'
 // (the charts library alone is large and only a few pages use it).
 const DashboardPage = lazy(() => import('./pages/DashboardPage'))
 const UsersPage = lazy(() => import('./pages/admin/UsersPage'))
+const DepartmentsPage = lazy(() => import('./pages/admin/DepartmentsPage'))
 const OverviewPage = lazy(() => import('./pages/admin/OverviewPage'))
 const AuditPage = lazy(() => import('./pages/admin/AuditPage'))
 const IssuesPage = lazy(() => import('./pages/issues/IssuesPage'))
@@ -38,6 +39,7 @@ export default function App() {
             <Route path="/issues/:id" element={<RequirePermission permission="issue.view"><IssueDetailPage /></RequirePermission>} />
 
             <Route path="/admin/users" element={<RequirePermission permission="user.view"><UsersPage /></RequirePermission>} />
+            <Route path="/admin/departments" element={<RequirePermission permission="department.manage"><DepartmentsPage /></RequirePermission>} />
             <Route path="/admin/overview" element={<RequirePermission permission="overview.view"><OverviewPage /></RequirePermission>} />
             <Route path="/admin/audit" element={<RequirePermission permission="overview.view"><AuditPage /></RequirePermission>} />
           </Route>

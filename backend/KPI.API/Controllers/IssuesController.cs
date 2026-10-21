@@ -80,6 +80,16 @@ public class IssuesController : ControllerBase
     public async Task<IActionResult> RequestInfo(Guid id, MessageRequest request)
         => Ok(await _issues.RequestInfoAsync(id, request.Message, UserId));
 
+    [HttpPost("{id:guid}/hold")]
+    [Authorize(Policy = Permissions.Issue.Manage)]
+    public async Task<IActionResult> Hold(Guid id, ReasonRequest request)
+        => Ok(await _issues.HoldAsync(id, request.Reason, UserId));
+
+    [HttpPost("{id:guid}/resume")]
+    [Authorize(Policy = Permissions.Issue.Manage)]
+    public async Task<IActionResult> Resume(Guid id, MessageRequest request)
+        => Ok(await _issues.ResumeAsync(id, request.Message, UserId));
+
     [HttpPost("{id:guid}/resolve")]
     [Authorize(Policy = Permissions.Issue.Manage)]
     public async Task<IActionResult> Resolve(Guid id, ResolveIssueRequest request)

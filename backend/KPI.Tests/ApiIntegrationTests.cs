@@ -324,7 +324,7 @@ public class ApiIntegrationTests : IClassFixture<ApiFactory>, IAsyncLifetime
     {
         var manager = await _factory.ClientAsync("manager-a");
         var users = await JsonAsync(await manager.GetAsync("/api/users"));
-        var emails = users.EnumerateArray().Select(u => u.GetProperty("email").GetString()).ToList();
+        var emails = users.GetProperty("items").EnumerateArray().Select(u => u.GetProperty("email").GetString()).ToList();
 
         Assert.Contains("staff-a@example.com", emails);
         Assert.DoesNotContain("staff-b@example.com", emails);

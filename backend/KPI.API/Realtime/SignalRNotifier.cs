@@ -17,6 +17,13 @@ public class SignalRNotifier : IRealtimeNotifier
 
     public Task PublishIssueChangedAsync(IssueChangedEvent evt, CancellationToken ct = default)
     {
+        if (evt.StaffOnly)
+        {
+            var staff = new List<string> { KpiHub.ItSupportGroup };
+            if (evt.AssigneeId is { } owner) staff.Add(KpiHub.UserGroup(owner));
+            return _hub.Clients.Groups(staff.Distinct().ToList()).SendAsync(IssueChangedMethod, evt, ct);
+        }
+
         // The reporter, the assignee, the issue queue, directors/admins, and the department's managers.
         var groups = new List<string> { KpiHub.ItSupportGroup, KpiHub.AllDepartmentsGroup };
         if (evt.ReporterUserId is { } reporter) groups.Add(KpiHub.UserGroup(reporter));

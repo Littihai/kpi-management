@@ -11,6 +11,12 @@ public enum IssueAction
     Confirm,   // reporter (or IT) accepts the fix → Closed
     Reopen,
     Reject,
+
+    /// <summary>Park the work (waiting for a vendor or a part). Pauses the resolve clock.</summary>
+    Hold,
+
+    /// <summary>Continue from WaitingForReporter or OnHold: the staff move that does not need the reporter's answer.</summary>
+    Resume,
 }
 
 /// <summary>Which issue actions are valid in which status, and the status each leads to.</summary>
@@ -44,6 +50,8 @@ public static class IssueStateMachine
         IssueAction.Confirm => status == IssueStatus.Resolved,
         IssueAction.Reopen => status is IssueStatus.Resolved or IssueStatus.Closed or IssueStatus.Rejected,
         IssueAction.Reject => IsOpen(status),
+        IssueAction.Hold => status is IssueStatus.Assigned or IssueStatus.InProgress or IssueStatus.Reopened,
+        IssueAction.Resume => status is IssueStatus.WaitingForReporter or IssueStatus.OnHold,
         _ => false,
     };
 
@@ -57,6 +65,8 @@ public static class IssueStateMachine
         IssueAction.Confirm => IssueStatus.Closed,
         IssueAction.Reopen => IssueStatus.Reopened,
         IssueAction.Reject => IssueStatus.Rejected,
+        IssueAction.Hold => IssueStatus.OnHold,
+        IssueAction.Resume => IssueStatus.InProgress,
         _ => current,
     };
 
@@ -71,7 +81,7 @@ public static class IssueStateMachine
     {
         IssueStatus.New or IssueStatus.Reopened => "orange",
         IssueStatus.Assigned or IssueStatus.InProgress => "blue",
-        IssueStatus.WaitingForReporter => "amber",
+        IssueStatus.WaitingForReporter or IssueStatus.OnHold => "amber",
         IssueStatus.Resolved => "green",
         _ => "gray",
     };

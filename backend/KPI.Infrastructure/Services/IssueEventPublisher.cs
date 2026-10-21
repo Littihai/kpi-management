@@ -46,13 +46,14 @@ public class IssueEventPublisher
         RealtimeNotification? toast = null,
         RealtimeAudience? audience = null,
         IssueEmailKind? email = null,
-        string? detail = null)
+        string? detail = null,
+        bool staffOnly = false)
     {
         try
         {
             await _notifier.PublishIssueChangedAsync(new IssueChangedEvent(
                 issue.Id, issue.DisplayNumber, issue.Title, action, issue.Status, issue.Priority,
-                issue.ReporterUserId, issue.AssigneeId, issue.DepartmentId, actorName, DateTime.UtcNow));
+                issue.ReporterUserId, issue.AssigneeId, issue.DepartmentId, actorName, DateTime.UtcNow, staffOnly));
 
             if (toast != null && audience != null)
                 await _notifier.NotifyAsync(toast, audience);

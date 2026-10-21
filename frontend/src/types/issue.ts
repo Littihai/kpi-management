@@ -1,7 +1,7 @@
 // Enum values mirror the API (it sends numbers and accepts numbers or names).
 
 export const IssueStatus = {
-  New: 0, Assigned: 1, InProgress: 2, WaitingForReporter: 3, Resolved: 4, Closed: 5, Rejected: 6, Reopened: 7,
+  New: 0, Assigned: 1, InProgress: 2, WaitingForReporter: 3, Resolved: 4, Closed: 5, Rejected: 6, Reopened: 7, OnHold: 8,
 } as const
 export type IssueStatusValue = (typeof IssueStatus)[keyof typeof IssueStatus]
 
@@ -27,7 +27,7 @@ export type IssueRootCauseValue = (typeof IssueRootCause)[keyof typeof IssueRoot
 export type Tone = 'orange' | 'blue' | 'green' | 'amber' | 'red' | 'gray'
 
 export type IssueActionName =
-  | 'assign' | 'start' | 'requestInfo' | 'resolve' | 'confirm' | 'reopen' | 'reject'
+  | 'assign' | 'start' | 'requestInfo' | 'resolve' | 'confirm' | 'reopen' | 'reject' | 'hold' | 'resume'
   | 'setPriority' | 'comment' | 'internalNote' | 'attach'
 
 export interface IssueListItem {

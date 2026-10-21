@@ -82,6 +82,14 @@ export const issueService = {
     return (await api.post<IssueDetail>(`/api/issues/${id}/request-info`, { message })).data
   },
 
+  async hold(id: string, reason: string): Promise<IssueDetail> {
+    return (await api.post<IssueDetail>(`/api/issues/${id}/hold`, { reason })).data
+  },
+
+  async resume(id: string, message: string): Promise<IssueDetail> {
+    return (await api.post<IssueDetail>(`/api/issues/${id}/resume`, { message })).data
+  },
+
   async resolve(id: string, body: {
     resolution: string; rootCause: number; prevention?: string; fixReference?: string; timeSpentMinutes?: number | null
   }): Promise<IssueDetail> {
