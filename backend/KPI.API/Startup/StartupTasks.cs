@@ -43,6 +43,41 @@ public static class StartupTasks
     }
 
     /// <summary>
+    /// Serves the web app from the API itself when it sits next to it (a "wwwroot" folder with an index.html), so a
+    /// server needs no IIS or nginx: one process answers the pages, /api and /hubs. Any other path gets index.html, which
+    /// is what lets the app's own routes (/issues/123) survive a refresh. Does nothing when there is no wwwroot.
+    /// </summary>
+    public static void UseFrontend(this WebApplication app)
+    {
+        var webRoot = app.Environment.WebRootPath;
+        var index = webRoot is null ? null : Path.Combine(webRoot, "index.html");
+        if (index is null || !File.Exists(index)) return;
+
+        app.UseStaticFiles(new StaticFileOptions
+        {
+            OnPrepareResponse = context =>
+            {
+                // file names under /assets carry a content hash, so they can be kept forever
+                if (context.Context.Request.Path.StartsWithSegments("/assets"))
+                    context.Context.Response.Headers.CacheControl = "public,max-age=31536000,immutable";
+            },
+        });
+        app.MapFallback(async context =>
+        {
+            var path = context.Request.Path;
+            if (path.StartsWithSegments("/api") || path.StartsWithSegments("/hubs") || path.StartsWithSegments("/health")
+                || Path.HasExtension(path.Value))
+            {
+                context.Response.StatusCode = StatusCodes.Status404NotFound;
+                return;
+            }
+            context.Response.Headers.CacheControl = "no-cache";
+            context.Response.ContentType = "text/html; charset=utf-8";
+            await context.Response.SendFileAsync(index);
+        });
+    }
+
+    /// <summary>
     /// Uses the service-based API. The static RecurringJob.AddOrUpdate needs JobStorage.Current to be set already,
     /// which used to happen only as a side effect of mapping the Hangfire dashboard (now development-only), so
     /// production crashed on start-up with "JobStorage instance has not been initialized yet".

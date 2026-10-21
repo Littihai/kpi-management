@@ -13,6 +13,9 @@ AppContext.SetSwitch("Npgsql.EnableLegacyTimestampBehavior", true);
 var builder = WebApplication.CreateBuilder(args);
 var config = builder.Configuration;
 
+// Lets the same program run as a Windows service (install.ps1); it does nothing when started from a console.
+builder.Host.UseWindowsService();
+
 // Integration tests run the real pipeline against an in-memory database and without Hangfire.
 // (A test can switch jobs back on with Jobs:Enabled=true and in-memory storage, to exercise start-up.)
 var runBackgroundJobs = !builder.Environment.IsEnvironment("Testing")
@@ -47,7 +50,15 @@ builder.Services.AddResponseCompression(options =>
 // /health answers "is the process up"; /health/ready also checks the database.
 builder.Services.AddHealthChecks().AddCheck<DatabaseHealthCheck>("database", tags: ["ready"]);
 
+// the create-admin command prints a line or two; the framework's own chatter would drown them
+if (args.Length > 0 && args[0].Equals(AdminCommand.Name, StringComparison.OrdinalIgnoreCase))
+    builder.Logging.SetMinimumLevel(LogLevel.Warning);
+
 var app = builder.Build();
+
+// `KPI.API create-admin` creates the first administrator and exits (see AdminCommand).
+if (args.Length > 0 && args[0].Equals(AdminCommand.Name, StringComparison.OrdinalIgnoreCase))
+    return await AdminCommand.RunAsync(app.Services, Environment.GetEnvironmentVariable, Console.Out);
 
 await app.MigrateAndSeedAsync();
 
@@ -55,6 +66,7 @@ app.UseResponseCompression();
 // Outside the exception handler so the logged status is the one the client actually receives.
 app.UseMiddleware<RequestLogMiddleware>();
 app.UseExceptionHandler();
+app.UseFrontend();
 
 if (app.Environment.IsDevelopment())
 {
@@ -74,6 +86,7 @@ app.MapHealthChecks("/health/ready", new HealthCheckOptions { Predicate = check 
 if (runBackgroundJobs) app.RegisterRecurringJobs();
 
 app.Run();
+return 0;
 
 // Lets the integration-test project start the app with WebApplicationFactory<Program>.
 public partial class Program { }

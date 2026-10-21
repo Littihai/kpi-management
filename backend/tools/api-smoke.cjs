@@ -1,5 +1,7 @@
 // Walks the main flows of the API against whatever database it is running on and prints one line per call.
 const base = process.env.API || 'http://localhost:5290'
+const adminEmail = process.env.SMOKE_EMAIL || 'admin@example.com'
+const adminPassword = process.env.SMOKE_PASSWORD || 'Smoke-Test-Pass-1'
 const results = []
 let token = ''
 async function call(method, url, body, label) {
@@ -18,7 +20,7 @@ async function call(method, url, body, label) {
 const expect = (label, got, want) => { const ok = Array.isArray(want) ? want.includes(got) : got === want; results.push({ label: 'CHECK ' + label, status: ok ? 'ok' : `FAIL (got ${got}, want ${want})` }) }
 
 ;(async () => {
-  let r = await call('POST', '/api/auth/login', { email: 'admin@example.com', password: 'Smoke-Test-Pass-1' })
+  let r = await call('POST', '/api/auth/login', { email: adminEmail, password: adminPassword })
   expect('login', r.status, 200)
   token = r.json.token
   me: { r = await call('GET', '/api/auth/me'); expect('me', r.status, 200) }
@@ -88,7 +90,7 @@ const expect = (label, got, want) => { const ok = Array.isArray(want) ? want.inc
   r = await call('POST', '/api/roles', { name: 'หัวหน้าไอที', description: 'ทดสอบ', permissions: ['issue.create', 'issue.view', 'issue.manage'], issueVisibility: 2, seesAllDepartments: false }); expect('create role', r.status, 201)
   r = await call('GET', '/api/auth-logs?search=somchai'); expect('auth log search', r.json?.total >= 1, true)
   r = await call('GET', '/api/audit?pageSize=5'); expect('audit log', r.status, 200)
-  r = await call('POST', '/api/auth/change-password', { currentPassword: 'Smoke-Test-Pass-1', newPassword: 'Smoke-Test-Pass-2' }); expect('change password', r.status, 200)
+  r = await call('POST', '/api/auth/change-password', { currentPassword: adminPassword, newPassword: adminPassword + '-2' }); expect('change password', r.status, 200)
 
   const bad = results.filter((x) => x.status !== 'ok' && typeof x.status === 'string')
   for (const x of results) console.log(String(x.status).padEnd(8), x.label)

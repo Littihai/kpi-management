@@ -177,6 +177,9 @@ public class AppDbContext : DbContext
         // deactivated), so a plain "no action" behaves the same in practice and a stray manual delete is refused instead.
         if (Database.IsSqlServer())
         {
+            // an index key on SQL Server may not exceed 1700 bytes; two unbounded strings in one index (900 characters each) can
+            audit.Property(x => x.EntityName).HasMaxLength(200);
+            audit.Property(x => x.EntityId).HasMaxLength(200);
             issue.HasOne(i => i.Department).WithMany().HasForeignKey(i => i.DepartmentId).OnDelete(DeleteBehavior.NoAction);
             issue.HasOne(i => i.Assignee).WithMany().HasForeignKey(i => i.AssigneeId).OnDelete(DeleteBehavior.NoAction);   // two SET NULL routes from Users to Issues
             modelBuilder.Entity<Department>().HasOne(d => d.Manager).WithMany().HasForeignKey(d => d.ManagerId).OnDelete(DeleteBehavior.NoAction);
