@@ -1,4 +1,4 @@
-const { app, BrowserWindow, Menu, protocol, net, shell } = require('electron')
+const { app, BrowserWindow, Menu, protocol, net, shell, ipcMain } = require('electron')
 const path = require('node:path')
 const fs = require('node:fs')
 const { pathToFileURL } = require('node:url')
@@ -37,7 +37,13 @@ function createWindow() {
     title: 'Helpdesk',
     icon: path.join(__dirname, 'build', 'icon.png'),
     autoHideMenuBar: true,
-    webPreferences: { contextIsolation: true, nodeIntegration: false, sandbox: true },
+    webPreferences: {
+      contextIsolation: true,
+      nodeIntegration: false,
+      sandbox: true,
+      preload: path.join(__dirname, 'preload.cjs'),
+      additionalArguments: [`--desktop-version=${app.getVersion()}`],
+    },
   })
   Menu.setApplicationMenu(null)
 
@@ -57,6 +63,69 @@ function createWindow() {
   win.on('closed', () => { win = null })
 }
 
+// ---- Automatic updates (GitHub releases) -------------------------------------------------------------
+// State sent to the page: { status: 'idle'|'checking'|'available'|'not-available'|'downloading'|'downloaded'|'error',
+//                           version?, percent? }. Failures are logged and reported quietly; they never crash the app.
+const CH_STATE = 'desktop:update-state'
+const CH_GET = 'desktop:get-update-state'
+const CH_CHECK = 'desktop:check-for-updates'
+const CH_RESTART = 'desktop:restart-to-update'
+const CHECK_EVERY_MS = 4 * 60 * 60 * 1000
+
+let updateState = { status: 'idle' }
+let autoUpdater = null
+
+function setUpdateState(next) {
+  updateState = next
+  if (win && !win.isDestroyed()) win.webContents.send(CH_STATE, updateState)
+}
+
+function trustedSender(event) {
+  try { return new URL(event.senderFrame.url).origin === `${SCHEME}://${HOST}` } catch { return false }
+}
+
+async function checkForUpdates() {
+  if (!autoUpdater) { setUpdateState({ status: 'not-available' }); return }
+  if (updateState.status === 'downloading' || updateState.status === 'downloaded') return
+  try {
+    await autoUpdater.checkForUpdates()
+  } catch (err) {
+    console.error('[updater] check failed:', err && err.message)
+    setUpdateState({ status: 'error' })
+  }
+}
+
+function setupUpdater() {
+  if (!app.isPackaged) return // dev runs (npm start) never self-update
+  try {
+    ;({ autoUpdater } = require('electron-updater'))
+    autoUpdater.autoDownload = true
+    autoUpdater.autoInstallOnAppQuit = true
+    autoUpdater.on('checking-for-update', () => setUpdateState({ status: 'checking' }))
+    autoUpdater.on('update-available', (i) => setUpdateState({ status: 'available', version: i.version }))
+    autoUpdater.on('update-not-available', () => setUpdateState({ status: 'not-available' }))
+    autoUpdater.on('download-progress', (p) =>
+      setUpdateState({ status: 'downloading', version: updateState.version, percent: Math.round(p.percent || 0) }))
+    autoUpdater.on('update-downloaded', (i) => setUpdateState({ status: 'downloaded', version: i.version }))
+    autoUpdater.on('error', (err) => {
+      console.error('[updater] error:', err && err.message)
+      setUpdateState({ status: 'error' })
+    })
+    setTimeout(checkForUpdates, 15 * 1000)
+    setInterval(checkForUpdates, CHECK_EVERY_MS)
+  } catch (err) {
+    console.error('[updater] unavailable:', err && err.message)
+    autoUpdater = null
+  }
+}
+
+ipcMain.handle(CH_GET, (event) => (trustedSender(event) ? updateState : { status: 'idle' }))
+ipcMain.handle(CH_CHECK, async (event) => { if (trustedSender(event)) await checkForUpdates() })
+ipcMain.on(CH_RESTART, (event) => {
+  if (!trustedSender(event) || !autoUpdater || updateState.status !== 'downloaded') return
+  autoUpdater.quitAndInstall()
+})
+
 app.whenReady().then(() => {
   protocol.handle(SCHEME, (request) => {
     const url = new URL(request.url)
@@ -66,6 +135,7 @@ app.whenReady().then(() => {
     return net.fetch(pathToFileURL(file).toString())
   })
   createWindow()
+  setupUpdater()
   app.on('activate', () => { if (BrowserWindow.getAllWindows().length === 0) createWindow() })
 })
 

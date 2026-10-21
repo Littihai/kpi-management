@@ -18,10 +18,31 @@
   "build": {
     "appId": "com.ritz.helpdesk",
     "productName": "Helpdesk",
-    "directories": { "output": "dist", "buildResources": "build" },
-    "files": ["main.cjs", "app/**/*"],
+    "directories": {
+      "output": "dist",
+      "buildResources": "build"
+    },
+    "files": [
+      "main.cjs",
+      "preload.cjs",
+      "app/**/*"
+    ],
+    "publish": [
+      {
+        "provider": "github",
+        "owner": "Littihai",
+        "repo": "kpi-management"
+      }
+    ],
     "win": {
-      "target": [{ "target": "nsis", "arch": ["x64"] }],
+      "target": [
+        {
+          "target": "nsis",
+          "arch": [
+            "x64"
+          ]
+        }
+      ],
       "icon": "build/icon.png"
     },
     "nsis": {
@@ -33,5 +54,8 @@
       "shortcutName": "Helpdesk"
     },
     "artifactName": "Helpdesk-Setup-${version}.${ext}"
+  },
+  "dependencies": {
+    "electron-updater": "^6.8.9"
   }
 }
