@@ -9,4 +9,5 @@ public interface IUserRepository
     Task<User?> GetByIdWithPermissionsAsync(Guid id);
     Task<User> CreateAsync(User user);
     Task<bool> EmailExistsAsync(string email);
+    Task UpdateAsync(User user);
 }

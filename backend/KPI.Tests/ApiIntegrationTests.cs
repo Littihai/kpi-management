@@ -320,6 +320,37 @@ public class ApiIntegrationTests : IClassFixture<ApiFactory>, IAsyncLifetime
     }
 
     [Fact]
+    public async Task A_person_can_change_their_own_password_only_with_the_current_one()
+    {
+        var admin = await _factory.ClientAsync("admin");
+        string roleId;
+        using (var scope = _factory.Services.CreateScope())
+            roleId = (await scope.ServiceProvider.GetRequiredService<AppDbContext>().Roles.FirstAsync(r => r.Name == "Staff")).Id.ToString();
+        Assert.Equal(HttpStatusCode.OK, (await admin.PostAsJsonAsync("/api/users",
+            new { firstName = "C", lastName = "P", email = "changer@example.com", password = "OldPassw0rd!", roleId, departmentId = (string?)null })).StatusCode);
+
+        async Task<HttpResponseMessage> LoginAs(string password) =>
+            await _factory.CreateClient().PostAsJsonAsync("/api/auth/login", new { email = "changer@example.com", password });
+        var token = (await JsonAsync(await LoginAs("OldPassw0rd!"))).GetProperty("token").GetString()!;
+        var me = _factory.CreateClient();
+        me.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
+
+        Assert.Equal(HttpStatusCode.Unauthorized, (await _factory.CreateClient().PostAsJsonAsync("/api/auth/change-password",
+            new { currentPassword = "OldPassw0rd!", newPassword = "NewPassw0rd!" })).StatusCode);
+        Assert.Equal(HttpStatusCode.BadRequest, (await me.PostAsJsonAsync("/api/auth/change-password",
+            new { currentPassword = "wrong", newPassword = "NewPassw0rd!" })).StatusCode);
+        Assert.Equal(HttpStatusCode.BadRequest, (await me.PostAsJsonAsync("/api/auth/change-password",
+            new { currentPassword = "OldPassw0rd!", newPassword = "short" })).StatusCode);
+        Assert.Equal(HttpStatusCode.BadRequest, (await me.PostAsJsonAsync("/api/auth/change-password",
+            new { currentPassword = "OldPassw0rd!", newPassword = "OldPassw0rd!" })).StatusCode);
+
+        Assert.Equal(HttpStatusCode.OK, (await me.PostAsJsonAsync("/api/auth/change-password",
+            new { currentPassword = "OldPassw0rd!", newPassword = "NewPassw0rd!" })).StatusCode);
+        Assert.Equal(HttpStatusCode.BadRequest, (await LoginAs("OldPassw0rd!")).StatusCode);
+        Assert.Equal(HttpStatusCode.OK, (await LoginAs("NewPassw0rd!")).StatusCode);
+    }
+
+    [Fact]
     public async Task A_manager_only_sees_users_of_their_own_department()
     {
         var manager = await _factory.ClientAsync("manager-a");

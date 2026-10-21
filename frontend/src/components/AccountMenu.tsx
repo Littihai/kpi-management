@@ -3,9 +3,11 @@ import { useNavigate } from 'react-router-dom'
 import { useAuthStore } from '../stores/authStore'
 import { Avatar } from './ui/Layout'
 import { roleLabel } from '../utils/labels'
+import { useOpenSettings } from './settings/settingsNav'
 
 /** The signed-in person in the top bar; opens a small menu with who they are and the way out (as in Lotline). */
-export default function AccountMenu({ onOpenSettings }: { onOpenSettings?: () => void }) {
+export default function AccountMenu() {
+  const openSettings = useOpenSettings()
   const navigate = useNavigate()
   const { user, logout } = useAuthStore()
   const [open, setOpen] = useState(false)
@@ -45,13 +47,16 @@ export default function AccountMenu({ onOpenSettings }: { onOpenSettings?: () =>
             <p className="truncate text-xs text-ink-3">{role}{user.departmentName ? ` · ${user.departmentName}` : ''}</p>
           </div>
           <div className="p-1.5">
-            {onOpenSettings && (
-              <button type="button" role="menuitem" onClick={() => { setOpen(false); onOpenSettings() }}
-                className="flex w-full items-center gap-2.5 rounded-control px-2.5 py-2 text-left text-sm font-medium text-ink hover:bg-surface">
-                <i className="ti ti-adjustments-horizontal text-lg text-ink-3" aria-hidden="true" />
-                ตั้งค่า
-              </button>
-            )}
+            <button type="button" role="menuitem" onClick={() => { setOpen(false); openSettings('account') }}
+              className="flex w-full items-center gap-2.5 rounded-control px-2.5 py-2 text-left text-sm font-medium text-ink hover:bg-surface">
+              <i className="ti ti-user-circle text-lg text-ink-3" aria-hidden="true" />
+              บัญชีของฉัน
+            </button>
+            <button type="button" role="menuitem" onClick={() => { setOpen(false); openSettings('general') }}
+              className="flex w-full items-center gap-2.5 rounded-control px-2.5 py-2 text-left text-sm font-medium text-ink hover:bg-surface">
+              <i className="ti ti-adjustments-horizontal text-lg text-ink-3" aria-hidden="true" />
+              ตั้งค่า
+            </button>
             <button type="button" role="menuitem"
               onClick={() => { setOpen(false); logout(); navigate('/login') }}
               className="flex w-full items-center gap-2.5 rounded-control px-2.5 py-2 text-left text-sm font-medium text-ink hover:bg-surface">

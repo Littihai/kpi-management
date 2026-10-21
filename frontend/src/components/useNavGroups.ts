@@ -53,10 +53,7 @@ export function useNavGroups(): { groups: NavGroup[]; overdue: number } {
     {
       title: 'ผู้ดูแลระบบ',
       items: [
-        { to: '/admin/users', icon: 'users', label: 'ผู้ใช้งาน', permission: 'user.view' },
-        { to: '/admin/departments', icon: 'building', label: 'แผนก', permission: 'department.manage' },
         { to: '/admin/overview', icon: 'activity-heartbeat', label: 'ภาพรวมระบบ', permission: 'overview.view' },
-        { to: '/admin/audit', icon: 'history', label: 'บันทึกการใช้งาน', permission: 'overview.view' },
       ],
     },
   ]

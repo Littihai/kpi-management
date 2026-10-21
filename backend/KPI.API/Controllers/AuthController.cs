@@ -67,6 +67,32 @@ public class AuthController : ControllerBase
         }
     }
 
+    /// <summary>
+    /// Changes the caller's own password. A wrong current password counts against the same throttle as sign-in,
+    /// so a stolen token cannot be used to guess the password.
+    /// </summary>
+    [HttpPost("change-password")]
+    [Authorize]
+    public async Task<IActionResult> ChangePassword(ChangePasswordRequest request)
+    {
+        var ip = LoginThrottle.ClientIp(HttpContext, _throttleOptions.ClientIpHeader);
+        var email = User.FindFirst(System.Security.Claims.ClaimTypes.Email)?.Value?.ToLowerInvariant() ?? string.Empty;
+        if (_throttle.BlockedFor(ip, email) is { } wait)
+            throw new TooManyRequestsException(
+                $"Too many failed attempts. Try again in {Math.Max(1, (int)Math.Ceiling(wait.TotalMinutes))} minute(s).", wait);
+
+        try
+        {
+            await _authService.ChangePasswordAsync(User.GetUserId(), request);
+        }
+        catch (RequestValidationException ex) when (ex.Message.StartsWith("Current password", StringComparison.Ordinal))
+        {
+            _throttle.RecordFailure(ip, email);
+            throw;
+        }
+        return Ok(new { message = "Password changed" });
+    }
+
     [HttpGet("me")]
     [Authorize]
     public async Task<IActionResult> Me()
