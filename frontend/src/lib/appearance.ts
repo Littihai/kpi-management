@@ -11,6 +11,7 @@ export type FontFamily = 'inter' | 'plex' | 'sarabun' | 'system'
 export type GreyBase = 'slate' | 'gray' | 'zinc' | 'neutral' | 'stone'
 export type Radius = 'none' | 'sm' | 'md' | 'lg' | 'xl'
 export type NavLayout = 'side' | 'rail' | 'top'
+export type SidebarState = 'shown' | 'hidden'
 export type Container = 'narrow' | 'standard' | 'wide' | 'fluid'
 export type Contrast = 'standard' | 'high'
 export type Motion = 'auto' | 'reduce' | 'full'
@@ -23,6 +24,8 @@ export interface AppearanceState {
   base: GreyBase
   radius: Radius
   nav: NavLayout
+  /** whether the side menu (sidebar or icon rail) is on screen; only meaningful while nav is 'side' or 'rail' */
+  sidebar: SidebarState
   container: Container
   contrast: Contrast
   motion: Motion
@@ -48,6 +51,7 @@ export const CHOICES: { [K in keyof AppearanceState]: Choice<AppearanceState[K]>
   base: choice<GreyBase>('base', 'data-base', 'slate', ['slate', 'gray', 'zinc', 'neutral', 'stone']),
   radius: choice<Radius>('radius', 'data-radius', 'sm', ['none', 'sm', 'md', 'lg', 'xl']),
   nav: choice<NavLayout>('nav', 'data-nav', 'side', ['side', 'rail', 'top']),
+  sidebar: choice<SidebarState>('sidebar', 'data-sidebar', 'shown', ['shown', 'hidden']),
   container: choice<Container>('container', 'data-container', 'standard', ['narrow', 'standard', 'wide', 'fluid']),
   contrast: choice<Contrast>('contrast', 'data-contrast', 'standard', ['standard', 'high']),
   motion: choice<Motion>('motion', 'data-motion', 'auto', ['auto', 'reduce', 'full']),

@@ -23,7 +23,13 @@ export function AppearanceProvider({ children }: { children: ReactNode }) {
 
   const set = useCallback(<K extends keyof AppearanceState>(key: K, value: AppearanceState[K]) => {
     store(key, value)
-    setState((s) => (s[key] === value ? s : { ...s, [key]: value }))
+    // Choosing a side menu layout in Settings also brings a hidden side menu back, so the choice is visible.
+    const reveal = key === 'nav' && value !== 'top'
+    if (reveal) store('sidebar', 'shown')
+    setState((s) => {
+      if (s[key] === value && !(reveal && s.sidebar !== 'shown')) return s
+      return { ...s, [key]: value, ...(reveal ? { sidebar: 'shown' as const } : {}) }
+    })
   }, [])
 
   const reset = useCallback(() => {
