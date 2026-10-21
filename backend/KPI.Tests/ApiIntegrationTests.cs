@@ -274,7 +274,7 @@ public class ApiIntegrationTests : IClassFixture<ApiFactory>, IAsyncLifetime
         var invalid = await admin.PostAsJsonAsync("/api/users",
             new { firstName = "N", lastName = "U", email = "weak@example.com", password = "abc", roleId, departmentId = (string?)null });
         Assert.Equal(HttpStatusCode.BadRequest, invalid.StatusCode);
-        Assert.Contains("Password", (await JsonAsync(invalid)).GetProperty("message").GetString());
+        Assert.Contains("รหัสผ่าน", (await JsonAsync(invalid)).GetProperty("message").GetString());
 
         var forbidden = await manager.PostAsJsonAsync($"/api/issues/{Guid.NewGuid()}/assign", new { assigneeId = Guid.NewGuid() });
         Assert.Equal(HttpStatusCode.Forbidden, forbidden.StatusCode);

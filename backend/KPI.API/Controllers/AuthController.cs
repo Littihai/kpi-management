@@ -14,17 +14,20 @@ namespace KPI.API.Controllers;
 public class AuthController : ControllerBase
 {
     private readonly IAuthService _authService;
+    private readonly IPasswordPolicy _policy;
     private readonly LoginThrottle _throttle;
     private readonly LoginThrottleOptions _throttleOptions;
     private readonly ILogger<AuthController> _logger;
 
     public AuthController(
         IAuthService authService,
+        IPasswordPolicy policy,
         LoginThrottle throttle,
         IOptions<LoginThrottleOptions> throttleOptions,
         ILogger<AuthController> logger)
     {
         _authService = authService;
+        _policy = policy;
         _throttle = throttle;
         _throttleOptions = throttleOptions.Value;
         _logger = logger;
@@ -92,6 +95,11 @@ public class AuthController : ControllerBase
         }
         return Ok(new { message = "Password changed" });
     }
+
+    /// <summary>The rules a new password must meet, so the screen can show them before the person types.</summary>
+    [HttpGet("password-policy")]
+    [Authorize]
+    public async Task<IActionResult> PasswordPolicy() => Ok(await _policy.DescribeAsync());
 
     [HttpGet("me")]
     [Authorize]

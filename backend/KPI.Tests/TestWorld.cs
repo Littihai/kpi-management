@@ -76,6 +76,8 @@ public class TestWorld
     public IssueService Issues { get; }
     public TestClock Clock { get; } = new();
     public DefaultSettings Settings { get; }
+    public AuthLogService AuthLog { get; }
+    public PasswordService Passwords { get; }
 
     public Department DeptA { get; } = new() { Name = "Dept A", Code = "A" };
     public Department DeptB { get; } = new() { Name = "Dept B", Code = "B" };
@@ -104,6 +106,8 @@ public class TestWorld
             ["Email:Enabled"] = emailEnabled ? "true" : "false",
         }).Build();
         Settings = new DefaultSettings();
+        AuthLog = new AuthLogService(Db, KPI.Application.Audit.NullAuditContext.Instance, Clock, NullLogger<AuthLogService>.Instance);
+        Passwords = new PasswordService(Db, Settings, new PasswordPolicyService(Settings), AuthLog, Clock);
         var issueEvents = new IssueEventPublisher(Notifier, Db, Email, config, Settings, NullLogger<IssueEventPublisher>.Instance);
         Issues = new IssueService(Db, new UserRepository(Db), issueEvents, Settings, Clock);
     }

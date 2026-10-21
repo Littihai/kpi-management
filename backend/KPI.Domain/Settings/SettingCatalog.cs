@@ -38,6 +38,7 @@ public static class SettingCatalog
     public const string CategoryEmail = "อีเมล";
     public const string CategoryRetention = "การเก็บข้อมูล";
     public const string CategorySmtp = "อีเมลผ่าน SMTP";
+    public const string CategorySecurity = "ความปลอดภัย";
 
     public static class Keys
     {
@@ -60,6 +61,18 @@ public static class SettingCatalog
         public const string SmtpFromName = "smtp.fromName";
         public const string SmtpTimeoutSeconds = "smtp.timeoutSeconds";
         public const string RequestLogDays = "retention.requestLogDays";
+        public const string AuthLogDays = "retention.authLogDays";
+        public const string PasswordMinLength = "security.password.minLength";
+        public const string PasswordRequireUpper = "security.password.requireUpper";
+        public const string PasswordRequireLower = "security.password.requireLower";
+        public const string PasswordRequireDigit = "security.password.requireDigit";
+        public const string PasswordRequireSpecial = "security.password.requireSpecial";
+        public const string PasswordHistoryCount = "security.password.historyCount";
+        public const string PasswordMaxAgeDays = "security.password.maxAgeDays";
+        public const string ForceChangeOnAdminSet = "security.forceChangeOnAdminSet";
+        public const string LoginMaxFailures = "security.login.maxFailures";
+        public const string LoginLockMinutes = "security.login.lockMinutes";
+        public const string SessionDays = "security.sessionDays";
     }
 
     public static readonly IReadOnlyList<SettingDefinition> All =
@@ -99,6 +112,20 @@ public static class SettingCatalog
         new(Keys.SmtpFromName, SettingType.Text, CategorySmtp, "ชื่อผู้ส่ง", "ชื่อที่แสดงข้างที่อยู่ผู้ส่ง", "Helpdesk"),
         new(Keys.SmtpTimeoutSeconds, SettingType.Number, CategorySmtp, "เวลารอเชื่อมต่อสูงสุด", "ถ้าเซิร์ฟเวอร์ไม่ตอบภายในเวลานี้ ถือว่าส่งไม่สำเร็จ", "15", 3, 60, "วินาที"),
 
+        new(Keys.PasswordMinLength, SettingType.Number, CategorySecurity, "ความยาวรหัสผ่านขั้นต่ำ", "รหัสผ่านใหม่ต้องยาวอย่างน้อยกี่ตัวอักษร", "8", 6, 128, "ตัวอักษร"),
+        new(Keys.PasswordRequireUpper, SettingType.Bool, CategorySecurity, "ต้องมีตัวพิมพ์ใหญ่ (A-Z)", "รหัสผ่านใหม่ต้องมีอักษรอังกฤษพิมพ์ใหญ่อย่างน้อยหนึ่งตัว", "false"),
+        new(Keys.PasswordRequireLower, SettingType.Bool, CategorySecurity, "ต้องมีตัวพิมพ์เล็ก (a-z)", "รหัสผ่านใหม่ต้องมีอักษรอังกฤษพิมพ์เล็กอย่างน้อยหนึ่งตัว", "false"),
+        new(Keys.PasswordRequireDigit, SettingType.Bool, CategorySecurity, "ต้องมีตัวเลข (0-9)", "รหัสผ่านใหม่ต้องมีตัวเลขอย่างน้อยหนึ่งตัว", "false"),
+        new(Keys.PasswordRequireSpecial, SettingType.Bool, CategorySecurity, "ต้องมีอักขระพิเศษ", "รหัสผ่านใหม่ต้องมีเครื่องหมายหรืออักขระพิเศษ เช่น ! @ # $ อย่างน้อยหนึ่งตัว", "false"),
+        new(Keys.PasswordHistoryCount, SettingType.Number, CategorySecurity, "ห้ามใช้รหัสผ่านเดิมซ้ำ", "จำนวนรหัสผ่านล่าสุดที่ห้ามนำกลับมาใช้ 0 = ไม่ตรวจ", "0", 0, 24, "ครั้งล่าสุด"),
+        new(Keys.PasswordMaxAgeDays, SettingType.Number, CategorySecurity, "รหัสผ่านหมดอายุ", "บังคับเปลี่ยนรหัสผ่านเมื่อใช้มานานเกินกี่วัน 0 = ไม่หมดอายุ (เมื่อเปิดใช้ ผู้ที่ไม่เคยเปลี่ยนรหัสและสร้างบัญชีนานเกินกำหนดจะต้องเปลี่ยนทันที)", "0", 0, 3650, "วัน"),
+        new(Keys.ForceChangeOnAdminSet, SettingType.Bool, CategorySecurity, "ให้เปลี่ยนรหัสผ่านหลังผู้ดูแลตั้งให้", "ผู้ใช้ที่ผู้ดูแลสร้างบัญชีหรือตั้งรหัสผ่านใหม่ให้ ต้องตั้งรหัสผ่านของตัวเองก่อนใช้งานต่อ", "false"),
+        new(Keys.LoginMaxFailures, SettingType.Number, CategorySecurity, "ล็อกบัญชีเมื่อใส่รหัสผิดติดกัน", "จำนวนครั้งที่ผิดติดกันก่อนล็อกบัญชีชั่วคราว 0 = ไม่ล็อก (ปิดไว้ก่อน เพราะเมื่อเปิด คนอื่นที่เดารหัสผิดซ้ำ ๆ จะล็อกบัญชีของเจ้าของได้ ระบบมีตัวหน่วงการเดารหัสตามเครื่องที่ใช้อยู่แล้ว ผู้ดูแลปลดล็อกได้จากหน้าผู้ใช้งาน)", "0", 0, 20, "ครั้ง"),
+        new(Keys.LoginLockMinutes, SettingType.Number, CategorySecurity, "ระยะเวลาที่ล็อกบัญชี", "บัญชีที่ถูกล็อกจะเข้าสู่ระบบไม่ได้จนครบเวลานี้", "15", 1, 1440, "นาที"),
+        new(Keys.SessionDays, SettingType.Number, CategorySecurity, "อายุการเข้าสู่ระบบ", "เข้าสู่ระบบแล้วใช้งานได้นานกี่วันก่อนต้องเข้าใหม่ มีผลกับการเข้าสู่ระบบครั้งถัดไป", "7", 1, 30, "วัน"),
+
+        new(Keys.AuthLogDays, SettingType.Number, CategoryRetention, "เก็บบันทึกการเข้าสู่ระบบ",
+            "งานดูแลระบบจะลบบันทึกการเข้าสู่ระบบที่เก่ากว่านี้", "180", 30, 1095, "วัน"),
         new(Keys.RequestLogDays, SettingType.Number, CategoryRetention, "เก็บบันทึกคำขอ (request log)",
             "งานดูแลระบบจะลบบันทึกคำขอที่เก่ากว่านี้ บันทึกการเปลี่ยนแปลงข้อมูลทางธุรกิจ (audit) ไม่ถูกลบ", "90", 7, 730, "วัน"),
     ];

@@ -1,6 +1,16 @@
 import api from './api'
 import type { LoginRequest, RegisterRequest, AuthResponse, UserProfile } from '../types/auth'
 
+export interface PasswordPolicy {
+  minLength: number
+  requireUpper: boolean
+  requireLower: boolean
+  requireDigit: boolean
+  requireSpecial: boolean
+  historyCount: number
+  maxAgeDays: number
+}
+
 export const authService = {
   async login(data: LoginRequest): Promise<AuthResponse> {
     const res = await api.post<AuthResponse>('/api/auth/login', data)
@@ -19,6 +29,10 @@ export const authService = {
 
   async changePassword(currentPassword: string, newPassword: string): Promise<void> {
     await api.post('/api/auth/change-password', { currentPassword, newPassword })
+  },
+
+  async passwordPolicy(): Promise<PasswordPolicy> {
+    return (await api.get<PasswordPolicy>('/api/auth/password-policy')).data
   },
 
   logout() {

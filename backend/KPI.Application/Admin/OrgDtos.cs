@@ -23,7 +23,9 @@ public record UserRowDto(
     bool IsActive,
     string Role,
     Guid? DepartmentId,
-    string? Department);
+    string? Department,
+    /// <summary>Set while the account is locked after too many wrong passwords.</summary>
+    DateTime? LockedUntil = null);
 
 public record UserQuery(
     string? Search = null,
@@ -49,5 +51,6 @@ public interface IOrgAdminService
     /// <summary>The next three refuse (403) when the target is a SuperAdmin and the actor is not one.</summary>
     Task<UserRowDto> UpdateUserAsync(Guid actorId, Guid id, UpdateUserRequest request);
     Task<UserRowDto> ReactivateUserAsync(Guid actorId, Guid id);
+    Task<UserRowDto> UnlockUserAsync(Guid actorId, Guid id);
     Task ResetPasswordAsync(Guid actorId, Guid id, ResetPasswordRequest request);
 }

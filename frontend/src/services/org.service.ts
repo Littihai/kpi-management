@@ -27,6 +27,8 @@ export interface UserRow {
   role: string
   departmentId: string | null
   department: string | null
+  /** Set while the account is locked after too many wrong passwords. */
+  lockedUntil?: string | null
 }
 
 export interface UserSearch {
@@ -70,6 +72,10 @@ export const orgService = {
 
   async updateUser(id: string, body: UpdateUser): Promise<UserRow> {
     return (await api.put<UserRow>(`/api/users/${id}`, body)).data
+  },
+
+  async unlock(id: string): Promise<UserRow> {
+    return (await api.post<UserRow>(`/api/users/${id}/unlock`)).data
   },
 
   async reactivate(id: string): Promise<UserRow> {

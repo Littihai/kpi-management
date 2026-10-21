@@ -1,48 +1,17 @@
 import { useState } from 'react'
-import Button from '../ui/Button'
 import { Card, CardHeader } from '../ui/Card'
-import { TextInput } from '../ui/Field'
 import { Alert, Avatar } from '../ui/Layout'
-import { authService } from '../../services/auth.service'
+import ChangePasswordForm from './ChangePasswordForm'
 import { useAuthStore } from '../../stores/authStore'
-import { apiError } from '../../utils/errors'
 import { roleLabel } from '../../utils/labels'
-
-const MIN_LENGTH = 8
 
 /** Who the signed-in person is, and the one thing they may change about themselves: their password. */
 export default function AccountSection() {
   const user = useAuthStore((s) => s.user)
-  const [form, setForm] = useState({ current: '', next: '', confirm: '' })
-  const [saving, setSaving] = useState(false)
-  const [error, setError] = useState('')
+  const updateUser = useAuthStore((s) => s.updateUser)
   const [done, setDone] = useState(false)
 
   if (!user) return null
-
-  const problem =
-    form.next && form.next.length < MIN_LENGTH ? `รหัสผ่านใหม่ต้องยาวอย่างน้อย ${MIN_LENGTH} ตัวอักษร`
-    : form.confirm && form.confirm !== form.next ? 'รหัสผ่านใหม่สองช่องไม่ตรงกัน'
-    : form.next && form.next === form.current ? 'รหัสผ่านใหม่ต้องไม่ซ้ำกับรหัสเดิม'
-    : ''
-  const ready = form.current && form.next.length >= MIN_LENGTH && form.next === form.confirm && !problem
-
-  const submit = async (e: React.FormEvent) => {
-    e.preventDefault()
-    if (!ready) return
-    setSaving(true)
-    setError('')
-    setDone(false)
-    try {
-      await authService.changePassword(form.current, form.next)
-      setForm({ current: '', next: '', confirm: '' })
-      setDone(true)
-    } catch (err) {
-      setError(apiError(err, 'เปลี่ยนรหัสผ่านไม่สำเร็จ'))
-    } finally {
-      setSaving(false)
-    }
-  }
 
   const rows: [string, string][] = [
     ['อีเมล (ใช้เข้าสู่ระบบ)', user.email],
@@ -74,21 +43,10 @@ export default function AccountSection() {
 
       <Card>
         <CardHeader eyebrow="ความปลอดภัย" title="เปลี่ยนรหัสผ่าน" />
-        <form onSubmit={submit} className="space-y-4 px-5 pb-5 pt-4" noValidate>
-          {error && <Alert tone="error" onClose={() => setError('')}>{error}</Alert>}
+        <div className="space-y-4 px-5 pb-5 pt-4">
           {done && <Alert tone="success" onClose={() => setDone(false)}>เปลี่ยนรหัสผ่านแล้ว ใช้รหัสใหม่ในการเข้าสู่ระบบครั้งถัดไป</Alert>}
-          <TextInput label="รหัสผ่านปัจจุบัน" type="password" autoComplete="current-password" required
-            value={form.current} onChange={(e) => setForm({ ...form, current: e.target.value })} />
-          <div className="grid gap-4 sm:grid-cols-2">
-            <TextInput label="รหัสผ่านใหม่" type="password" autoComplete="new-password" required
-              hint={`อย่างน้อย ${MIN_LENGTH} ตัวอักษร`} value={form.next} onChange={(e) => setForm({ ...form, next: e.target.value })} />
-            <TextInput label="ยืนยันรหัสผ่านใหม่" type="password" autoComplete="new-password" required
-              error={problem || undefined} value={form.confirm} onChange={(e) => setForm({ ...form, confirm: e.target.value })} />
-          </div>
-          <div className="flex justify-end">
-            <Button type="submit" variant="primary" loading={saving} disabled={!ready}>เปลี่ยนรหัสผ่าน</Button>
-          </div>
-        </form>
+          <ChangePasswordForm onChanged={() => { setDone(true); updateUser({ passwordChangeRequired: false, passwordChangeReason: null }) }} />
+        </div>
       </Card>
     </div>
   )

@@ -13,12 +13,20 @@ namespace KPI.Tests;
 
 public class OrgAdminServiceTests
 {
+    internal static OrgAdminService OrgServiceFor(AppDbContext db)
+    {
+        var settings = new KPI.Infrastructure.Services.DefaultSettings();
+        var log = KPI.Application.Auth.NullAuthLog.Instance;
+        var passwords = new PasswordService(db, settings, new PasswordPolicyService(settings), log, TimeProvider.System);
+        return new OrgAdminService(db, passwords, log, TimeProvider.System);
+    }
+
     private static async Task<(AppDbContext Db, OrgAdminService Service)> CreateAsync()
     {
         var db = new AppDbContext(new DbContextOptionsBuilder<AppDbContext>()
             .UseInMemoryDatabase(Guid.NewGuid().ToString()).Options);
         await DbSeeder.SeedAsync(db);
-        return (db, new OrgAdminService(db));
+        return (db, OrgServiceFor(db));
     }
 
     private static async Task<User> AddUserAsync(AppDbContext db, string name, string role = RoleNames.Staff,
@@ -295,7 +303,7 @@ public class OrgAdminPrivilegeTests
             await db.SaveChangesAsync();
             return user;
         }
-        return (db, new OrgAdminService(db), await Add("root", RoleNames.SuperAdmin), await Add("agent", RoleNames.ITSupport), await Add("target", RoleNames.SuperAdmin));
+        return (db, OrgAdminServiceTests.OrgServiceFor(db), await Add("root", RoleNames.SuperAdmin), await Add("agent", RoleNames.ITSupport), await Add("target", RoleNames.SuperAdmin));
     }
 
     [Fact]

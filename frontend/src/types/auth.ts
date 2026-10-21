@@ -17,6 +17,8 @@ export interface AuthResponse {
   role: string
   departmentId: string | null
   permissions: string[]
+  passwordChangeRequired?: boolean
+  passwordChangeReason?: string | null
 }
 
 export interface AuthUser {
@@ -26,6 +28,9 @@ export interface AuthUser {
   departmentId?: string | null
   departmentName?: string | null
   permissions?: string[]
+  /** The person must choose a new password before anything else works ("forced" or "expired"). */
+  passwordChangeRequired?: boolean
+  passwordChangeReason?: string | null
 }
 
 export interface UserProfile {
@@ -36,4 +41,6 @@ export interface UserProfile {
   departmentId: string | null
   departmentName: string | null
   permissions: string[]
+  passwordChangeRequired?: boolean
+  passwordChangeReason?: string | null
 }

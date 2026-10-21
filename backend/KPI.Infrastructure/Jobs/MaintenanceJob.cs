@@ -1,4 +1,5 @@
 using KPI.Application.Issues;
+using KPI.Application.Auth;
 using KPI.Application.Jobs;
 using KPI.Application.Settings;
 using KPI.Domain.Settings;
@@ -15,15 +16,18 @@ public class MaintenanceJob : IMaintenanceJob
     private readonly TimeProvider _time;
     private readonly ILogger<MaintenanceJob> _logger;
     private readonly ISystemSettings _settings;
+    private readonly IAuthLog _authLog;
 
     public MaintenanceJob(
         IIssueService issues,
         AppDbContext db,
         TimeProvider time,
         ISystemSettings settings,
+        IAuthLog authLog,
         ILogger<MaintenanceJob> logger)
     {
         _settings = settings;
+        _authLog = authLog;
         _issues = issues;
         _db = db;
         _time = time;
@@ -49,7 +53,9 @@ public class MaintenanceJob : IMaintenanceJob
             purged = old.Count;
         }
 
-        _logger.LogInformation("Maintenance: {Closed} resolved issue(s) auto-closed, {Purged} old request log(s) removed",
-            closed, purged);
+        var authPurged = await _authLog.PurgeOlderThanAsync(now.AddDays(-await _settings.GetNumberAsync(SettingCatalog.Keys.AuthLogDays)));
+
+        _logger.LogInformation("Maintenance: {Closed} resolved issue(s) auto-closed, {Purged} old request log(s) and {AuthPurged} old sign-in log(s) removed",
+            closed, purged, authPurged);
     }
 }

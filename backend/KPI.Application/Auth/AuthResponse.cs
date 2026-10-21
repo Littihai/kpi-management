@@ -6,7 +6,10 @@ public record AuthResponse(
     string FullName,
     string Role,
     Guid? DepartmentId,
-    IReadOnlyList<string> Permissions
+    IReadOnlyList<string> Permissions,
+    /// <summary>The person must choose a new password before anything else works ("forced" or "expired").</summary>
+    bool PasswordChangeRequired = false,
+    string? PasswordChangeReason = null
 );
 
 /// <summary>Current user profile returned by <c>GET /api/auth/me</c>.</summary>
@@ -17,5 +20,7 @@ public record UserProfileDto(
     string Role,
     Guid? DepartmentId,
     string? DepartmentName,
-    IReadOnlyList<string> Permissions
+    IReadOnlyList<string> Permissions,
+    bool PasswordChangeRequired = false,
+    string? PasswordChangeReason = null
 );

@@ -1,4 +1,5 @@
 using KPI.Application.Admin;
+using KPI.Application.Auth;
 using KPI.Application.Common;
 using KPI.Domain.Constants;
 using KPI.Domain.Entities;
@@ -14,8 +15,17 @@ public class OrgAdminService : IOrgAdminService
     public const int MaxCodeLength = 20;
 
     private readonly AppDbContext _db;
+    private readonly IPasswordService _passwords;
+    private readonly IAuthLog _authLog;
+    private readonly TimeProvider _time;
 
-    public OrgAdminService(AppDbContext db) => _db = db;
+    public OrgAdminService(AppDbContext db, IPasswordService passwords, IAuthLog authLog, TimeProvider time)
+    {
+        _db = db;
+        _passwords = passwords;
+        _authLog = authLog;
+        _time = time;
+    }
 
     // ───────────── Departments ─────────────
 
@@ -110,6 +120,7 @@ public class OrgAdminService : IOrgAdminService
                 || u.Email.ToLower().Contains(term));
         }
 
+        var now = _time.GetUtcNow().UtcDateTime;
         var page = PagedResult<UserRowDto>.ClampPage(query.Page);
         var size = PagedResult<UserRowDto>.ClampSize(query.PageSize);
         var total = await users.CountAsync();
@@ -117,7 +128,8 @@ public class OrgAdminService : IOrgAdminService
             .OrderBy(u => u.FirstName).ThenBy(u => u.LastName).ThenBy(u => u.Id)
             .Skip((page - 1) * size).Take(size)
             .Select(u => new UserRowDto(u.Id, u.FirstName, u.LastName, u.Email, u.IsActive, u.Role.Name,
-                u.DepartmentId, u.Department != null ? u.Department.Name : null))
+                u.DepartmentId, u.Department != null ? u.Department.Name : null,
+                u.LockedUntil != null && u.LockedUntil > now ? u.LockedUntil : null))
             .ToListAsync();
 
         return new PagedResult<UserRowDto>(items, total, page, size);
@@ -176,11 +188,23 @@ public class OrgAdminService : IOrgAdminService
         var user = await _db.Users.Include(u => u.Role).FirstOrDefaultAsync(u => u.Id == id)
             ?? throw new NotFoundException("ไม่พบผู้ใช้นี้");
         await EnsureMayTouchAsync(actorId, user);
-        AuthService.EnsurePasswordPolicy(request.NewPassword);
+        await _passwords.SetAsync(user, request.NewPassword, PasswordSetKind.AdminSet);
+    }
 
-        user.PasswordHash = BCrypt.Net.BCrypt.HashPassword(request.NewPassword);
-        user.UpdatedAt = DateTime.UtcNow;
-        await _db.SaveChangesAsync();
+    public async Task<UserRowDto> UnlockUserAsync(Guid actorId, Guid id)
+    {
+        var user = await _db.Users.Include(u => u.Role).FirstOrDefaultAsync(u => u.Id == id)
+            ?? throw new NotFoundException("ไม่พบผู้ใช้นี้");
+        await EnsureMayTouchAsync(actorId, user);
+        if (user.LockedUntil != null || user.FailedLoginCount > 0)
+        {
+            user.LockedUntil = null;
+            user.FailedLoginCount = 0;
+            user.UpdatedAt = _time.GetUtcNow().UtcDateTime;
+            await _db.SaveChangesAsync();
+            await _authLog.WriteAsync(AuthEvents.AccountUnlocked, true, user.Id, user.Email, detail: $"by {actorId}");
+        }
+        return await RowAsync(id);
     }
 
     /// <summary>Nobody below SuperAdmin may edit, reactivate or reset a SuperAdmin: that would be a way to take the account over.</summary>
@@ -192,9 +216,13 @@ public class OrgAdminService : IOrgAdminService
             throw new ForbiddenException("เฉพาะผู้ดูแลระบบสูงสุดเท่านั้นที่จัดการบัญชีผู้ดูแลระบบสูงสุดได้");
     }
 
-    private Task<UserRowDto> RowAsync(Guid id) =>
-        _db.Users.AsNoTracking().Where(u => u.Id == id)
+    private Task<UserRowDto> RowAsync(Guid id)
+    {
+        var now = _time.GetUtcNow().UtcDateTime;
+        return _db.Users.AsNoTracking().Where(u => u.Id == id)
             .Select(u => new UserRowDto(u.Id, u.FirstName, u.LastName, u.Email, u.IsActive, u.Role.Name,
-                u.DepartmentId, u.Department != null ? u.Department.Name : null))
+                u.DepartmentId, u.Department != null ? u.Department.Name : null,
+                u.LockedUntil != null && u.LockedUntil > now ? u.LockedUntil : null))
             .FirstAsync();
+    }
 }
