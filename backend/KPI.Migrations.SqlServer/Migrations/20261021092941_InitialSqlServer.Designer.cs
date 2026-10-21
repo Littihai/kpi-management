@@ -12,7 +12,7 @@ using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 namespace KPI.Migrations.SqlServer.Migrations
 {
     [DbContext(typeof(AppDbContext))]
-    [Migration("20261021090505_InitialSqlServer")]
+    [Migration("20261021092941_InitialSqlServer")]
     partial class InitialSqlServer
     {
         /// <inheritdoc />
@@ -106,11 +106,13 @@ namespace KPI.Migrations.SqlServer.Migrations
 
                     b.Property<string>("EntityId")
                         .IsRequired()
-                        .HasColumnType("nvarchar(450)");
+                        .HasMaxLength(200)
+                        .HasColumnType("nvarchar(200)");
 
                     b.Property<string>("EntityName")
                         .IsRequired()
-                        .HasColumnType("nvarchar(450)");
+                        .HasMaxLength(200)
+                        .HasColumnType("nvarchar(200)");
 
                     b.Property<string>("IpAddress")
                         .HasMaxLength(64)

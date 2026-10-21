@@ -11,7 +11,6 @@ public static class DbSeeder
     public static async Task SeedAsync(AppDbContext context)
     {
         await SeedRolesAsync(context);
-        await EnsureRolesAsync(context);
         await SyncPermissionsAsync(context);
     }
 
@@ -59,38 +58,37 @@ public static class DbSeeder
         return true;
     }
 
-    private static async Task SeedRolesAsync(AppDbContext context)
+    /// <summary>A role the system ships with. The ids are fixed so a database created by SQL script and one created by the app agree.</summary>
+    public sealed record BuiltInRole(Guid Id, string Name, string Description);
+
+    public static readonly IReadOnlyList<BuiltInRole> BuiltInRoles =
+    [
+        new(Guid.Parse("00000000-0000-0000-0000-000000000001"), RoleNames.SuperAdmin, "ผู้ดูแลระบบสูงสุด: ทำได้ทุกอย่าง"),
+        new(Guid.Parse("00000000-0000-0000-0000-000000000002"), RoleNames.Director, "ผู้อำนวยการ: ดูได้ทุกแผนก"),
+        new(Guid.Parse("00000000-0000-0000-0000-000000000003"), RoleNames.Manager, "ผู้จัดการ: ดูเรื่องและผู้ใช้ของแผนกตัวเอง"),
+        new(Guid.Parse("00000000-0000-0000-0000-000000000004"), RoleNames.TeamLeader, "หัวหน้าทีม: แจ้งและติดตามเรื่อง"),
+        new(Guid.Parse("00000000-0000-0000-0000-000000000005"), RoleNames.Staff, "พนักงาน: แจ้งและติดตามเรื่องของตัวเอง"),
+        new(Guid.Parse("00000000-0000-0000-0000-000000000006"), RoleNames.Viewer, "ผู้ชม: แจ้งและติดตามเรื่องของตัวเอง"),
+        new(Guid.Parse("00000000-0000-0000-0000-000000000007"), RoleNames.ITSupport, "ทีม IT: ทำงานในคิวแจ้งปัญหา"),
+    ];
+
+    /// <summary>The id a permission gets when it is created by the SQL seed script; derived from its name so it never changes.</summary>
+    public static Guid PermissionIdFor(string name)
     {
-        if (await context.Roles.AnyAsync()) return;
-
-        var roles = new List<Role>
-        {
-            new() { Id = Guid.Parse("00000000-0000-0000-0000-000000000001"), Name = RoleNames.SuperAdmin,  Description = "Full system access" },
-            new() { Id = Guid.Parse("00000000-0000-0000-0000-000000000002"), Name = RoleNames.Director,    Description = "View all departments" },
-            new() { Id = Guid.Parse("00000000-0000-0000-0000-000000000003"), Name = RoleNames.Manager,     Description = "Manage department KPI" },
-            new() { Id = Guid.Parse("00000000-0000-0000-0000-000000000004"), Name = RoleNames.TeamLeader,  Description = "Manage projects" },
-            new() { Id = Guid.Parse("00000000-0000-0000-0000-000000000005"), Name = RoleNames.Staff,       Description = "Update assigned tasks" },
-            new() { Id = Guid.Parse("00000000-0000-0000-0000-000000000006"), Name = RoleNames.Viewer,      Description = "Read only" },
-        };
-
-        context.Roles.AddRange(roles);
-        await context.SaveChangesAsync();
+        var hash = System.Security.Cryptography.MD5.HashData(System.Text.Encoding.UTF8.GetBytes("helpdesk-permission:" + name));
+        return new Guid(hash);
     }
 
-    /// <summary>Adds built-in roles that older databases do not have yet (e.g. ITSupport), by name.</summary>
-    private static async Task EnsureRolesAsync(AppDbContext context)
+    /// <summary>Adds built-in roles that the database does not have yet, by name (older databases lack some).</summary>
+    private static async Task SeedRolesAsync(AppDbContext context)
     {
         var existing = await context.Roles.Select(r => r.Name).ToListAsync();
-        if (!existing.Contains(RoleNames.ITSupport))
-        {
-            context.Roles.Add(new Role
-            {
-                Id = Guid.Parse("00000000-0000-0000-0000-000000000007"),
-                Name = RoleNames.ITSupport,
-                Description = "Works the issue queue",
-            });
-            await context.SaveChangesAsync();
-        }
+        var missing = BuiltInRoles.Where(r => !existing.Contains(r.Name)).ToList();
+        if (missing.Count == 0) return;
+
+        foreach (var role in missing)
+            context.Roles.Add(new Role { Id = role.Id, Name = role.Name, Description = role.Description });
+        await context.SaveChangesAsync();
     }
 
     /// <summary>
@@ -114,7 +112,7 @@ public static class DbSeeder
         }
         var missing = Permissions.All
             .Where(name => existing.All(p => p.Name != name))
-            .Select(name => new Permission { Name = name, Module = name.Split('.')[0] })
+            .Select(name => new Permission { Id = PermissionIdFor(name), Name = name, Module = name.Split('.')[0] })
             .ToList();
 
         if (missing.Count > 0)
@@ -133,6 +131,7 @@ public static class DbSeeder
             if (role is null) continue;
 
             var wantedIds = wanted.Select(name => permissionIdByName[name]).ToHashSet();
+            if (BuiltInRoles.FirstOrDefault(r => r.Name == roleName) is { } builtIn) role.Description = builtIn.Description;
             if (RolePermissionMap.Scopes.TryGetValue(roleName, out var scope))
             {
                 role.IssueVisibility = scope.Issues;
