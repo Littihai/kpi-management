@@ -35,7 +35,10 @@ public static class ServiceRegistration
         services.AddSingleton<IRealtimeNotifier, SignalRNotifier>();
 
         services.AddResend(options => { options.ApiToken = config["Resend:ApiKey"]!; });
+        services.AddScoped<IMailTransport, ResendTransport>();
+        services.AddScoped<IMailTransport, SmtpTransport>();
         services.AddScoped<IEmailService, EmailService>();
+        services.AddSingleton<ISecretProtector>(_ => new SecretProtector(config["Jwt:Key"]!));
         services.AddScoped<IAuditService, AuditService>();
 
         services.AddScoped<IUserRepository, UserRepository>();

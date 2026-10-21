@@ -27,4 +27,7 @@ public record IssueEmailMessage(
 public interface IEmailService
 {
     Task SendIssueAsync(IssueEmailMessage message, CancellationToken cancellationToken = default);
+
+    /// <summary>Sends a short test message through the provider currently selected, and throws with the reason if it fails.</summary>
+    Task SendTestAsync(string toEmail, CancellationToken cancellationToken = default);
 }
