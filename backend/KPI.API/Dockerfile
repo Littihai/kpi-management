@@ -9,6 +9,7 @@ COPY ["KPI.API/KPI.API.csproj", "KPI.API/"]
 COPY ["KPI.Domain/KPI.Domain.csproj", "KPI.Domain/"]
 COPY ["KPI.Application/KPI.Application.csproj", "KPI.Application/"]
 COPY ["KPI.Infrastructure/KPI.Infrastructure.csproj", "KPI.Infrastructure/"]
+COPY ["KPI.Migrations.SqlServer/KPI.Migrations.SqlServer.csproj", "KPI.Migrations.SqlServer/"]
 
 RUN dotnet restore "KPI.API/KPI.API.csproj"
 
