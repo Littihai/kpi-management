@@ -101,7 +101,8 @@ public static class ServiceRegistration
             {
                 "http://localhost:5173",
                 "https://kpi-management-two.vercel.app",
-                "https://kpi-management.vercel.app"
+                "https://kpi-management.vercel.app",
+                "app://local"
             }
             .Concat(config.GetSection("Cors:Origins").Get<string[]>() ?? [])
             .ToArray();
