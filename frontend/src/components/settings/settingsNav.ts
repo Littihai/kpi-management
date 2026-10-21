@@ -6,7 +6,7 @@ import { useLocation, useNavigate, type Location } from 'react-router-dom'
  * so a section can be linked and survives a refresh. The page underneath stays mounted: opening settings remembers
  * where the person was ("background location") and the routes keep rendering that page behind the window.
  */
-export type SettingsSectionId = 'general' | 'account' | 'users' | 'roles' | 'departments' | 'audit' | 'about'
+export type SettingsSectionId = 'general' | 'account' | 'system' | 'users' | 'roles' | 'departments' | 'audit' | 'about'
 export type SettingsGroup = 'personal' | 'admin' | 'other'
 
 export interface SettingsSectionDef {
@@ -22,6 +22,7 @@ export interface SettingsSectionDef {
 export const SETTINGS_SECTIONS: SettingsSectionDef[] = [
   { id: 'general', group: 'personal', label: 'ทั่วไป', desc: 'ธีม สี ฟอนต์ และการจัดวางหน้าจอ', icon: 'adjustments-horizontal' },
   { id: 'account', group: 'personal', label: 'บัญชีของฉัน', desc: 'ข้อมูลของคุณและการเปลี่ยนรหัสผ่าน', icon: 'user-circle' },
+  { id: 'system', group: 'admin', label: 'ตั้งค่าระบบ', desc: 'เป้าหมายเวลา SLA ขีดจำกัด อีเมล และการเก็บข้อมูล', icon: 'settings-cog', permission: 'settings.view' },
   { id: 'users', group: 'admin', label: 'ผู้ใช้งาน', desc: 'เพิ่ม แก้ไข ปิดใช้งาน และตั้งรหัสผ่านใหม่ให้ผู้ใช้', icon: 'users', permission: 'user.view' },
   { id: 'roles', group: 'admin', label: 'บทบาทและสิทธิ์', desc: 'กำหนดว่าใครทำอะไรได้ สร้างบทบาทใหม่ และดูตารางเทียบสิทธิ์', icon: 'shield-lock', permission: 'role.view' },
   { id: 'departments', group: 'admin', label: 'แผนก', desc: 'แผนกที่ใช้ในการแจ้งปัญหาและรายชื่อผู้ใช้', icon: 'building', permission: 'department.manage' },

@@ -6,6 +6,7 @@ using KPI.API.Authorization;
 using KPI.API.Realtime;
 using KPI.API.Security;
 using KPI.Application.Admin;
+using KPI.Application.Settings;
 using KPI.Application.Audit;
 using KPI.Application.Auth;
 using KPI.Application.Issues;
@@ -50,12 +51,9 @@ public static class ServiceRegistration
         services.AddScoped<IIssueService, IssueService>();
         services.AddScoped<IssueEventPublisher>();
         services.AddScoped<IMaintenanceJob, MaintenanceJob>();
-        services.AddSingleton(new IssueSlaPolicy(
-            TimeSpan.FromHours(config.GetValue("Issues:FirstResponseHours", 2.0)),
-            TimeSpan.FromHours(config.GetValue("Issues:ResolveHours:Critical", 4.0)),
-            TimeSpan.FromHours(config.GetValue("Issues:ResolveHours:High", 24.0)),
-            TimeSpan.FromHours(config.GetValue("Issues:ResolveHours:Medium", 72.0)),
-            TimeSpan.FromHours(config.GetValue("Issues:ResolveHours:Low", 168.0))));
+        // SLA targets, limits and retention come from the settings screen (see SettingCatalog), not from configuration.
+        services.AddSingleton<ISystemSettings, SystemSettingsService>();
+        services.AddScoped<ISettingsAdminService, SettingsAdminService>();
         services.Configure<PublicSubmitOptions>(config.GetSection("PublicIssues"));
         services.AddSingleton<PublicSubmitThrottle>();
         return services;

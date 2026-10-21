@@ -2,11 +2,13 @@ using System.Text.RegularExpressions;
 using KPI.Application.Common;
 using KPI.Application.Issues;
 using KPI.Application.Notifications;
+using KPI.Application.Settings;
 using KPI.Domain.Constants;
 using KPI.Domain.Entities;
 using KPI.Domain.Exceptions;
 using KPI.Domain.Interfaces;
 using KPI.Domain.Issues;
+using KPI.Domain.Settings;
 using KPI.Infrastructure.Data;
 using Microsoft.EntityFrameworkCore;
 
@@ -14,28 +16,26 @@ namespace KPI.Infrastructure.Services;
 
 public class IssueService : IIssueService
 {
-    public const int MaxAttachmentsPerIssue = 5;
-    public const int MaxAttachmentBytes = 5 * 1024 * 1024;
 
     private static readonly Regex NumberPattern = new(@"(\d{4})\D+(\d{1,6})", RegexOptions.Compiled);
 
     private readonly AppDbContext _db;
     private readonly IUserRepository _users;
     private readonly IssueEventPublisher _events;
-    private readonly IssueSlaPolicy _sla;
+    private readonly ISystemSettings _settings;
     private readonly TimeProvider _time;
 
     public IssueService(
         AppDbContext db,
         IUserRepository users,
         IssueEventPublisher events,
-        IssueSlaPolicy sla,
+        ISystemSettings settings,
         TimeProvider time)
     {
         _db = db;
         _users = users;
         _events = events;
-        _sla = sla;
+        _settings = settings;
         _time = time;
     }
 
@@ -50,10 +50,10 @@ public class IssueService : IIssueService
         RequirePermission(actor, Permissions.Issue.Create);
 
         ValidateReport(request.Title, request.Description, request.Category, request.Module, request.Impact);
-        var uploads = ValidateUploads(files, 0);
+        var uploads = await ValidateUploadsAsync(files, 0);
 
         var now = Now;
-        var issue = NewIssue(request.Title, request.Description, request.Category, request.Module, request.Impact, now);
+        var issue = await NewIssueAsync(request.Title, request.Description, request.Category, request.Module, request.Impact, now);
         issue.ReporterUserId = actor.Id;
         issue.ReporterName = actor.FullName;
         issue.ReporterEmail = actor.Email;
@@ -89,7 +89,7 @@ public class IssueService : IIssueService
         if (phone is { Length: > 40 }) throw new RequestValidationException("เบอร์โทรยาวเกินไป");
 
         ValidateReport(request.Title, request.Description, request.Category, request.Module, request.Impact);
-        var uploads = ValidateUploads(files, 0);
+        var uploads = await ValidateUploadsAsync(files, 0);
 
         Department? department = null;
         if (request.DepartmentId is { } departmentId)
@@ -99,7 +99,7 @@ public class IssueService : IIssueService
         }
 
         var now = Now;
-        var issue = NewIssue(request.Title, request.Description, request.Category, request.Module, request.Impact, now);
+        var issue = await NewIssueAsync(request.Title, request.Description, request.Category, request.Module, request.Impact, now);
         issue.IsPublicSubmission = true;
         issue.ReporterName = name;
         issue.ReporterEmail = string.IsNullOrEmpty(email) ? null : email;
@@ -119,9 +119,10 @@ public class IssueService : IIssueService
         return new PublicIssueReceipt(issue.DisplayNumber, issue.CreatedAt, issue.ResponseDueAt);
     }
 
-    private Issue NewIssue(string title, string description, IssueCategory category, IssueModule module,
+    private async Task<Issue> NewIssueAsync(string title, string description, IssueCategory category, IssueModule module,
         IssueImpact impact, DateTime now)
     {
+        var sla = await _settings.SlaAsync();
         var priority = IssueSlaPolicy.InitialPriority(impact);
         return new Issue
         {
@@ -135,8 +136,8 @@ public class IssueService : IIssueService
             CreatedAt = now,
             UpdatedAt = now,
             NumberYear = now.Year,
-            ResponseDueAt = _sla.ResponseDue(now),
-            ResolveDueAt = _sla.ResolveDue(now, priority),
+            ResponseDueAt = sla.ResponseDue(now),
+            ResolveDueAt = sla.ResolveDue(now, priority),
         };
     }
 
@@ -547,7 +548,7 @@ public class IssueService : IIssueService
         issue.ResolvedAt = null;
         issue.ClosedAt = null;
         issue.RejectReason = null;
-        issue.ResolveDueAt = now + _sla.ResolveFor(issue.Priority); // a fresh target for the second attempt
+        issue.ResolveDueAt = now + (await _settings.SlaAsync()).ResolveFor(issue.Priority); // a fresh target for the second attempt
         AddComment(issue, actor, reason, now, IsStaff(actor));
 
         StageAudit(actor, issue, "Reopen", old.ToString(), $"{issue.Status}: {reason.Truncate(200)}");
@@ -606,7 +607,7 @@ public class IssueService : IIssueService
 
         // Move the deadline by the difference between the two windows, so the waiting time already credited and the
         // fresh target of a reopened issue are kept (a plain "created + window" would drop both).
-        issue.ResolveDueAt = _sla.ShiftResolveDue(issue.ResolveDueAt, old, priority);
+        issue.ResolveDueAt = (await _settings.SlaAsync()).ShiftResolveDue(issue.ResolveDueAt, old, priority);
         issue.Priority = priority;
 
         StageAudit(actor, issue, "SetPriority", old.ToString(), priority.ToString());
@@ -625,7 +626,7 @@ public class IssueService : IIssueService
         if (issue.Status == IssueStatus.Closed) throw new InvalidStateException("เรื่องที่ปิดแล้วแนบไฟล์เพิ่มไม่ได้");
 
         var existing = await _db.IssueAttachments.CountAsync(a => a.IssueId == id);
-        var uploads = ValidateUploads(files, existing);
+        var uploads = await ValidateUploadsAsync(files, existing);
         if (uploads.Count == 0) throw new RequestValidationException("ไม่พบไฟล์ที่แนบ");
 
         foreach (var upload in uploads)
@@ -680,7 +681,7 @@ public class IssueService : IIssueService
 
     public async Task<int> AutoCloseResolvedAsync(DateTime now)
     {
-        var cutoff = now - IssueStateMachine.AutoCloseAfter;
+        var cutoff = now - TimeSpan.FromDays(await _settings.GetNumberAsync(SettingCatalog.Keys.AutoCloseDays));
         var stale = await _db.Issues
             .Where(i => i.Status == IssueStatus.Resolved && i.ResolvedAt != null && i.ResolvedAt <= cutoff)
             .ToListAsync();
@@ -952,17 +953,19 @@ public class IssueService : IIssueService
             CreatedAt = Now,
         });
 
-    private static List<IssueUpload> ValidateUploads(IReadOnlyList<IssueUpload> files, int alreadyAttached)
+    private async Task<List<IssueUpload>> ValidateUploadsAsync(IReadOnlyList<IssueUpload> files, int alreadyAttached)
     {
+        var maxFiles = (int)await _settings.GetNumberAsync(SettingCatalog.Keys.MaxAttachments);
+        var maxBytes = (long)(await _settings.GetNumberAsync(SettingCatalog.Keys.MaxAttachmentMb) * 1024 * 1024);
         var uploads = files.Where(f => f.Data.Length > 0).ToList();
-        if (alreadyAttached + uploads.Count > MaxAttachmentsPerIssue)
-            throw new RequestValidationException($"แนบรูปได้ไม่เกิน {MaxAttachmentsPerIssue} ไฟล์ต่อเรื่อง");
+        if (alreadyAttached + uploads.Count > maxFiles)
+            throw new RequestValidationException($"แนบรูปได้ไม่เกิน {maxFiles} ไฟล์ต่อเรื่อง");
 
         var checkedUploads = new List<IssueUpload>();
         foreach (var file in uploads)
         {
-            if (file.Data.Length > MaxAttachmentBytes)
-                throw new RequestValidationException($"ไฟล์ \"{file.FileName.ToSafeFileName()}\" ใหญ่เกิน 5 MB");
+            if (file.Data.Length > maxBytes)
+                throw new RequestValidationException($"ไฟล์ \"{file.FileName.ToSafeFileName()}\" ใหญ่เกิน {maxBytes / (1024 * 1024)} MB");
 
             var type = DetectImageType(file.Data)
                 ?? throw new RequestValidationException($"ไฟล์ \"{file.FileName.ToSafeFileName()}\" ต้องเป็นรูปภาพ (PNG, JPG, GIF หรือ WebP)");

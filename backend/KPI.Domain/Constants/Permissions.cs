@@ -17,6 +17,13 @@ public static class Permissions
         public const string Manage = "role.manage";
     }
 
+    public static class Settings
+    {
+        public const string View = "settings.view";
+        /// <summary>Change system settings (SLA targets, limits, e-mail on/off, retention).</summary>
+        public const string Manage = "settings.manage";
+    }
+
     public static class Department
     {
         public const string View   = "department.view";
@@ -53,6 +60,7 @@ public static class Permissions
     [
         User.View, User.Create, User.Edit, User.Delete,
         Role.View, Role.Manage,
+        Settings.View, Settings.Manage,
         Department.View, Department.Manage,
         Audit.View,
         Job.Trigger,

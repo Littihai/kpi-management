@@ -1,8 +1,9 @@
 using KPI.Application.Issues;
 using KPI.Application.Jobs;
+using KPI.Application.Settings;
+using KPI.Domain.Settings;
 using KPI.Infrastructure.Data;
 using Microsoft.EntityFrameworkCore;
-using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
 
 namespace KPI.Infrastructure.Jobs;
@@ -13,20 +14,20 @@ public class MaintenanceJob : IMaintenanceJob
     private readonly AppDbContext _db;
     private readonly TimeProvider _time;
     private readonly ILogger<MaintenanceJob> _logger;
-    private readonly int _requestLogDays;
+    private readonly ISystemSettings _settings;
 
     public MaintenanceJob(
         IIssueService issues,
         AppDbContext db,
         TimeProvider time,
-        IConfiguration config,
+        ISystemSettings settings,
         ILogger<MaintenanceJob> logger)
     {
+        _settings = settings;
         _issues = issues;
         _db = db;
         _time = time;
         _logger = logger;
-        _requestLogDays = int.TryParse(config["Audit:RequestLogRetentionDays"], out var d) ? Math.Max(7, d) : 90;
     }
 
     public async Task RunAsync()
@@ -36,7 +37,7 @@ public class MaintenanceJob : IMaintenanceJob
         var closed = await _issues.AutoCloseResolvedAsync(now);
 
         // Request logs grow with traffic; business audit rows are kept.
-        var cutoff = now.AddDays(-_requestLogDays);
+        var cutoff = now.AddDays(-await _settings.GetNumberAsync(SettingCatalog.Keys.RequestLogDays));
         int purged;
         if (_db.Database.IsRelational())
             purged = await _db.RequestLogs.Where(r => r.CreatedAt < cutoff).ExecuteDeleteAsync();

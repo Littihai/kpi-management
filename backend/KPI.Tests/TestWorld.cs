@@ -66,6 +66,7 @@ public class TestWorld
     public RecordingEmail Email { get; } = new();
     public IssueService Issues { get; }
     public TestClock Clock { get; } = new();
+    public DefaultSettings Settings { get; }
 
     public Department DeptA { get; } = new() { Name = "Dept A", Code = "A" };
     public Department DeptB { get; } = new() { Name = "Dept B", Code = "B" };
@@ -93,8 +94,9 @@ public class TestWorld
             ["Email:PacingMs"] = "0",
             ["Email:Enabled"] = emailEnabled ? "true" : "false",
         }).Build();
-        var issueEvents = new IssueEventPublisher(Notifier, Db, Email, config, NullLogger<IssueEventPublisher>.Instance);
-        Issues = new IssueService(Db, new UserRepository(Db), issueEvents, IssueSlaPolicy.Default, Clock);
+        Settings = new DefaultSettings();
+        var issueEvents = new IssueEventPublisher(Notifier, Db, Email, config, Settings, NullLogger<IssueEventPublisher>.Instance);
+        Issues = new IssueService(Db, new UserRepository(Db), issueEvents, Settings, Clock);
     }
 
     public static async Task<TestWorld> CreateAsync(bool emailEnabled = true)

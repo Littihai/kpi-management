@@ -143,8 +143,8 @@ public class IssueServiceTests
         var config = new ConfigurationBuilder()
             .AddInMemoryCollection(new Dictionary<string, string?> { ["Email:Enabled"] = "false" }).Build();
         var service = new IssueService(db, new UserRepository(db),
-            new IssueEventPublisher(w.Notifier, db, w.Email, config, NullLogger<IssueEventPublisher>.Instance),
-            IssueSlaPolicy.Default, w.Clock);
+            new IssueEventPublisher(w.Notifier, db, w.Email, config, w.Settings, NullLogger<IssueEventPublisher>.Instance),
+            w.Settings, w.Clock);
 
         var issue = await service.CreateAsync(Report(), [new IssueUpload("a.png", "image/png", Png)], w.StaffA.Id, null);
 
@@ -185,7 +185,7 @@ public class IssueServiceTests
     public async Task Files_over_five_megabytes_and_more_than_five_files_are_refused()
     {
         var w = await TestWorld.CreateAsync();
-        var big = new byte[IssueService.MaxAttachmentBytes + 1];
+        var big = new byte[5 * 1024 * 1024 + 1];
         Png.CopyTo(big, 0);
 
         await Assert.ThrowsAsync<RequestValidationException>(() =>
