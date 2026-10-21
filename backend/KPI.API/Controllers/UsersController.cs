@@ -19,12 +19,14 @@ public class UsersController : ControllerBase
     private readonly AppDbContext _context;
     private readonly IOrgAdminService _org;
     private readonly IRoleAdminService _roles;
+    private readonly IPasswordService _passwords;
 
-    public UsersController(AppDbContext context, IOrgAdminService org, IRoleAdminService roles)
+    public UsersController(AppDbContext context, IOrgAdminService org, IRoleAdminService roles, IPasswordService passwords)
     {
         _context = context;
         _org = org;
         _roles = roles;
+        _passwords = passwords;
     }
 
     private Guid CurrentUserId => User.GetUserId();
@@ -45,6 +47,11 @@ public class UsersController : ControllerBase
     public async Task<IActionResult> Reactivate(Guid id) => Ok(await _org.ReactivateUserAsync(CurrentUserId, id));
 
     /// <summary>An administrator sets a new password (for someone who forgot theirs).</summary>
+    /// <summary>Lifts the lock on an account that was locked by too many wrong passwords.</summary>
+    [HttpPost("{id:guid}/unlock")]
+    [Authorize(Policy = Permissions.User.Edit)]
+    public async Task<IActionResult> Unlock(Guid id) => Ok(await _org.UnlockUserAsync(CurrentUserId, id));
+
     [HttpPost("{id:guid}/reset-password")]
     [Authorize(Policy = Permissions.User.Edit)]
     public async Task<IActionResult> ResetPassword(Guid id, [FromBody] ResetPasswordRequest request)
@@ -62,8 +69,6 @@ public class UsersController : ControllerBase
             throw new RequestValidationException("A valid email is required.");
         if (string.IsNullOrWhiteSpace(request.FirstName) || string.IsNullOrWhiteSpace(request.LastName))
             throw new RequestValidationException("First name and last name are required.");
-        AuthService.EnsurePasswordPolicy(request.Password);
-
         if (!Guid.TryParse(request.RoleId, out var roleId) || !await _context.Roles.AnyAsync(r => r.Id == roleId))
             throw new RequestValidationException("Role not found.");
         await _roles.EnsureMayAssignAsync(CurrentUserId, roleId);
@@ -80,16 +85,17 @@ public class UsersController : ControllerBase
         if (await _context.Users.AnyAsync(u => u.Email.ToLower() == email))
             throw new RequestValidationException("Email already exists.");
 
-        _context.Users.Add(new KPI.Domain.Entities.User
+        var created = new KPI.Domain.Entities.User
         {
             FirstName = request.FirstName.Trim(),
             LastName = request.LastName.Trim(),
             Email = email,
-            PasswordHash = BCrypt.Net.BCrypt.HashPassword(request.Password),
             RoleId = roleId,
             DepartmentId = departmentId,
             IsActive = true
-        });
+        };
+        await _passwords.PrepareNewAsync(created, request.Password);   // policy, hash, history; saved with the user
+        _context.Users.Add(created);
         await _context.SaveChangesAsync();
         return Ok(new { message = "User created" });
     }

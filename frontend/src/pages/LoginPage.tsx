@@ -28,6 +28,8 @@ export default function LoginPage() {
         role: res.role,
         departmentId: res.departmentId,
         permissions: res.permissions,
+        passwordChangeRequired: res.passwordChangeRequired,
+        passwordChangeReason: res.passwordChangeReason,
       })
       navigate('/dashboard')
     } catch (err) {

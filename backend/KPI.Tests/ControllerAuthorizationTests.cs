@@ -82,7 +82,7 @@ public class ControllerAuthorizationTests
 
         // The caller's own profile and own password only; both re-check that the account is active.
         Assert.Equal(
-            [$"{nameof(AuthController)}.{nameof(AuthController.ChangePassword)}", $"{nameof(AuthController)}.{nameof(AuthController.Me)}"],
+            [$"{nameof(AuthController)}.{nameof(AuthController.ChangePassword)}", $"{nameof(AuthController)}.{nameof(AuthController.Me)}", $"{nameof(AuthController)}.{nameof(AuthController.PasswordPolicy)}"],
             authOnly.OrderBy(x => x, StringComparer.Ordinal));
     }
 
@@ -92,6 +92,9 @@ public class ControllerAuthorizationTests
     [InlineData(typeof(UsersController), nameof(UsersController.Update), Permissions.User.Edit)]
     [InlineData(typeof(UsersController), nameof(UsersController.Reactivate), Permissions.User.Edit)]
     [InlineData(typeof(UsersController), nameof(UsersController.ResetPassword), Permissions.User.Edit)]
+    [InlineData(typeof(UsersController), nameof(UsersController.Unlock), Permissions.User.Edit)]
+    [InlineData(typeof(AuthLogsController), nameof(AuthLogsController.Search), Permissions.Audit.View)]
+    [InlineData(typeof(AuthLogsController), nameof(AuthLogsController.Events), Permissions.Audit.View)]
     [InlineData(typeof(DepartmentsController), nameof(DepartmentsController.ListAll), Permissions.Department.Manage)]
     [InlineData(typeof(DepartmentsController), nameof(DepartmentsController.Create), Permissions.Department.Manage)]
     [InlineData(typeof(DepartmentsController), nameof(DepartmentsController.Update), Permissions.Department.Manage)]

@@ -79,7 +79,7 @@ public class MaintenanceJobTests
     private static MaintenanceJob JobFor(TestWorld w, int retentionDays = 30)
     {
         w.Settings.Set(KPI.Domain.Settings.SettingCatalog.Keys.RequestLogDays, retentionDays.ToString());
-        return new(w.Issues, w.Db, w.Clock, w.Settings, NullLogger<MaintenanceJob>.Instance);
+        return new(w.Issues, w.Db, w.Clock, w.Settings, w.AuthLog, NullLogger<MaintenanceJob>.Instance);
     }
 
     [Fact]

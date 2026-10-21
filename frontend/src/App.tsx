@@ -3,6 +3,7 @@ import { BrowserRouter, Navigate, Route, Routes, useLocation } from 'react-route
 import AppShell from './components/AppShell'
 import ProtectedRoute, { RequirePermission } from './components/ProtectedRoute'
 import { Page, PageSkeleton } from './components/ui/Layout'
+import PasswordGate from './components/PasswordGate'
 import SettingsWindow from './components/settings/SettingsWindow'
 import { isSettingsPath, RealLocationContext, type SettingsLocationState } from './components/settings/settingsNav'
 import LoginPage from './pages/LoginPage'
@@ -61,6 +62,7 @@ function AppRoutes() {
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
         {settingsOpen && isAuthenticated && <SettingsWindow />}
+        <PasswordGate />
       </Suspense>
     </RealLocationContext.Provider>
   )

@@ -23,6 +23,8 @@ public class AppDbContext : DbContext
     public DbSet<Department> Departments => Set<Department>();
     public DbSet<AuditLog> AuditLogs => Set<AuditLog>();
     public DbSet<RequestLog> RequestLogs => Set<RequestLog>();
+    public DbSet<PasswordHistory> PasswordHistory => Set<PasswordHistory>();
+    public DbSet<AuthLog> AuthLogs => Set<AuthLog>();
     public DbSet<AppSetting> AppSettings => Set<AppSetting>();
     public DbSet<AppSettingHistory> AppSettingHistory => Set<AppSettingHistory>();
     public DbSet<Issue> Issues => Set<Issue>();
@@ -115,6 +117,22 @@ public class AppDbContext : DbContext
         request.Property(r => r.RequestId).HasMaxLength(64);
         request.Property(r => r.UserEmail).HasMaxLength(254);
         request.Property(r => r.UserRole).HasMaxLength(50);
+
+        // ── Security ──
+        var history = modelBuilder.Entity<PasswordHistory>();
+        history.HasOne(h => h.User).WithMany().HasForeignKey(h => h.UserId).OnDelete(DeleteBehavior.Cascade);
+        history.HasIndex(h => new { h.UserId, h.CreatedAt });
+        history.Property(h => h.PasswordHash).HasMaxLength(100);
+        var authLog = modelBuilder.Entity<AuthLog>();
+        authLog.HasIndex(a => a.At);
+        authLog.HasIndex(a => new { a.Event, a.At });
+        authLog.HasIndex(a => new { a.UserId, a.At });
+        authLog.Property(a => a.Event).HasMaxLength(40);
+        authLog.Property(a => a.Email).HasMaxLength(254);
+        authLog.Property(a => a.IpAddress).HasMaxLength(64);
+        authLog.Property(a => a.UserAgent).HasMaxLength(400);
+        authLog.Property(a => a.Reason).HasMaxLength(100);
+        authLog.Property(a => a.Detail).HasMaxLength(300);
 
         // ── Settings ──
         var setting = modelBuilder.Entity<AppSetting>();

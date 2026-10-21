@@ -42,6 +42,9 @@ public static class ServiceRegistration
         services.AddScoped<IAuditService, AuditService>();
 
         services.AddScoped<IUserRepository, UserRepository>();
+        services.AddScoped<IPasswordPolicy, PasswordPolicyService>();
+        services.AddScoped<IPasswordService, PasswordService>();
+        services.AddScoped<IAuthLog, AuthLogService>();
         services.AddScoped<IAuthService, AuthService>();
         services.AddScoped<IOrgAdminService, OrgAdminService>();
         services.AddScoped<IRoleAdminService, RoleAdminService>();

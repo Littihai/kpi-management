@@ -14,6 +14,7 @@ import {
 // The admin screens are the same pages as before, drawn inside the window; they load when first opened.
 const UsersPage = lazy(() => import('../../pages/admin/UsersPage'))
 const SystemSection = lazy(() => import('./SystemSection'))
+const SecuritySection = lazy(() => import('./SecuritySection'))
 const EmailSection = lazy(() => import('./EmailSection'))
 const RolesSection = lazy(() => import('./RolesSection'))
 const DepartmentsPage = lazy(() => import('../../pages/admin/DepartmentsPage'))
@@ -26,6 +27,7 @@ function SectionBody({ id }: { id: SettingsSectionId }) {
     case 'about': return <AboutSection />
     case 'users': return <UsersPage />
     case 'system': return <SystemSection />
+    case 'security': return <SecuritySection />
     case 'email': return <EmailSection />
     case 'roles': return <RolesSection />
     case 'departments': return <DepartmentsPage />

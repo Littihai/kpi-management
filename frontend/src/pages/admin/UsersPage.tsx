@@ -157,6 +157,7 @@ export default function UsersPage() {
                         <td className="px-3 py-3.5 text-[13px] text-ink-2">{u.department ?? <span className="text-ink-3">ไม่ระบุ</span>}</td>
                         <td className="px-3 py-3.5">
                           <Badge tone={u.isActive ? 'green' : 'gray'} dot>{u.isActive ? 'ใช้งานอยู่' : 'ปิดใช้งาน'}</Badge>
+                          {u.lockedUntil && <Badge tone="amber" icon="lock" className="ml-1.5" >ถูกล็อก</Badge>}
                         </td>
                         {canEdit && (
                           <td className="px-5 py-3.5 text-right">
@@ -165,6 +166,10 @@ export default function UsersPage() {
                               <Button size="sm" variant="ghost" icon="key" onClick={() => setResetting(u)}>รหัสผ่าน</Button>
                               {u.isActive && !isMe && (
                                 <Button size="sm" variant="ghost" icon="user-off" onClick={() => setConfirmDeactivate(u)}>ปิดใช้งาน</Button>
+                              )}
+                              {u.lockedUntil && (
+                                <Button size="sm" variant="ghost" icon="lock-open" disabled={busy}
+                                  onClick={() => run(() => orgService.unlock(u.id))}>ปลดล็อก</Button>
                               )}
                               {!u.isActive && (
                                 <Button size="sm" variant="ghost" icon="user-check" disabled={busy}
