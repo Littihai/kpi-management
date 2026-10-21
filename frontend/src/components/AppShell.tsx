@@ -3,6 +3,7 @@ import { Link, Outlet, useLocation } from 'react-router-dom'
 import Sidebar from './Sidebar'
 import TopNav from './TopNav'
 import AccountMenu from './AccountMenu'
+import SidebarToggle from './SidebarToggle'
 import ConnectionStatus from './ConnectionStatus'
 import { useOpenSettings } from './settings/settingsNav'
 import { useAppearance } from './appearanceContext'
@@ -34,7 +35,7 @@ function BarButtons() {
 export default function AppShell() {
   const updateUser = useAuthStore((s) => s.updateUser)
   const canReport = useAuthStore((s) => s.user?.permissions?.includes('issue.create') ?? false)
-  const { nav } = useAppearance()
+  const { nav, sidebar } = useAppearance()
   const location = useLocation()
   // The drawer is tied to the page it was opened on, so navigating closes it without an effect.
   const [menuPath, setMenuPath] = useState<string | null>(null)
@@ -64,14 +65,20 @@ export default function AppShell() {
 
   const onIssuePages = location.pathname.startsWith('/issues/new')
   const sideLayout = nav !== 'top'
+  const sideHidden = sideLayout && sidebar === 'hidden'
 
   return (
     <RealtimeProvider>
       <div className="min-h-[var(--vh100)] lg:flex">
         {/* Desktop sidebar / icon rail */}
         {sideLayout && (
-          <aside className={`sticky top-0 hidden h-[var(--vh100)] shrink-0 lg:block ${nav === 'rail' ? 'w-[68px]' : 'w-[252px]'}`}>
-            <Sidebar rail={nav === 'rail'} />
+          <aside id="app-sidebar" inert={sideHidden}
+            className={`sticky top-0 hidden h-[var(--vh100)] shrink-0 overflow-hidden transition-[width,visibility] duration-200 ease-out lg:block
+              ${sideHidden ? 'invisible w-0' : nav === 'rail' ? 'w-[68px]' : 'w-[252px]'}`}>
+            {/* fixed inner width: the menu slides away instead of being squeezed while the width animates */}
+            <div className={`h-full ${nav === 'rail' ? 'w-[68px]' : 'w-[252px]'}`}>
+              <Sidebar rail={nav === 'rail'} />
+            </div>
           </aside>
         )}
 
@@ -101,6 +108,7 @@ export default function AppShell() {
           {/* Desktop top bar (as in Lotline): live-update status on the left, switches and the account menu on the right */}
           <header className="sticky top-0 z-30 hidden h-14 flex-none items-center justify-between gap-4 border-b border-line bg-card px-6 lg:flex">
             <div className="flex min-w-0 items-center gap-4">
+              <SidebarToggle />
               {!sideLayout && (
                 <span className="flex items-center gap-2.5">
                   <span className="flex h-[30px] w-[30px] items-center justify-center rounded-lg bg-accent text-on-accent" aria-hidden="true">
