@@ -31,7 +31,8 @@ export default function SystemSection() {
 
   const load = useCallback(() => {
     settingsService.list()
-      .then((list) => { setRows(list); setError('') })
+      // E-mail has its own screen (Settings > E-mail)
+      .then((list) => { setRows(list.filter((r) => !r.key.startsWith('email.') && !r.key.startsWith('smtp.'))); setError('') })
       .catch((err) => setError(apiError(err, 'โหลดการตั้งค่าไม่สำเร็จ')))
   }, [])
   useEffect(() => { load() }, [load])

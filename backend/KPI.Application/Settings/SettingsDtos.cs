@@ -17,7 +17,10 @@ public record SettingDto(
     string? Unit,
     bool RequiresRestart,
     DateTime? UpdatedAt,
-    string? UpdatedByName);
+    string? UpdatedByName,
+    /// <summary>For a sensitive setting the value is never sent: Value is empty and IsDefault says whether one is set.</summary>
+    bool Sensitive = false,
+    IReadOnlyList<SettingOption>? Options = null);
 
 public record SettingHistoryDto(string Key, string? OldValue, string? NewValue, DateTime ChangedAt, string? ChangedByName);
 
@@ -41,3 +44,5 @@ public interface ISettingsAdminService
     Task<SettingDto> ResetAsync(Guid actorId, string key);
     Task<IReadOnlyList<SettingHistoryDto>> HistoryAsync(string key);
 }
+
+public record SendTestEmailRequest(string? To);

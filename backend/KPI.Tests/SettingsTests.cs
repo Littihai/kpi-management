@@ -70,6 +70,7 @@ public class SettingsAdminTests
             services.AddLogging();
             services.AddSingleton(TimeProvider.System);
             services.AddDbContext<AppDbContext>(o => o.UseInMemoryDatabase(name));
+            services.AddSingleton<ISecretProtector>(new SecretProtector("unit-test-signing-key-0123456789"));
             services.AddSingleton<ISystemSettings, SystemSettingsService>();
             services.AddScoped<ISettingsAdminService, SettingsAdminService>();
             Provider = services.BuildServiceProvider();

@@ -19,6 +19,8 @@ interface RawSetting {
   requiresRestart: boolean
   updatedAt: string | null
   updatedByName: string | null
+  sensitive: boolean
+  options: { value: string; label: string }[] | null
 }
 
 export interface SettingRow extends Omit<RawSetting, 'type'> {
@@ -44,6 +46,9 @@ export const settingsService = {
   },
   async reset(key: string): Promise<SettingRow> {
     return toRow((await api.delete<RawSetting>(`/api/settings/${encodeURIComponent(key)}`)).data)
+  },
+  async sendTestEmail(to: string): Promise<string> {
+    return (await api.post<{ message: string }>('/api/settings/email/test', { to })).data.message
   },
   async history(key: string): Promise<SettingHistoryRow[]> {
     return (await api.get<SettingHistoryRow[]>(`/api/settings/${encodeURIComponent(key)}/history`)).data

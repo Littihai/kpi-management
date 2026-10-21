@@ -99,6 +99,7 @@ public class ControllerAuthorizationTests
     [InlineData(typeof(SettingsController), nameof(SettingsController.History), Permissions.Settings.View)]
     [InlineData(typeof(SettingsController), nameof(SettingsController.Update), Permissions.Settings.Manage)]
     [InlineData(typeof(SettingsController), nameof(SettingsController.Reset), Permissions.Settings.Manage)]
+    [InlineData(typeof(SettingsController), nameof(SettingsController.SendTestEmail), Permissions.Settings.Manage)]
     [InlineData(typeof(RolesController), nameof(RolesController.Details), Permissions.Role.View)]
     [InlineData(typeof(RolesController), nameof(RolesController.Catalog), Permissions.Role.View)]
     [InlineData(typeof(RolesController), nameof(RolesController.Create), Permissions.Role.Manage)]

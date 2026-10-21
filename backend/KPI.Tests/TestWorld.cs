@@ -39,10 +39,19 @@ public class RecordingEmail : IEmailService
 
     public IEnumerable<string> To(IssueEmailKind kind) => IssueSent.Where(m => m.Kind == kind).Select(m => m.ToEmail);
 
+    public List<string> TestSent { get; } = [];
+
     public Task SendIssueAsync(IssueEmailMessage message, CancellationToken cancellationToken = default)
     {
         if (Throw) throw new InvalidOperationException("mail provider down");
         IssueSent.Add(message);
+        return Task.CompletedTask;
+    }
+
+    public Task SendTestAsync(string toEmail, CancellationToken cancellationToken = default)
+    {
+        if (Throw) throw new InvalidOperationException("mail provider down");
+        TestSent.Add(toEmail);
         return Task.CompletedTask;
     }
 

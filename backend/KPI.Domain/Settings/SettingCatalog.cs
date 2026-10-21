@@ -5,6 +5,11 @@ namespace KPI.Domain.Settings;
 
 public enum SettingType { Number, Bool, Text }
 
+/// <summary>What a text setting must look like. Checked when it is saved.</summary>
+public enum TextFormat { Any, EmailAddress, Host }
+
+public sealed record SettingOption(string Value, string Label);
+
 /// <summary>One setting an administrator can change. Only values that differ from <see cref="Default"/> are stored.</summary>
 public sealed record SettingDefinition(
     string Key,
@@ -16,7 +21,11 @@ public sealed record SettingDefinition(
     double? Min = null,
     double? Max = null,
     string? Unit = null,
-    bool RequiresRestart = false);
+    bool RequiresRestart = false,
+    IReadOnlyList<SettingOption>? Options = null,
+    /// <summary>Stored encrypted and never sent back to the browser (passwords, keys).</summary>
+    bool Sensitive = false,
+    TextFormat Format = TextFormat.Any);
 
 /// <summary>
 /// Every setting, in code: the label shown to the administrator, its limits and its default. Adding one needs no
@@ -28,6 +37,7 @@ public static class SettingCatalog
     public const string CategoryIssues = "การแจ้งปัญหา";
     public const string CategoryEmail = "อีเมล";
     public const string CategoryRetention = "การเก็บข้อมูล";
+    public const string CategorySmtp = "อีเมลผ่าน SMTP";
 
     public static class Keys
     {
@@ -40,6 +50,15 @@ public static class SettingCatalog
         public const string MaxAttachments = "issues.maxAttachments";
         public const string MaxAttachmentMb = "issues.maxAttachmentMb";
         public const string EmailEnabled = "email.enabled";
+        public const string EmailProvider = "email.provider";
+        public const string SmtpHost = "smtp.host";
+        public const string SmtpPort = "smtp.port";
+        public const string SmtpSecurity = "smtp.security";
+        public const string SmtpUsername = "smtp.username";
+        public const string SmtpPassword = "smtp.password";
+        public const string SmtpFromAddress = "smtp.fromAddress";
+        public const string SmtpFromName = "smtp.fromName";
+        public const string SmtpTimeoutSeconds = "smtp.timeoutSeconds";
         public const string RequestLogDays = "retention.requestLogDays";
     }
 
@@ -66,11 +85,33 @@ public static class SettingCatalog
         new(Keys.EmailEnabled, SettingType.Bool, CategoryEmail, "ส่งอีเมลแจ้งเตือน",
             "ปิดเมื่อต้องการหยุดส่งอีเมลทั้งระบบชั่วคราว (การแจ้งเตือนในแอปยังทำงานตามปกติ)", "true"),
 
+        new(Keys.EmailProvider, SettingType.Text, CategoryEmail, "ช่องทางส่งอีเมล",
+            "Resend คือบริการส่งอีเมลที่ตั้งค่าไว้ที่เซิร์ฟเวอร์ ส่วน SMTP ใช้เซิร์ฟเวอร์อีเมลขององค์กรหรือผู้ให้บริการอื่น", "resend",
+            Options: [new("resend", "Resend (ตั้งค่าที่เซิร์ฟเวอร์)"), new("smtp", "SMTP")]),
+
+        new(Keys.SmtpHost, SettingType.Text, CategorySmtp, "เซิร์ฟเวอร์ SMTP", "ชื่อโฮสต์หรือ IP เช่น smtp.office365.com", "", Format: TextFormat.Host),
+        new(Keys.SmtpPort, SettingType.Number, CategorySmtp, "พอร์ต", "587 สำหรับ STARTTLS, 465 สำหรับ SSL/TLS, 25 สำหรับไม่เข้ารหัส", "587", 1, 65535),
+        new(Keys.SmtpSecurity, SettingType.Text, CategorySmtp, "การเข้ารหัสการเชื่อมต่อ", "ควรใช้ STARTTLS หรือ SSL/TLS เสมอ เพื่อไม่ให้รหัสผ่านและเนื้อหาอีเมลถูกดักระหว่างทาง", "starttls",
+            Options: [new("starttls", "STARTTLS (แนะนำ)"), new("ssl", "SSL/TLS"), new("none", "ไม่เข้ารหัส")]),
+        new(Keys.SmtpUsername, SettingType.Text, CategorySmtp, "ชื่อผู้ใช้", "เว้นว่างถ้าเซิร์ฟเวอร์ไม่ต้องล็อกอิน", ""),
+        new(Keys.SmtpPassword, SettingType.Text, CategorySmtp, "รหัสผ่าน", "เก็บแบบเข้ารหัสและไม่แสดงกลับ ถ้าเปลี่ยน JWT key ของเซิร์ฟเวอร์ ต้องกรอกใหม่", "", Sensitive: true),
+        new(Keys.SmtpFromAddress, SettingType.Text, CategorySmtp, "ที่อยู่ผู้ส่ง", "อีเมลที่ผู้รับเห็นเป็นผู้ส่ง ต้องเป็นที่อยู่ที่เซิร์ฟเวอร์อนุญาตให้ใช้", "", Format: TextFormat.EmailAddress),
+        new(Keys.SmtpFromName, SettingType.Text, CategorySmtp, "ชื่อผู้ส่ง", "ชื่อที่แสดงข้างที่อยู่ผู้ส่ง", "Helpdesk"),
+        new(Keys.SmtpTimeoutSeconds, SettingType.Number, CategorySmtp, "เวลารอเชื่อมต่อสูงสุด", "ถ้าเซิร์ฟเวอร์ไม่ตอบภายในเวลานี้ ถือว่าส่งไม่สำเร็จ", "15", 3, 60, "วินาที"),
+
         new(Keys.RequestLogDays, SettingType.Number, CategoryRetention, "เก็บบันทึกคำขอ (request log)",
             "งานดูแลระบบจะลบบันทึกคำขอที่เก่ากว่านี้ บันทึกการเปลี่ยนแปลงข้อมูลทางธุรกิจ (audit) ไม่ถูกลบ", "90", 7, 730, "วัน"),
     ];
 
     private static readonly Dictionary<string, SettingDefinition> ByKey = All.ToDictionary(d => d.Key, StringComparer.Ordinal);
+
+    private static bool IsEmailAddress(string value) =>
+        System.Net.Mail.MailAddress.TryCreate(value, out var address) && address.Address == value && value.Contains('@') && !value.Contains(' ');
+
+    private static readonly System.Text.RegularExpressions.Regex HostPattern =
+        new(@"^(?=.{1,253}$)([A-Za-z0-9]([A-Za-z0-9-]{0,61}[A-Za-z0-9])?)(\.[A-Za-z0-9]([A-Za-z0-9-]{0,61}[A-Za-z0-9])?)*$", System.Text.RegularExpressions.RegexOptions.Compiled);
+
+    private static bool IsHost(string value) => HostPattern.IsMatch(value);
 
     public static SettingDefinition? Find(string key) => ByKey.GetValueOrDefault(key);
 
@@ -92,6 +133,16 @@ public static class SettingCatalog
                 return number.ToString("0.####", CultureInfo.InvariantCulture);
             default:
                 if (value.Length > 200) throw new RequestValidationException("ค่ายาวเกินไป");
+                if (definition.Options is { } options && !options.Any(o => o.Value == value))
+                    throw new RequestValidationException("เลือกได้เฉพาะตัวเลือกที่กำหนด");
+                if (value.Length > 0)
+                    switch (definition.Format)
+                    {
+                        case TextFormat.EmailAddress when !IsEmailAddress(value):
+                            throw new RequestValidationException("รูปแบบอีเมลไม่ถูกต้อง");
+                        case TextFormat.Host when !IsHost(value):
+                            throw new RequestValidationException("ชื่อโฮสต์ไม่ถูกต้อง (ใส่เฉพาะชื่อหรือ IP ไม่ต้องมี http:// หรือพอร์ต)");
+                    }
                 return value;
         }
     }

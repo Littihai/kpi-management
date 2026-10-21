@@ -19,15 +19,17 @@ public sealed class SystemSettingsService : ISystemSettings
 
     private readonly IServiceScopeFactory _scopes;
     private readonly TimeProvider _time;
+    private readonly ISecretProtector _secrets;
     private readonly ILogger<SystemSettingsService> _logger;
     private readonly SemaphoreSlim _gate = new(1, 1);
     private volatile Dictionary<string, string> _overrides = new();
     private DateTime _loadedAt = DateTime.MinValue;
 
-    public SystemSettingsService(IServiceScopeFactory scopes, TimeProvider time, ILogger<SystemSettingsService> logger)
+    public SystemSettingsService(IServiceScopeFactory scopes, TimeProvider time, ISecretProtector secrets, ILogger<SystemSettingsService> logger)
     {
         _scopes = scopes;
         _time = time;
+        _secrets = secrets;
         _logger = logger;
     }
 
@@ -37,7 +39,11 @@ public sealed class SystemSettingsService : ISystemSettings
     {
         var definition = SettingCatalog.Find(key) ?? throw new ArgumentException($"Unknown setting '{key}'", nameof(key));
         await EnsureFreshAsync();
-        return _overrides.TryGetValue(key, out var value) ? value : definition.Default;
+        if (!_overrides.TryGetValue(key, out var value)) return definition.Default;
+        if (!definition.Sensitive) return value;
+        var plain = _secrets.Unprotect(value);
+        if (plain is null) _logger.LogWarning("The stored value of {Key} cannot be read with this server's key; treating it as not set", key);
+        return plain ?? definition.Default;
     }
 
     public async Task<double> GetNumberAsync(string key) =>

@@ -1,38 +1,38 @@
 using KPI.Application.Notifications;
+using KPI.Application.Settings;
+using KPI.Domain.Settings;
 using Microsoft.Extensions.Configuration;
-using Resend;
 
 namespace KPI.Infrastructure.Services;
 
 public class EmailService : IEmailService
 {
-    // Resend only delivers from this address to the account owner. Set Resend__From to an address on a
-    // verified domain (e.g. "Helpdesk <noreply@yourcompany.com>") to e-mail everyone else.
-    private const string DefaultFrom = "Helpdesk <onboarding@resend.dev>";
-
-    private readonly IResend _resend;
-    private readonly string _from;
+    private readonly IReadOnlyList<IMailTransport> _transports;
+    private readonly ISystemSettings _settings;
     private readonly string? _appBaseUrl;
 
-    public EmailService(IResend resend, IConfiguration config)
+    public EmailService(IEnumerable<IMailTransport> transports, ISystemSettings settings, IConfiguration config)
     {
-        _resend = resend;
-        _from = config["Resend:From"] is { Length: > 0 } from ? from : DefaultFrom;
+        _transports = transports.ToList();
+        _settings = settings;
         _appBaseUrl = config["App:BaseUrl"];
     }
 
     public async Task SendIssueAsync(IssueEmailMessage message, CancellationToken cancellationToken = default)
     {
         var (subject, html) = IssueEmailTemplates.Build(message, _appBaseUrl);
+        await SendAsync(new OutgoingMail(message.ToEmail, IssueEmailTemplates.SingleLine(subject), html), cancellationToken);
+    }
 
-        var email = new EmailMessage
-        {
-            From = _from,
-            To = { message.ToEmail },
-            Subject = IssueEmailTemplates.SingleLine(subject),
-            HtmlBody = html,
-        };
+    public Task SendTestAsync(string toEmail, CancellationToken cancellationToken = default) =>
+        SendAsync(new OutgoingMail(toEmail, "ทดสอบการส่งอีเมลจาก Helpdesk",
+            "<p>นี่คืออีเมลทดสอบจากระบบ Helpdesk</p><p>ถ้าคุณเห็นข้อความนี้ แสดงว่าการตั้งค่าอีเมลใช้งานได้</p>"), cancellationToken);
 
-        await _resend.EmailSendAsync(email, cancellationToken);
+    private async Task SendAsync(OutgoingMail mail, CancellationToken cancellationToken)
+    {
+        var provider = await _settings.GetAsync(SettingCatalog.Keys.EmailProvider);
+        var transport = _transports.FirstOrDefault(t => t.Name == provider)
+            ?? throw new InvalidOperationException($"No e-mail transport named '{provider}'");
+        await transport.SendAsync(mail, cancellationToken);
     }
 }
