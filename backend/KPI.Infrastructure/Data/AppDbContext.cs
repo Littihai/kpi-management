@@ -21,9 +21,6 @@ public class AppDbContext : DbContext
     public DbSet<Permission> Permissions => Set<Permission>();
     public DbSet<RolePermission> RolePermissions => Set<RolePermission>();
     public DbSet<Department> Departments => Set<Department>();
-    public DbSet<Kpi> Kpis => Set<Kpi>();
-    public DbSet<Project> Projects => Set<Project>();
-    public DbSet<KpiProgressLog> KpiProgressLogs => Set<KpiProgressLog>();
     public DbSet<AuditLog> AuditLogs => Set<AuditLog>();
     public DbSet<RequestLog> RequestLogs => Set<RequestLog>();
     public DbSet<Issue> Issues => Set<Issue>();
@@ -88,61 +85,7 @@ public class AppDbContext : DbContext
 
         modelBuilder.Entity<User>().Ignore(u => u.FullName);
 
-        // KPI
-        modelBuilder.Entity<Kpi>()
-            .HasOne(k => k.Department)
-            .WithMany()
-            .HasForeignKey(k => k.DepartmentId)
-            .OnDelete(DeleteBehavior.Restrict);
-
-        modelBuilder.Entity<Kpi>()
-            .HasOne(k => k.Owner)
-            .WithMany()
-            .HasForeignKey(k => k.OwnerId)
-            .OnDelete(DeleteBehavior.Restrict);
-
-        modelBuilder.Entity<Kpi>()
-            .HasOne(k => k.ApprovedBy)
-            .WithMany()
-            .HasForeignKey(k => k.ApprovedById)
-            .OnDelete(DeleteBehavior.SetNull);
-
-        modelBuilder.Entity<Kpi>()
-            .Property(k => k.Version)
-            .IsConcurrencyToken();
-
-        modelBuilder.Entity<Kpi>()
-            .Property(k => k.RejectReason)
-            .HasMaxLength(1000);
-
-        modelBuilder.Entity<Kpi>()
-            .Property(k => k.Progress)
-            .HasPrecision(5, 2);
-
-        modelBuilder.Entity<Kpi>()
-            .Property(k => k.Target)
-            .HasPrecision(5, 2);
-
-        // Project
-        modelBuilder.Entity<Project>()
-            .HasOne(p => p.Kpi)
-            .WithMany(k => k.Projects)
-            .HasForeignKey(p => p.KpiId)
-            .OnDelete(DeleteBehavior.Cascade);
-
-        modelBuilder.Entity<Project>()
-            .Property(p => p.Weight)
-            .HasPrecision(5, 2);
-
-        modelBuilder.Entity<Project>()
-            .Property(p => p.Progress)
-            .HasPrecision(5, 2);
-
         // ── Indexes for the queries the app actually runs (filters, joins and sort orders) ──
-        modelBuilder.Entity<Kpi>().HasIndex(k => k.Status);
-        modelBuilder.Entity<Kpi>().HasIndex(k => new { k.DepartmentId, k.Status });
-        modelBuilder.Entity<Kpi>().HasIndex(k => k.CreatedAt);
-        modelBuilder.Entity<KpiProgressLog>().HasIndex(l => new { l.Year, l.Month });
         modelBuilder.Entity<RolePermission>().HasIndex(rp => rp.PermissionId);
 
         // ── Audit and request logs ──

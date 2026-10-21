@@ -44,28 +44,7 @@ public class PermissionMatrixTests
             Assert.NotEmpty(RolePermissionMap.Defaults[role]);
     }
 
-    [Fact]
-    public void Only_Director_and_SuperAdmin_can_approve_reject_and_close()
-    {
-        foreach (var permission in new[] { Permissions.Kpi.Approve, Permissions.Kpi.Reject, Permissions.Kpi.Close })
-        {
-            var holders = RoleNames.All.Where(r => For(r).Contains(permission)).ToHashSet();
-            Assert.Equal([RoleNames.SuperAdmin, RoleNames.Director], holders);
-        }
-    }
-
-    [Fact]
-    public void Only_Manager_and_SuperAdmin_can_create_edit_and_submit()
-    {
-        foreach (var permission in new[] { Permissions.Kpi.Create, Permissions.Kpi.Edit, Permissions.Kpi.Submit })
-        {
-            var holders = RoleNames.All.Where(r => For(r).Contains(permission)).ToHashSet();
-            Assert.Equal([RoleNames.SuperAdmin, RoleNames.Manager], holders);
-        }
-    }
-
     [Theory]
-    [InlineData(Permissions.Kpi.Delete)]
     [InlineData(Permissions.User.Create)]
     [InlineData(Permissions.User.Edit)]
     [InlineData(Permissions.User.Delete)]
@@ -119,12 +98,10 @@ public class PermissionMatrixTests
     }
 
     [Fact]
-    public void Audit_and_export_visibility_matches_the_agreed_table()
+    public void Audit_visibility_matches_the_agreed_table()
     {
         Assert.Equal([RoleNames.SuperAdmin],
             RoleNames.All.Where(r => For(r).Contains(Permissions.Audit.View)).ToHashSet());
-        Assert.Equal([RoleNames.SuperAdmin, RoleNames.Director, RoleNames.Manager],
-            RoleNames.All.Where(r => For(r).Contains(Permissions.Export.View)).ToHashSet());
     }
 
     [Fact]
@@ -180,11 +157,11 @@ public class PermissionMatrixTests
         await using var db = NewContext();
         await DbSeeder.SeedAsync(db);
 
-        // Simulate the production state: Manager wrongly holds department.manage, lost kpi.submit,
+        // Simulate the production state: Manager wrongly holds department.manage, lost issue.view,
         // and TeamLeader has nothing at all.
         var manager = await db.Roles.FirstAsync(r => r.Name == RoleNames.Manager);
         var manage = await db.Permissions.FirstAsync(p => p.Name == Permissions.Department.Manage);
-        var submit = await db.Permissions.FirstAsync(p => p.Name == Permissions.Kpi.Submit);
+        var submit = await db.Permissions.FirstAsync(p => p.Name == Permissions.Issue.View);
         db.RolePermissions.Add(new() { RoleId = manager.Id, PermissionId = manage.Id });
         db.RolePermissions.Remove(await db.RolePermissions.FirstAsync(rp => rp.RoleId == manager.Id && rp.PermissionId == submit.Id));
         var teamLeader = await db.Roles.FirstAsync(r => r.Name == RoleNames.TeamLeader);
@@ -195,7 +172,7 @@ public class PermissionMatrixTests
 
         var stored = await StoredAsync(db);
         Assert.DoesNotContain(Permissions.Department.Manage, stored[RoleNames.Manager]);
-        Assert.Contains(Permissions.Kpi.Submit, stored[RoleNames.Manager]);
+        Assert.Contains(Permissions.Issue.View, stored[RoleNames.Manager]);
         Assert.Equal(RolePermissionMap.Defaults[RoleNames.TeamLeader].Length, stored[RoleNames.TeamLeader].Count);
     }
 
@@ -206,12 +183,31 @@ public class PermissionMatrixTests
         await DbSeeder.SeedAsync(db);
         var custom = new KPI.Domain.Entities.Role { Name = "Auditor", Description = "custom" };
         db.Roles.Add(custom);
-        var view = await db.Permissions.FirstAsync(p => p.Name == Permissions.Kpi.View);
+        var view = await db.Permissions.FirstAsync(p => p.Name == Permissions.Issue.View);
         db.RolePermissions.Add(new() { RoleId = custom.Id, PermissionId = view.Id });
         await db.SaveChangesAsync();
 
         await DbSeeder.SyncPermissionsAsync(db);
 
         Assert.Equal(1, await db.RolePermissions.CountAsync(rp => rp.RoleId == custom.Id));
+    }
+
+    [Fact]
+    public async Task Sync_removes_the_rights_of_features_that_no_longer_exist()
+    {
+        await using var db = NewContext();
+        await DbSeeder.SeedAsync(db);
+        var staff = await db.Roles.FirstAsync(r => r.Name == RoleNames.Staff);
+        var legacy = new KPI.Domain.Entities.Permission { Name = "kpi.view", Module = "kpi" };
+        db.Permissions.Add(legacy);
+        await db.SaveChangesAsync();
+        db.RolePermissions.Add(new() { RoleId = staff.Id, PermissionId = legacy.Id });
+        await db.SaveChangesAsync();
+
+        await DbSeeder.SyncPermissionsAsync(db);
+
+        Assert.False(await db.Permissions.AnyAsync(p => p.Name == "kpi.view"));
+        Assert.False(await db.RolePermissions.AnyAsync(rp => rp.PermissionId == legacy.Id));
+        Assert.Equal(Permissions.All.Length, await db.Permissions.CountAsync());
     }
 }

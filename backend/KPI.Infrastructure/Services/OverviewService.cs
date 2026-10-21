@@ -1,7 +1,6 @@
 using KPI.Application.Admin;
 using KPI.Application.Audit;
 using KPI.Application.Common;
-using KPI.Domain.Enums;
 using KPI.Domain.Issues;
 using KPI.Infrastructure.Data;
 using Microsoft.EntityFrameworkCore;
@@ -115,18 +114,11 @@ public class OverviewService : IOverviewService
             byDepartment.Select(x => new CountByLabel(x.Label, x.Count)).ToList(),
             byModule.Select(x => new CountByLabel(x.Module.ToString(), x.Count)).ToList());
 
-        // ── KPIs ──
-        var kpiStatuses = await _db.Kpis.AsNoTracking().GroupBy(k => k.Status)
-            .Select(g => new { Status = g.Key, Count = g.Count() }).ToListAsync();
-        var kpiOverview = new KpiOverview(
-            kpiStatuses.Sum(x => x.Count),
-            kpiStatuses.OrderByDescending(x => x.Count).Select(x => new CountByLabel(x.Status.ToString(), x.Count)).ToList());
-
         // ── Recent activity ──
         var activity = (await _audit.SearchAsync(new AuditQuery(PageSize: 30))).Items;
 
         return new OverviewDto(
-            days, now, users, requestStats, issueOverview, kpiOverview,
+            days, now, users, requestStats, issueOverview,
             topIps.Select(i => new CountByLabel(i.Ip, i.Count)).ToList(),
             security, activity, trend,
             Online: []); // filled in by the controller from the live connection list

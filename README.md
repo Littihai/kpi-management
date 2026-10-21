@@ -1,4 +1,4 @@
-# KPI Management System
+# Helpdesk
 
 ![.NET](https://img.shields.io/badge/.NET-10.0-512BD4?style=for-the-badge&logo=dotnet&logoColor=white)
 ![React](https://img.shields.io/badge/React-18+-61DAFB?style=for-the-badge&logo=react&logoColor=black)
@@ -10,25 +10,25 @@
 ![Vercel](https://img.shields.io/badge/Vercel-Frontend-000000?style=for-the-badge&logo=vercel&logoColor=white)
 ![License](https://img.shields.io/badge/License-MIT-yellow?style=for-the-badge)
 
-Enterprise KPI Management Platform สำหรับองค์กร ใช้แทน Excel ในการติดตาม KPI, Projects และ Tasks แบบ Real-time
+ระบบ Helpdesk สำหรับองค์กร: ผู้ใช้แจ้งปัญหา ทีมช่วยเหลือรับเรื่อง แก้ไข และบันทึกวิธีแก้ ติดตามด้วย SLA และอัปเดตแบบ Real-time
+
+> ระบบนี้เริ่มจากโปรแกรมติดตาม KPI ฟีเจอร์ KPI ถูกถอดออกแล้ว ข้อมูลเดิมในฐานข้อมูลถูกเก็บไว้ในตาราง `Archive_Kpis`, `Archive_Projects`, `Archive_KpiProgressLogs` (ไม่ได้ลบ) ชื่อ namespace `KPI.*` ในโค้ดเก็บไว้เหมือนเดิม
 
 ---
 
 ## Features
 
-- **KPI Management** — สร้าง ติดตาม และวิเคราะห์ KPI รายปี
-- **Approval Workflow** — Draft → Pending Approval → Active
-- **Progress Engine** — คำนวณ progress อัตโนมัติจาก weighted projects
-- **Traffic Light System** — 🟢 On Track / 🟡 At Risk / 🔴 Delayed
-- **Delay Detection** — ตรวจจับ delay อัตโนมัติทุกวันผ่าน Background Job
-- **Email Notifications** — แจ้งเตือน approve, delay, task assigned
-- **Executive Dashboard** — Charts, Department Ranking, Monthly Trend
-- **PDF / Excel Export** — Export รายงานได้ทันที
-- **RBAC** — Role-Based Access Control 6 ระดับ
-- **Audit Logs** — Track ทุก action ในระบบ
-- **JWT Authentication** — Secure API ด้วย JWT Token
-- **แจ้งปัญหา (Issues)** — ผู้ใช้แจ้งปัญหา ทีม IT รับเรื่อง/แก้ไข/บันทึกวิธีแก้ มี SLA ตอบรับภายใน 2 ชั่วโมง และหน้าแจ้งปัญหาสำหรับผู้ที่เข้าสู่ระบบไม่ได้ (`/report`)
+- **แจ้งปัญหา** — ผู้ใช้แจ้งพร้อมแนบรูป (วางหรือลากภาพหน้าจอได้) ระบบเก็บข้อมูลเครื่อง/หน้าที่เกิดปัญหาให้อัตโนมัติ
+- **หน้าแจ้งปัญหาสำหรับคนที่เข้าสู่ระบบไม่ได้** (`/report`) ไม่ต้องล็อกอิน มีกันสแปม
+- **สถานะงาน** — ใหม่ → มอบหมาย → กำลังดำเนินการ → รอผู้แจ้ง → แก้ไขแล้ว → ปิด (หรือไม่ดำเนินการ / เปิดใหม่)
+- **SLA** — กำหนดตอบรับและแก้ไขตามความเร่งด่วน หยุดนับตอนรอผู้แจ้ง และเตือนเมื่อเกินกำหนด
+- **บันทึกวิธีแก้** — สาเหตุ วิธีแก้ วิธีป้องกัน ลิงก์อ้างอิง เวลาที่ใช้
+- **คอมเมนต์ภายใน** — ทีมช่วยเหลือคุยกันเองโดยผู้แจ้งไม่เห็น
+- **อีเมลแจ้งเตือน** (ภาษาไทย) และ **อัปเดตสดผ่าน SignalR**
+- **แดชบอร์ด** — ภาพรวมงานค้าง เรื่องเกินกำหนด และเรื่องที่ควรทำต่อ
+- **RBAC** — สิทธิ์ตามบทบาท ตรวจจากฐานข้อมูลทุกคำขอ
 - **ภาพรวมระบบและ Audit** — SuperAdmin ดูความเคลื่อนไหวทั้งระบบ ใครทำอะไร จาก IP ไหน
+- **ปรับแต่งหน้าตา** — ธีมสว่าง/มืด สีหลัก ฟอนต์ มุมโค้ง เมนู ขนาดตัวอักษร
 
 ---
 
@@ -78,7 +78,7 @@ kpi-management/
 │   └── KPI.API/              # Controllers, Middleware, Program.cs
 └── frontend/
     └── src/
-        ├── pages/            # Login, Dashboard, KPI, Projects
+        ├── pages/            # Login, Dashboard, Issues, Admin
         ├── components/       # Shared UI Components
         ├── services/         # API Service Layer
         ├── stores/           # Zustand State Management
@@ -109,11 +109,12 @@ users ──────────── roles
   │                  │
   └── departments  permissions
 
-kpis ──────────── projects
+issues ──── issue_comments
   │
-  └── kpi_progress_logs
+  └── issue_attachments
 
-audit_logs
+audit_logs, request_logs
+Archive_Kpis, Archive_Projects, Archive_KpiProgressLogs   (ข้อมูลเดิมของฟีเจอร์ KPI ที่ถอดออก — อ่านอย่างเดียว)
 ```
 
 ---
@@ -122,19 +123,19 @@ audit_logs
 
 | Role | Access Level |
 |------|-------------|
-| SuperAdmin | Full system access |
-| Director | View all departments + Approve KPI |
-| Manager | Manage department KPI + Projects |
-| TeamLeader | Manage projects |
-| Staff | Update assigned tasks |
-| Viewer | Read only |
+| SuperAdmin | ทุกอย่าง รวมผู้ใช้ ภาพรวมระบบ และ Audit |
+| ITSupport | รับเรื่อง มอบหมาย แก้ไข และบันทึกวิธีแก้ ของทุกแผนก |
+| Director | ดูเรื่องและผู้ใช้ของทุกแผนก |
+| Manager | ดูเรื่องของแผนกตัวเอง |
+| TeamLeader / Staff / Viewer | แจ้งปัญหาและติดตามเรื่องของตัวเอง |
 
 ---
 
-## KPI Lifecycle
+## Ticket Lifecycle
 
 ```
-Draft → Pending Approval → Active → At Risk / Delayed → Completed → Closed
+New → Assigned → InProgress ⇄ WaitingForReporter → Resolved → Closed
+              ↘ Rejected (ไม่ดำเนินการ / ซ้ำ)        ↘ Reopened
 ```
 
 ---
@@ -215,42 +216,32 @@ GET  /api/auth/me          # ข้อมูล user ปัจจุบัน + 
 POST /api/auth/register    # สร้างบัญชี Staff (ต้องมีสิทธิ์ user.create — ไม่เปิดสาธารณะแล้ว)
 ```
 
-### KPI
+### Issues
 ```
-GET    /api/kpi              # ดู KPI ทั้งหมด
-GET    /api/kpi/{id}         # ดู KPI รายการ
-POST   /api/kpi              # สร้าง KPI
-PUT    /api/kpi/{id}         # แก้ KPI (เฉพาะ Draft)
-DELETE /api/kpi/{id}         # ลบ KPI (เฉพาะ Draft, SuperAdmin)
-POST   /api/kpi/{id}/submit  # ส่ง approve
-POST   /api/kpi/{id}/approve # อนุมัติ KPI
-POST   /api/kpi/{id}/reject  # ตีกลับเป็น Draft (ต้องระบุเหตุผล)
-POST   /api/kpi/{id}/close   # ปิด KPI ที่ Completed
-POST   /api/kpi/progress     # อัปเดต progress
+GET    /api/issues                      # รายการ (กรอง ค้นหา เรียง แบ่งหน้า) ตามสิทธิ์
+GET    /api/issues/summary              # ตัวเลขสรุป (เปิดอยู่ / ใหม่ / เกินกำหนด ...)
+GET    /api/issues/{id}                 # รายละเอียด + ไทม์ไลน์ + สิ่งที่ทำได้
+POST   /api/issues                      # แจ้งปัญหา (multipart + รูป)
+POST   /api/issues/{id}/comments        # ตอบกลับ / โน้ตภายใน
+POST   /api/issues/{id}/assign|start|request-info|resolve|confirm|reopen|reject
+PUT    /api/issues/{id}/priority
+POST   /api/issues/{id}/attachments     # แนบรูปเพิ่ม
+GET    /api/issues/{id}/attachments/{attachmentId}
+GET    /api/public/departments          # ไม่ต้องล็อกอิน
+POST   /api/public/issues               # แจ้งโดยไม่ต้องล็อกอิน
 ```
 
-สิทธิ์ของแต่ละ role และ workflow ของสถานะ KPI: [docs/access-and-workflow.md](docs/access-and-workflow.md)
+สิทธิ์ของแต่ละ role และ workflow: [docs/access-and-workflow.md](docs/access-and-workflow.md)
 
 ### Real-time (SignalR)
 ```
-/hubs/kpi    # ส่ง KpiChanged / Notification ไปยัง client ที่เกี่ยวข้อง
+/hubs/kpi    # ส่ง IssueChanged / Notification ไปยัง client ที่เกี่ยวข้อง (ชื่อเส้นทางเป็นของเดิม)
 ```
 
 ### Health
 ```
 GET /health          # process ทำงานอยู่ (ไม่แตะ DB) — ใช้เป็น Health Check Path บน Render
 GET /health/ready    # ตรวจการเชื่อมต่อ DB ด้วย (503 ถ้าต่อไม่ได้)
-```
-
-### Dashboard
-```
-GET /api/dashboard           # ข้อมูล Executive Dashboard
-```
-
-### Export
-```
-GET /api/export/kpi/pdf      # Export PDF
-GET /api/export/kpi/excel    # Export Excel
 ```
 
 ### Audit
@@ -260,7 +251,7 @@ GET /api/audit               # ดู Audit Logs
 
 ### Jobs
 ```
-POST /api/jobs/trigger-delay-detection  # Trigger delay detection
+POST /api/jobs/trigger-maintenance  # รันงานดูแลประจำวันทันที (ปิดเรื่องที่ตอบแล้ว ล้าง log เก่า)
 ```
 
 ---
@@ -287,7 +278,7 @@ POST /api/jobs/trigger-delay-detection  # Trigger delay detection
 และ (ถ้าจำเป็น) `Cors__Origins__0` สำหรับ origin เพิ่มเติม เช่น Vercel preview
 
 อีเมล: `Resend__From` (ต้องเป็นโดเมนที่ verify แล้ว ไม่งั้นส่งถึงเจ้าของบัญชี Resend เท่านั้น),
-`App__BaseUrl` (URL ของ frontend สำหรับปุ่ม "Open KPI"), `Email__Enabled=false` เพื่อปิดการส่ง —
+`App__BaseUrl` (URL ของ frontend สำหรับปุ่ม "เปิดเรื่อง" ในอีเมล), `Email__Enabled=false` เพื่อปิดการส่ง —
 รายละเอียดใน [docs/access-and-workflow.md](docs/access-and-workflow.md)
 
 การ deploy ครั้งแรก:
@@ -334,7 +325,7 @@ VITE_API_URL=https://your-api.onrender.com
 
 | Job | Schedule | Description |
 |-----|----------|-------------|
-| Delay Detection | ทุกวัน | ตรวจ KPI ที่ล่าช้าและส่ง email แจ้งเตือน |
+| Maintenance | ทุกวัน | ปิดเรื่องที่แก้ไขแล้วและไม่มีใครตอบ ล้าง request log เก่า |
 
 Hangfire Dashboard: `http://localhost:5079/hangfire`
 
@@ -342,14 +333,8 @@ Hangfire Dashboard: `http://localhost:5079/hangfire`
 
 ## Roadmap
 
-- [ ] Global Error Handling
-- [ ] CI/CD GitHub Actions
-- [ ] Project Management UI
-- [ ] User Management
-- [ ] Department Management
-- [ ] Search & Filter
-- [ ] Rate Limiting
-- [ ] Multi-tenancy (SaaS)
+กำลังพัฒนาเป็น Helpdesk เต็มรูปแบบ: หมวดหมู่/แคตตาล็อกบริการที่แอดมินกำหนดเอง, SLA ตามนโยบายและเวลาทำการ,
+Flow การอนุมัติที่ผู้ดูแลระบบตั้งเองได้, ทีม/คิวงาน, ฐานความรู้, ติดตามเรื่องโดยไม่ต้องล็อกอิน, แบบประเมินความพึงพอใจ, รายงาน
 
 ---
 

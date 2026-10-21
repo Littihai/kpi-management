@@ -866,7 +866,7 @@ public class IssueService : IIssueService
         issue.AssigneeId is { } assignee ? new RealtimeAudience([assignee]) : ToIt;
 
     private static RealtimeNotification Toast(Issue issue, string title, string? detail, string level = "info") =>
-        new(title, $"{issue.DisplayNumber} · {detail}", level, null, issue.Id);
+        new(title, $"{issue.DisplayNumber} · {detail}", level, issue.Id);
 
     /// <summary>The reporter answered: push the resolve deadline back by the time IT spent waiting.</summary>
     private static void ResumeFromWaiting(Issue issue, DateTime now)

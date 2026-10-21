@@ -8,11 +8,8 @@ using KPI.API.Security;
 using KPI.Application.Admin;
 using KPI.Application.Audit;
 using KPI.Application.Auth;
-using KPI.Application.Dashboard;
-using KPI.Application.Export;
 using KPI.Application.Issues;
 using KPI.Application.Jobs;
-using KPI.Application.Kpis;
 using KPI.Application.Notifications;
 using KPI.Domain.Constants;
 using KPI.Domain.Interfaces;
@@ -30,25 +27,18 @@ namespace KPI.API.Startup;
 /// <summary>Service registration, grouped by topic so Program.cs reads as the outline of the app.</summary>
 public static class ServiceRegistration
 {
-    /// <summary>KPIs, sign-in, dashboards, exports, e-mail and the live-update hub.</summary>
-    public static IServiceCollection AddKpiServices(this IServiceCollection services, IConfiguration config)
+    /// <summary>Sign-in, e-mail, audit and the live-update hub.</summary>
+    public static IServiceCollection AddCoreServices(this IServiceCollection services, IConfiguration config)
     {
         services.AddSignalR();
         services.AddSingleton<IRealtimeNotifier, SignalRNotifier>();
 
-        services.AddScoped<IDashboardService, DashboardService>();
-        services.AddScoped<IExportService, ExportService>();
         services.AddResend(options => { options.ApiToken = config["Resend:ApiKey"]!; });
         services.AddScoped<IEmailService, EmailService>();
-        services.AddScoped<IDelayDetectionJob, DelayDetectionJob>();
         services.AddScoped<IAuditService, AuditService>();
-        services.AddScoped<KpiEmailNotifier>();
-        services.AddScoped<KpiEventPublisher>();
 
         services.AddScoped<IUserRepository, UserRepository>();
         services.AddScoped<IAuthService, AuthService>();
-        services.AddScoped<IKpiRepository, KpiRepository>();
-        services.AddScoped<IKpiService, KpiService>();
         return services;
     }
 

@@ -1,21 +1,6 @@
 import * as signalR from '@microsoft/signalr'
 import api from './api'
 
-/** Pushed to everyone who may see the KPI so lists and dashboards can refresh. */
-export interface KpiChangedEvent {
-  kpiId: string
-  name: string
-  action: string
-  status: number
-  statusLabel: string
-  trafficLight: string
-  progress: number
-  departmentId: string
-  ownerId: string
-  actorName: string | null
-  at: string
-}
-
 /** Pushed to everyone who may see the issue so queues and detail pages can refresh. */
 export interface IssueChangedEvent {
   issueId: string
@@ -36,11 +21,10 @@ export interface RealtimeNotification {
   title: string
   message: string
   level: 'info' | 'success' | 'warning' | 'error'
-  kpiId: string | null
   issueId: string | null
 }
 
-export function createKpiConnection(): signalR.HubConnection {
+export function createHubConnection(): signalR.HubConnection {
   return new signalR.HubConnectionBuilder()
     .withUrl(`${api.defaults.baseURL}/hubs/kpi`, {
       // Read on every (re)connect so a refreshed token is picked up.

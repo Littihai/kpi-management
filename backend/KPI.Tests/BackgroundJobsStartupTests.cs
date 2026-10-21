@@ -38,17 +38,16 @@ public class BackgroundJobsStartupTests : IClassFixture<JobsApiFactory>
         using var connection = storage.GetConnection();
         var ids = connection.GetRecurringJobs().Select(j => j.Id).ToList();
 
-        Assert.Contains("delay-detection", ids);
         Assert.Contains("maintenance", ids);
     }
 
     [Fact]
-    public void The_manual_trigger_can_queue_the_delay_job()
+    public void The_manual_trigger_can_queue_the_maintenance_job()
     {
         using var client = _factory.CreateClient();
 
         // The static API used by JobsController works once start-up has initialised storage.
-        var id = BackgroundJob.Enqueue<KPI.Application.Jobs.IDelayDetectionJob>(job => job.RunAsync());
+        var id = BackgroundJob.Enqueue<KPI.Application.Jobs.IMaintenanceJob>(job => job.RunAsync());
 
         Assert.False(string.IsNullOrEmpty(id));
     }

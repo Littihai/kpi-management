@@ -89,7 +89,7 @@ public class MaintenanceJobTests
     {
         var w = await TestWorld.CreateAsync();
         var created = await w.Issues.CreateAsync(
-            new CreateIssueRequest("ปุ่มไม่ทำงาน", "กดแล้วไม่มีอะไรเกิดขึ้นเลย", IssueCategory.Bug, IssueModule.Kpi, IssueImpact.Minor),
+            new CreateIssueRequest("ปุ่มไม่ทำงาน", "กดแล้วไม่มีอะไรเกิดขึ้นเลย", IssueCategory.Bug, IssueModule.Application, IssueImpact.Minor),
             [], w.StaffA.Id, null);
         await w.Issues.StartAsync(created.Id, w.ItA.Id);
         await w.Issues.ResolveAsync(created.Id, new ResolveIssueRequest("แก้แล้ว ลองอีกครั้ง", IssueRootCause.CodeBug), w.ItA.Id);

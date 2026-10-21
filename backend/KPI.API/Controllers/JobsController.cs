@@ -11,10 +11,11 @@ namespace KPI.API.Controllers;
 [Authorize(Policy = Permissions.Job.Trigger)]
 public class JobsController : ControllerBase
 {
-    [HttpPost("trigger-delay-detection")]
-    public IActionResult TriggerDelayDetection()
+    /// <summary>Runs the daily housekeeping now (auto-close of answered issues, purge of old request logs).</summary>
+    [HttpPost("trigger-maintenance")]
+    public IActionResult TriggerMaintenance()
     {
-        BackgroundJob.Enqueue<IDelayDetectionJob>(job => job.RunAsync());
-        return Ok(new { message = "Delay detection job triggered" });
+        BackgroundJob.Enqueue<IMaintenanceJob>(job => job.RunAsync());
+        return Ok(new { message = "Maintenance job triggered" });
     }
 }

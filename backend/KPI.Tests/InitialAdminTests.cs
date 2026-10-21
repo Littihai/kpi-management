@@ -178,6 +178,6 @@ public class FirstDeployTests : IClassFixture<FirstDeployApiFactory>
 
         var permissions = body.GetProperty("permissions").EnumerateArray().Select(p => p.GetString()).ToHashSet();
         Assert.Contains(Permissions.User.Create, permissions);
-        Assert.Contains(Permissions.Kpi.Approve, permissions);
+        Assert.Contains(Permissions.Issue.Manage, permissions);
     }
 }

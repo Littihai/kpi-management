@@ -45,18 +45,18 @@ export default function LoginPage() {
           <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-accent" aria-hidden="true">
             <i className="ti ti-chart-donut-3 text-2xl" />
           </span>
-          <span className="text-lg font-semibold">KPI และแจ้งปัญหา</span>
+          <span className="text-lg font-semibold">Helpdesk</span>
         </div>
 
         <div>
           <p className="text-xs font-semibold text-on-deep/50">ระบบภายในองค์กร</p>
           <h1 className="mt-3 max-w-md text-4xl font-semibold leading-tight">
-            ติดตามเป้าหมาย<br />และแก้ปัญหาให้จบ <span className="text-accent">ในที่เดียว</span>
+            แจ้งปัญหา ติดตามงาน<br />และแก้ให้จบ <span className="text-accent">ในที่เดียว</span>
           </h1>
           <ul className="mt-8 max-w-sm space-y-3 text-[15px] text-on-deep/75">
             {[
-              ['target-arrow', 'KPI รายแผนก พร้อมขั้นตอนอนุมัติและแจ้งเตือนอัตโนมัติ'],
-              ['lifebuoy', 'แจ้งปัญหา ติดตามสถานะ และดูวิธีแก้ไขได้ทุกขั้นตอน'],
+              ['ticket', 'แจ้งเรื่องง่าย ๆ แนบรูปได้ ไม่ต้องรู้ว่าควรบอกใคร'],
+              ['list-check', 'ติดตามสถานะและดูวิธีแก้ไขได้ทุกขั้นตอน'],
               ['bell-ringing', 'อัปเดตแบบสด ไม่ต้องรีเฟรชหน้า'],
             ].map(([icon, text]) => (
               <li key={icon} className="flex items-start gap-3">
@@ -78,7 +78,7 @@ export default function LoginPage() {
             <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-accent text-on-accent" aria-hidden="true">
               <i className="ti ti-chart-donut-3 text-2xl" />
             </span>
-            <span className="text-lg font-semibold">KPI และแจ้งปัญหา</span>
+            <span className="text-lg font-semibold">Helpdesk</span>
           </div>
 
           <h2 className="text-2xl font-semibold">เข้าสู่ระบบ</h2>

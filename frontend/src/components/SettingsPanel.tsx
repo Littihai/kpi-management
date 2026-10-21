@@ -144,7 +144,7 @@ function FontSample({ id }: { id: FontFamily }) {
   return (
     <span aria-hidden="true" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 2, height: '100%', background: 'var(--lt-surface)', fontFamily: fontStack[id] }}>
       <span style={{ fontSize: 22, fontWeight: 600, lineHeight: 1.2 }}>Aa กข</span>
-      <span style={{ fontSize: 11, color: 'var(--lt-n600)' }}>KPI 0123</span>
+      <span style={{ fontSize: 11, color: 'var(--lt-n600)' }}>Helpdesk 0123</span>
     </span>
   )
 }

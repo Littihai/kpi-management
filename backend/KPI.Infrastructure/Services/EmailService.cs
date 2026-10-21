@@ -7,8 +7,8 @@ namespace KPI.Infrastructure.Services;
 public class EmailService : IEmailService
 {
     // Resend only delivers from this address to the account owner. Set Resend__From to an address on a
-    // verified domain (e.g. "KPI System <noreply@yourcompany.com>") to e-mail everyone else.
-    private const string DefaultFrom = "KPI System <onboarding@resend.dev>";
+    // verified domain (e.g. "Helpdesk <noreply@yourcompany.com>") to e-mail everyone else.
+    private const string DefaultFrom = "Helpdesk <onboarding@resend.dev>";
 
     private readonly IResend _resend;
     private readonly string _from;
@@ -21,21 +21,6 @@ public class EmailService : IEmailService
         _appBaseUrl = config["App:BaseUrl"];
     }
 
-    public async Task SendAsync(KpiEmailMessage message, CancellationToken cancellationToken = default)
-    {
-        var (subject, html) = KpiEmailTemplates.Build(message, _appBaseUrl);
-
-        var email = new EmailMessage
-        {
-            From = _from,
-            To = { message.ToEmail },
-            Subject = KpiEmailTemplates.SingleLine(subject),
-            HtmlBody = html,
-        };
-
-        await _resend.EmailSendAsync(email, cancellationToken);
-    }
-
     public async Task SendIssueAsync(IssueEmailMessage message, CancellationToken cancellationToken = default)
     {
         var (subject, html) = IssueEmailTemplates.Build(message, _appBaseUrl);
@@ -44,7 +29,7 @@ public class EmailService : IEmailService
         {
             From = _from,
             To = { message.ToEmail },
-            Subject = KpiEmailTemplates.SingleLine(subject),
+            Subject = IssueEmailTemplates.SingleLine(subject),
             HtmlBody = html,
         };
 

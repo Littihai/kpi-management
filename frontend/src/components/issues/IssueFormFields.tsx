@@ -53,7 +53,7 @@ export default function IssueFormFields({ values, onChange, files, onFilesChange
   return (
     <div className="space-y-5">
       <TextInput label="หัวข้อปัญหา" required value={values.title} maxLength={200}
-        placeholder="เช่น กดอนุมัติ KPI แล้วไม่มีอะไรเกิดขึ้น"
+        placeholder="เช่น เปิดโปรแกรมแล้วขึ้น error / ปริ้นเตอร์ไม่ออก"
         error={errors.title} onChange={(e) => set('title', e.target.value)} />
 
       <div className="grid gap-4 sm:grid-cols-2">
@@ -74,7 +74,7 @@ export default function IssueFormFields({ values, onChange, files, onFilesChange
       <TextArea label="เกิดอะไรขึ้น และคาดว่าควรเป็นอย่างไร" required rows={5} maxLength={4000}
         value={values.description} error={errors.description}
         hint="เล่าขั้นตอนที่ทำ ข้อความ error ที่เห็น และเกิดตอนไหน — ยิ่งละเอียด ยิ่งแก้ได้เร็ว"
-        placeholder={'1. เข้าหน้า KPI → เปิด "IT Automation 2026"\n2. กดปุ่ม Approve\n3. สถานะยังเป็น Pending (ควรเป็น Active)'}
+        placeholder={'1. เปิดโปรแกรมหรือหน้าที่มีปัญหา\n2. กดปุ่มหรือทำตามขั้นตอนที่ทำอยู่\n3. บอกว่าเกิดอะไรขึ้น และที่คาดหวังคืออะไร'}
         onChange={(e) => set('description', e.target.value)} />
 
       <div>

@@ -15,7 +15,7 @@ export const IssueCategory = { Bug: 0, WrongData: 1, Slow: 2, Improvement: 3, Ho
 export type IssueCategoryValue = (typeof IssueCategory)[keyof typeof IssueCategory]
 
 export const IssueModule = {
-  Kpi: 0, Login: 1, Dashboard: 2, Export: 3, Users: 4, Issues: 5, ItGeneral: 6, Other: 7,
+  Application: 0, Login: 1, Dashboard: 2, Export: 3, Users: 4, Issues: 5, ItGeneral: 6, Other: 7,
 } as const
 export type IssueModuleValue = (typeof IssueModule)[keyof typeof IssueModule]
 

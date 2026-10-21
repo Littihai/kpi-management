@@ -14,7 +14,7 @@ namespace KPI.Tests;
 public class ControllerAuthorizationTests
 {
     private static IEnumerable<(Type Controller, MethodInfo Action)> Actions() =>
-        typeof(KpiController).Assembly.GetTypes()
+        typeof(AuthController).Assembly.GetTypes()
             .Where(t => typeof(ControllerBase).IsAssignableFrom(t) && !t.IsAbstract)
             .SelectMany(t => t.GetMethods(BindingFlags.Public | BindingFlags.Instance | BindingFlags.DeclaredOnly)
                 .Where(m => m.GetCustomAttributes<HttpMethodAttribute>().Any())
@@ -85,19 +85,11 @@ public class ControllerAuthorizationTests
     }
 
     [Theory]
-    [InlineData(typeof(KpiController), nameof(KpiController.Create), Permissions.Kpi.Create)]
-    [InlineData(typeof(KpiController), nameof(KpiController.Update), Permissions.Kpi.Edit)]
-    [InlineData(typeof(KpiController), nameof(KpiController.Delete), Permissions.Kpi.Delete)]
-    [InlineData(typeof(KpiController), nameof(KpiController.Submit), Permissions.Kpi.Submit)]
-    [InlineData(typeof(KpiController), nameof(KpiController.Approve), Permissions.Kpi.Approve)]
-    [InlineData(typeof(KpiController), nameof(KpiController.Reject), Permissions.Kpi.Reject)]
-    [InlineData(typeof(KpiController), nameof(KpiController.Close), Permissions.Kpi.Close)]
-    [InlineData(typeof(KpiController), nameof(KpiController.UpdateProgress), Permissions.Kpi.Progress)]
     [InlineData(typeof(UsersController), nameof(UsersController.Create), Permissions.User.Create)]
     [InlineData(typeof(UsersController), nameof(UsersController.ChangeRole), Permissions.User.Edit)]
     [InlineData(typeof(UsersController), nameof(UsersController.Deactivate), Permissions.User.Edit)]
     [InlineData(typeof(AuthController), nameof(AuthController.Register), Permissions.User.Create)]
-    [InlineData(typeof(JobsController), nameof(JobsController.TriggerDelayDetection), Permissions.Job.Trigger)]
+    [InlineData(typeof(JobsController), nameof(JobsController.TriggerMaintenance), Permissions.Job.Trigger)]
     [InlineData(typeof(AuditController), nameof(AuditController.Search), Permissions.Audit.View)]
     [InlineData(typeof(RolesController), nameof(RolesController.GetAll), Permissions.Role.View)]
     [InlineData(typeof(AdminController), nameof(AdminController.Overview), Permissions.Overview.View)]
@@ -116,8 +108,6 @@ public class ControllerAuthorizationTests
     [InlineData(typeof(IssuesController), nameof(IssuesController.Confirm), Permissions.Issue.View)]
     [InlineData(typeof(IssuesController), nameof(IssuesController.Reopen), Permissions.Issue.View)]
     [InlineData(typeof(IssuesController), nameof(IssuesController.Download), Permissions.Issue.View)]
-    [InlineData(typeof(ExportController), nameof(ExportController.ExportPdf), Permissions.Export.View)]
-    [InlineData(typeof(ExportController), nameof(ExportController.ExportExcel), Permissions.Export.View)]
     public void Sensitive_endpoints_require_their_specific_permission(Type controller, string actionName, string permission)
     {
         var action = controller.GetMethod(actionName)!;

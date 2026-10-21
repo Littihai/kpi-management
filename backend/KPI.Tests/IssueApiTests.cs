@@ -58,7 +58,7 @@ public class IssueApiTests : IClassFixture<IssueApiFactory>, IAsyncLifetime
             { new StringContent(title), "Title" },
             { new StringContent("กดปุ่มแล้วไม่มีอะไรเกิดขึ้นเลยทั้งเช้าและบ่าย"), "Description" },
             { new StringContent("Bug"), "Category" },
-            { new StringContent("Kpi"), "Module" },
+            { new StringContent("Application"), "Module" },
             { new StringContent("Degraded"), "Impact" },
         };
         if (website != null) form.Add(new StringContent(website), "Website");
@@ -284,7 +284,7 @@ public class IssueApiTests : IClassFixture<IssueApiFactory>, IAsyncLifetime
         var marker = $"198.51.100.{Random.Shared.Next(100, 200)}";
         var staff = await As("staff-a", marker);
 
-        await staff.GetAsync("/api/kpi");                                               // ordinary read: not logged
+        await staff.GetAsync("/api/issues");                                            // ordinary read: not logged
         await staff.PostAsync("/api/issues", ReportForm("บันทึกคำขอ"));                  // a write
         await staff.GetAsync("/api/users");                                             // refused (403)
         var anonymous = _factory.CreateClient();
@@ -296,7 +296,7 @@ public class IssueApiTests : IClassFixture<IssueApiFactory>, IAsyncLifetime
         await WaitUntilAsync(() => db.RequestLogs.Count(r => r.IpAddress == marker) >= 3);
         var logs = await db.RequestLogs.AsNoTracking().Where(r => r.IpAddress == marker).ToListAsync();
 
-        Assert.DoesNotContain(logs, r => r.Path == "/api/kpi");
+        Assert.DoesNotContain(logs, r => r.Path == "/api/issues" && r.Method == "GET");
         var write = Assert.Single(logs, r => r.Path == "/api/issues" && r.Method == "POST");
         Assert.Equal(201, write.StatusCode);
         Assert.Equal("staff-a@example.com", write.UserEmail);
@@ -315,7 +315,7 @@ public class IssueApiTests : IClassFixture<IssueApiFactory>, IAsyncLifetime
     [Fact]
     public async Task Every_response_says_how_long_the_server_took()
     {
-        var response = await (await As("staff-a")).GetAsync("/api/kpi");
+        var response = await (await As("staff-a")).GetAsync("/api/issues");
         var timing = response.Headers.GetValues("Server-Timing").Single();
         Assert.StartsWith("app;dur=", timing);
     }
