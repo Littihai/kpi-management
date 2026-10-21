@@ -172,6 +172,16 @@ public class AppDbContext : DbContext
         issue.HasMany(i => i.Comments).WithOne(c => c.Issue).HasForeignKey(c => c.IssueId).OnDelete(DeleteBehavior.Cascade);
         issue.HasMany(i => i.Attachments).WithOne(a => a.Issue).HasForeignKey(a => a.IssueId).OnDelete(DeleteBehavior.Cascade);
 
+        // SQL Server refuses a SET NULL / CASCADE that can reach one table by two routes (Departments -> Users -> Issues and
+        // Departments -> Issues, or two foreign keys from Issues to Users), or that loops (Users <-> Departments). Nothing deletes users or departments (they are
+        // deactivated), so a plain "no action" behaves the same in practice and a stray manual delete is refused instead.
+        if (Database.IsSqlServer())
+        {
+            issue.HasOne(i => i.Department).WithMany().HasForeignKey(i => i.DepartmentId).OnDelete(DeleteBehavior.NoAction);
+            issue.HasOne(i => i.Assignee).WithMany().HasForeignKey(i => i.AssigneeId).OnDelete(DeleteBehavior.NoAction);   // two SET NULL routes from Users to Issues
+            modelBuilder.Entity<Department>().HasOne(d => d.Manager).WithMany().HasForeignKey(d => d.ManagerId).OnDelete(DeleteBehavior.NoAction);
+        }
+
         issue.HasIndex(i => new { i.NumberYear, i.Number }).IsUnique();
         issue.HasIndex(i => i.Status);
         issue.HasIndex(i => i.CreatedAt);

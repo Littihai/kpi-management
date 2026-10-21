@@ -44,6 +44,73 @@ jobs:
           path: backend/**/TestResults/*.trx
           if-no-files-found: ignore
 
+  # The tests above use an in-memory database. This job runs the SQL Server migrations and the real API on a real
+  # SQL Server, so a query or migration that only fails on SQL Server is caught here.
+  sqlserver:
+    name: SQL Server (migrations + API smoke test)
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    defaults:
+      run:
+        working-directory: backend
+    services:
+      mssql:
+        image: mcr.microsoft.com/mssql/server:2022-latest
+        env:
+          ACCEPT_EULA: "Y"
+          MSSQL_SA_PASSWORD: Helpdesk-CI-Passw0rd
+        ports:
+          - 1433:1433
+        options: >-
+          --health-cmd "/opt/mssql-tools18/bin/sqlcmd -C -S localhost -U sa -P Helpdesk-CI-Passw0rd -Q 'SELECT 1'"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 12
+    env:
+      TEST_SQLSERVER: Server=localhost,1433;User Id=sa;Password=Helpdesk-CI-Passw0rd;TrustServerCertificate=True
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 10.0.x
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Build
+        run: dotnet build KPI.slnx --configuration Release
+
+      - name: Migrations and queries on SQL Server
+        run: dotnet test KPI.Tests --configuration Release --no-build --filter "FullyQualifiedName~SqlServerLiveTests|FullyQualifiedName~DatabaseProviderTests"
+
+      - name: Start the API on SQL Server
+        env:
+          Database__Provider: SqlServer
+          ConnectionStrings__DefaultConnection: Server=localhost,1433;Database=helpdesk_ci;User Id=sa;Password=Helpdesk-CI-Passw0rd;TrustServerCertificate=True
+          Jwt__Key: ci-only-random-signing-key-0123456789-abcdefghij
+          Admin__Email: admin@example.com
+          Admin__Password: Smoke-Test-Pass-1
+          Email__Enabled: "false"
+          Resend__ApiKey: re_ci
+          ASPNETCORE_URLS: http://localhost:5290
+          ASPNETCORE_ENVIRONMENT: Production
+        run: |
+          nohup dotnet KPI.API/bin/Release/net10.0/KPI.API.dll > api.log 2>&1 &
+          for i in $(seq 1 40); do
+            if curl -fs http://localhost:5290/health/ready > /dev/null; then echo "API is up"; exit 0; fi
+            sleep 3
+          done
+          echo "API did not become ready"; cat api.log; exit 1
+
+      - name: Walk the main flows through the API
+        run: node tools/api-smoke.cjs
+
+      - name: API log
+        if: failure()
+        run: cat api.log
+
   frontend:
     name: Frontend (lint + type-check + build)
     runs-on: ubuntu-latest
