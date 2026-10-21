@@ -47,17 +47,17 @@ public class KpiHub : Hub
             {
                 await Groups.AddToGroupAsync(Context.ConnectionId, UserGroup(user.Id));
 
-                if (RoleNames.SeesAllDepartments(user.Role.Name))
+                if (user.Role.SeesAllDepartments)
                     await Groups.AddToGroupAsync(Context.ConnectionId, AllDepartmentsGroup);
 
-                // The issue queue: IT Support works it, SuperAdmin oversees it.
-                if (user.Role.Name is RoleNames.ITSupport or RoleNames.SuperAdmin)
+                // The issue queue: whoever may work the issues (IT Support, SuperAdmin, or a custom role with that right).
+                if (await _context.RolePermissions.AnyAsync(rp => rp.RoleId == user.RoleId && rp.Permission.Name == Permissions.Issue.Manage))
                     await Groups.AddToGroupAsync(Context.ConnectionId, ItSupportGroup);
 
                 if (user.DepartmentId is { } departmentId)
                 {
                     await Groups.AddToGroupAsync(Context.ConnectionId, DepartmentGroup(departmentId));
-                    if (user.Role.Name == RoleNames.Manager)
+                    if (user.Role.IssueVisibility == IssueVisibility.Department)
                         await Groups.AddToGroupAsync(Context.ConnectionId, DepartmentManagersGroup(departmentId));
                 }
 

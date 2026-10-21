@@ -93,7 +93,7 @@ public class OrgAdminService : IOrgAdminService
         var caller = await _db.Users.Include(u => u.Role).AsNoTracking().FirstAsync(u => u.Id == callerId);
 
         var users = _db.Users.AsNoTracking().AsQueryable();
-        if (!RoleNames.SeesAllDepartments(caller.Role.Name))
+        if (!caller.Role.SeesAllDepartments)
         {
             var departmentId = caller.DepartmentId;
             users = users.Where(u => departmentId != null && u.DepartmentId == departmentId);

@@ -18,11 +18,13 @@ public class UsersController : ControllerBase
 {
     private readonly AppDbContext _context;
     private readonly IOrgAdminService _org;
+    private readonly IRoleAdminService _roles;
 
-    public UsersController(AppDbContext context, IOrgAdminService org)
+    public UsersController(AppDbContext context, IOrgAdminService org, IRoleAdminService roles)
     {
         _context = context;
         _org = org;
+        _roles = roles;
     }
 
     private Guid CurrentUserId => User.GetUserId();
@@ -64,6 +66,7 @@ public class UsersController : ControllerBase
 
         if (!Guid.TryParse(request.RoleId, out var roleId) || !await _context.Roles.AnyAsync(r => r.Id == roleId))
             throw new RequestValidationException("Role not found.");
+        await _roles.EnsureMayAssignAsync(CurrentUserId, roleId);
 
         Guid? departmentId = null;
         if (!string.IsNullOrWhiteSpace(request.DepartmentId))
@@ -122,6 +125,7 @@ public class UsersController : ControllerBase
 
         var role = await _context.Roles.FirstOrDefaultAsync(r => r.Name == request.RoleName)
             ?? throw new RequestValidationException("Role not found.");
+        await _roles.EnsureMayAssignAsync(CurrentUserId, role.Id);
 
         if (user.IsActive && user.Role.Name == RoleNames.SuperAdmin && role.Name != RoleNames.SuperAdmin)
             await EnsureAnotherActiveSuperAdminAsync(user.Id);

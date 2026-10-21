@@ -779,14 +779,13 @@ public class IssueService : IIssueService
             throw new ForbiddenException("คุณไม่มีสิทธิ์ทำรายการนี้");
     }
 
-    /// <summary>Everyone sees their own; managers also their department's; IT, directors and admins see all.</summary>
+    /// <summary>What the role allows: their own issues, their department's as well, or all of them.</summary>
     private static IQueryable<Issue> Scope(IQueryable<Issue> issues, User actor)
     {
-        var role = actor.Role.Name;
-        if (RoleNames.SeesAllIssues(role)) return issues;
+        if (actor.Role.IssueVisibility == IssueVisibility.All) return issues;
 
         var userId = actor.Id;
-        if (role == RoleNames.Manager && actor.DepartmentId is { } departmentId)
+        if (actor.Role.IssueVisibility == IssueVisibility.Department && actor.DepartmentId is { } departmentId)
             return issues.Where(i => i.ReporterUserId == userId || i.DepartmentId == departmentId);
 
         return issues.Where(i => i.ReporterUserId == userId);
