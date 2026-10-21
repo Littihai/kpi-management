@@ -126,7 +126,8 @@ public class IssueEventPublisher
         async Task AddItAsync()
         {
             var it = await _context.Users.AsNoTracking()
-                .Where(u => u.IsActive && u.Role.Name == RoleNames.ITSupport).ToListAsync();
+                .Where(u => u.IsActive && u.Role.Name != RoleNames.SuperAdmin
+                    && u.Role.RolePermissions.Any(rp => rp.Permission.Name == Permissions.Issue.Manage)).ToListAsync();
             if (it.Count == 0)
                 it = await _context.Users.AsNoTracking()
                     .Where(u => u.IsActive && u.Role.Name == RoleNames.SuperAdmin).ToListAsync();

@@ -13,6 +13,8 @@ public static class Permissions
     public static class Role
     {
         public const string View = "role.view";
+        /// <summary>Create, change and delete custom roles. A role can only be given rights its author holds.</summary>
+        public const string Manage = "role.manage";
     }
 
     public static class Department
@@ -50,7 +52,7 @@ public static class Permissions
     public static readonly string[] All =
     [
         User.View, User.Create, User.Edit, User.Delete,
-        Role.View,
+        Role.View, Role.Manage,
         Department.View, Department.Manage,
         Audit.View,
         Job.Trigger,

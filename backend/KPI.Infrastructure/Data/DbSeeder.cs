@@ -133,6 +133,11 @@ public static class DbSeeder
             if (role is null) continue;
 
             var wantedIds = wanted.Select(name => permissionIdByName[name]).ToHashSet();
+            if (RolePermissionMap.Scopes.TryGetValue(roleName, out var scope))
+            {
+                role.IssueVisibility = scope.Issues;
+                role.SeesAllDepartments = scope.AllDepartments;
+            }
 
             var toRemove = role.RolePermissions.Where(rp => !wantedIds.Contains(rp.PermissionId)).ToList();
             context.RolePermissions.RemoveRange(toRemove);
