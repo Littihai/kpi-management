@@ -23,6 +23,8 @@ public class AppDbContext : DbContext
     public DbSet<Department> Departments => Set<Department>();
     public DbSet<AuditLog> AuditLogs => Set<AuditLog>();
     public DbSet<RequestLog> RequestLogs => Set<RequestLog>();
+    public DbSet<AppSetting> AppSettings => Set<AppSetting>();
+    public DbSet<AppSettingHistory> AppSettingHistory => Set<AppSettingHistory>();
     public DbSet<Issue> Issues => Set<Issue>();
     public DbSet<IssueComment> IssueComments => Set<IssueComment>();
     public DbSet<IssueAttachment> IssueAttachments => Set<IssueAttachment>();
@@ -113,6 +115,19 @@ public class AppDbContext : DbContext
         request.Property(r => r.RequestId).HasMaxLength(64);
         request.Property(r => r.UserEmail).HasMaxLength(254);
         request.Property(r => r.UserRole).HasMaxLength(50);
+
+        // ── Settings ──
+        var setting = modelBuilder.Entity<AppSetting>();
+        setting.HasKey(x => x.Key);
+        setting.Property(x => x.Key).HasMaxLength(100);
+        setting.Property(x => x.Value).HasMaxLength(500);
+        setting.Property(x => x.UpdatedByName).HasMaxLength(200);
+        var settingHistory = modelBuilder.Entity<AppSettingHistory>();
+        settingHistory.HasIndex(x => new { x.Key, x.ChangedAt });
+        settingHistory.Property(x => x.Key).HasMaxLength(100);
+        settingHistory.Property(x => x.OldValue).HasMaxLength(500);
+        settingHistory.Property(x => x.NewValue).HasMaxLength(500);
+        settingHistory.Property(x => x.ChangedByName).HasMaxLength(200);
 
         // ── Issues ──
         var issue = modelBuilder.Entity<Issue>();

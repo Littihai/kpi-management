@@ -1,6 +1,8 @@
 using KPI.Application.Notifications;
+using KPI.Application.Settings;
 using KPI.Domain.Constants;
 using KPI.Domain.Entities;
+using KPI.Domain.Settings;
 using KPI.Infrastructure.Data;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
@@ -20,6 +22,7 @@ public class IssueEventPublisher
     private readonly AppDbContext _context;
     private readonly IEmailService _email;
     private readonly ILogger<IssueEventPublisher> _logger;
+    private readonly ISystemSettings _settings;
     private readonly bool _emailEnabled;
     private readonly int _pacingMs;
 
@@ -28,8 +31,10 @@ public class IssueEventPublisher
         AppDbContext context,
         IEmailService email,
         IConfiguration config,
+        ISystemSettings settings,
         ILogger<IssueEventPublisher> logger)
     {
+        _settings = settings;
         _notifier = notifier;
         _context = context;
         _email = email;
@@ -69,7 +74,8 @@ public class IssueEventPublisher
 
     private async Task SendEmailsAsync(Issue issue, IssueEmailKind kind, Guid? actorId, string? actorName, string? detail)
     {
-        if (!_emailEnabled) return;
+        // Email:Enabled=false in configuration is a hard off switch; the setting is the one administrators use.
+        if (!_emailEnabled || !await _settings.GetBoolAsync(SettingCatalog.Keys.EmailEnabled)) return;
 
         try
         {

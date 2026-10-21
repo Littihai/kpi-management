@@ -1,5 +1,6 @@
 using KPI.API.Security;
 using KPI.Application.Issues;
+using KPI.Application.Settings;
 using KPI.Domain.Constants;
 using KPI.Domain.Issues;
 using Microsoft.AspNetCore.Authorization;
@@ -16,11 +17,13 @@ public class IssuesController : ControllerBase
     private const long MaxRequestBytes = 30 * 1024 * 1024;
 
     private readonly IIssueService _issues;
+    private readonly ISystemSettings _settings;
     private readonly string? _ipHeader;
 
-    public IssuesController(IIssueService issues, IOptions<LoginThrottleOptions> options)
+    public IssuesController(IIssueService issues, ISystemSettings settings, IOptions<LoginThrottleOptions> options)
     {
         _issues = issues;
+        _settings = settings;
         _ipHeader = options.Value.ClientIpHeader;
     }
 
@@ -56,7 +59,7 @@ public class IssuesController : ControllerBase
             form.PageUrl, Request.Headers.UserAgent.ToString(), form.ClientInfo, form.ErrorRequestId);
 
         var ip = LoginThrottle.ClientIp(HttpContext, _ipHeader);
-        var created = await _issues.CreateAsync(request, await UploadReader.ReadAsync(form.Files), UserId, ip);
+        var created = await _issues.CreateAsync(request, await UploadReader.ReadAsync(form.Files, _settings), UserId, ip);
         return CreatedAtAction(nameof(Get), new { id = created.Id }, created);
     }
 
@@ -119,7 +122,7 @@ public class IssuesController : ControllerBase
     [Authorize(Policy = Permissions.Issue.View)]
     [RequestSizeLimit(MaxRequestBytes)]
     public async Task<IActionResult> Attach(Guid id, [FromForm] IFormFileCollection files)
-        => Ok(await _issues.AddAttachmentsAsync(id, await UploadReader.ReadAsync(files), UserId));
+        => Ok(await _issues.AddAttachmentsAsync(id, await UploadReader.ReadAsync(files, _settings), UserId));
 
     [HttpGet("{id:guid}/attachments/{attachmentId:guid}")]
     [Authorize(Policy = Permissions.Issue.View)]

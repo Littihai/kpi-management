@@ -50,6 +50,8 @@ public class PermissionMatrixTests
     [InlineData(Permissions.User.Delete)]
     [InlineData(Permissions.Role.View)]
     [InlineData(Permissions.Role.Manage)]
+    [InlineData(Permissions.Settings.View)]
+    [InlineData(Permissions.Settings.Manage)]
     [InlineData(Permissions.Department.Manage)]
     [InlineData(Permissions.Job.Trigger)]
     [InlineData(Permissions.Audit.View)]

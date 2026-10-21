@@ -1,5 +1,6 @@
 using KPI.API.Security;
 using KPI.Application.Issues;
+using KPI.Application.Settings;
 using KPI.Domain.Exceptions;
 using KPI.Domain.Issues;
 using KPI.Infrastructure.Data;
@@ -20,15 +21,18 @@ public class PublicController : ControllerBase
     private readonly IIssueService _issues;
     private readonly AppDbContext _db;
     private readonly PublicSubmitThrottle _throttle;
+    private readonly ISystemSettings _settings;
     private readonly string? _ipHeader;
 
     public PublicController(
         IIssueService issues,
         AppDbContext db,
         PublicSubmitThrottle throttle,
+        ISystemSettings settings,
         IOptions<LoginThrottleOptions> options)
     {
         _issues = issues;
+        _settings = settings;
         _db = db;
         _throttle = throttle;
         _ipHeader = options.Value.ClientIpHeader;
@@ -59,7 +63,7 @@ public class PublicController : ControllerBase
             Request.Headers.UserAgent.ToString(), form.ClientInfo);
 
         var receipt = await _issues.CreatePublicAsync(
-            request, await UploadReader.ReadAsync(form.Files), ip);
+            request, await UploadReader.ReadAsync(form.Files, _settings), ip);
         return Ok(receipt);
     }
 

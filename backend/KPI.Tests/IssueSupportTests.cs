@@ -76,13 +76,11 @@ public class IssueEmailTemplateTests
 
 public class MaintenanceJobTests
 {
-    private static MaintenanceJob JobFor(TestWorld w, int retentionDays = 30) =>
-        new(w.Issues, w.Db, w.Clock,
-            new ConfigurationBuilder().AddInMemoryCollection(new Dictionary<string, string?>
-            {
-                ["Audit:RequestLogRetentionDays"] = retentionDays.ToString(),
-            }).Build(),
-            NullLogger<MaintenanceJob>.Instance);
+    private static MaintenanceJob JobFor(TestWorld w, int retentionDays = 30)
+    {
+        w.Settings.Set(KPI.Domain.Settings.SettingCatalog.Keys.RequestLogDays, retentionDays.ToString());
+        return new(w.Issues, w.Db, w.Clock, w.Settings, NullLogger<MaintenanceJob>.Instance);
+    }
 
     [Fact]
     public async Task The_daily_job_closes_ignored_fixes_and_removes_old_request_logs_but_keeps_audit_history()
@@ -109,13 +107,14 @@ public class MaintenanceJobTests
     }
 
     [Fact]
-    public async Task Retention_cannot_be_set_below_a_week()
+    public async Task Retention_cannot_be_set_below_a_week_and_a_week_keeps_three_day_old_logs()
     {
         var w = await TestWorld.CreateAsync();
         w.Db.RequestLogs.Add(new RequestLog { Method = "POST", Path = "/three-days", StatusCode = 200, CreatedAt = w.Clock.UtcNow.AddDays(-3) });
         await w.Db.SaveChangesAsync();
 
-        await JobFor(w, retentionDays: 1).RunAsync();
+        Assert.Throws<KPI.Domain.Exceptions.RequestValidationException>(() => w.Settings.Set(KPI.Domain.Settings.SettingCatalog.Keys.RequestLogDays, "1"));
+        await JobFor(w, retentionDays: 7).RunAsync();
 
         Assert.Single(await w.Db.RequestLogs.ToListAsync());
     }
