@@ -15,6 +15,7 @@ import {
 const UsersPage = lazy(() => import('../../pages/admin/UsersPage'))
 const SystemSection = lazy(() => import('./SystemSection'))
 const SecuritySection = lazy(() => import('./SecuritySection'))
+const DatabaseSection = lazy(() => import('./DatabaseSection'))
 const EmailSection = lazy(() => import('./EmailSection'))
 const RolesSection = lazy(() => import('./RolesSection'))
 const DepartmentsPage = lazy(() => import('../../pages/admin/DepartmentsPage'))
@@ -29,6 +30,7 @@ function SectionBody({ id }: { id: SettingsSectionId }) {
     case 'system': return <SystemSection />
     case 'security': return <SecuritySection />
     case 'email': return <EmailSection />
+    case 'database': return <DatabaseSection />
     case 'roles': return <RolesSection />
     case 'departments': return <DepartmentsPage />
     case 'audit': return <AuditPage />
