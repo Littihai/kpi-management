@@ -2,7 +2,9 @@ import { useState } from 'react'
 import Button from '../ui/Button'
 import { Card, CardHeader } from '../ui/Card'
 import { Alert } from '../ui/Layout'
+import ServerAddressDialog from '../ServerAddressDialog'
 import api from '../../services/api'
+import { serverChoiceAllowed } from '../../lib/server'
 import { useDesktopUpdate } from '../../lib/desktop'
 
 type Check = { ok: boolean; ms: number } | { ok: false; ms?: undefined }
@@ -17,6 +19,7 @@ export default function AboutSection() {
   const update = useDesktopUpdate()
   const [checking, setChecking] = useState(false)
   const [asked, setAsked] = useState(false)
+  const [serverOpen, setServerOpen] = useState(false)
 
   const checkUpdate = async () => {
     setAsked(true)
@@ -41,13 +44,14 @@ export default function AboutSection() {
     ['ระบบ', 'Helpdesk — ศูนย์ช่วยเหลือ'],
     ['ใช้งานผ่าน', desktop ? 'แอปบน Windows' : 'เว็บเบราว์เซอร์'],
     ...(app ? [['เวอร์ชันแอป', app.version] as [string, string]] : []),
-    ['เซิร์ฟเวอร์ (API)', base],
+    ['เซิร์ฟเวอร์ (API)', base || window.location.origin],
   ]
 
   return (
     <div className="space-y-5">
       <Card>
-        <CardHeader eyebrow="ข้อมูลระบบ" title="เกี่ยวกับ" />
+        <CardHeader eyebrow="ข้อมูลระบบ" title="เกี่ยวกับ"
+          action={serverChoiceAllowed() ? <Button size="sm" icon="server" onClick={() => setServerOpen(true)}>เปลี่ยนเซิร์ฟเวอร์</Button> : undefined} />
         <dl className="divide-y divide-line pt-3 text-[13px]">
           {rows.map(([label, value]) => (
             <div key={label} className="flex justify-between gap-4 px-5 py-2.5">
@@ -79,6 +83,8 @@ export default function AboutSection() {
           </div>
         </Card>
       )}
+
+      {serverOpen && <ServerAddressDialog open onClose={() => setServerOpen(false)} />}
 
       <Card>
         <CardHeader eyebrow="การเชื่อมต่อ" title="ทดสอบการเชื่อมต่อเซิร์ฟเวอร์"
