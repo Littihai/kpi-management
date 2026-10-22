@@ -12,10 +12,13 @@
     6. installs and starts a Windows service, and checks that it answers.
   The web app is served by the same service, so no IIS, nginx or Docker is needed.
 
-  Configure later (-ConfigureLater): installs only the program and the service. No SQL Server is needed at this point and nothing
-  is asked about it: the database is chosen afterwards in the browser, on a setup page the program shows by itself
-  (SQL Server address, database, login; it creates the tables and the first administrator). The script prints the
-  setup key to type there. Use it when the database is created by someone else, or later, or with SQL Server Management Studio.
+  By default only the program and the service are installed. Nothing is asked about SQL Server and sqlcmd is not needed: the database
+  is connected afterwards, in the app itself (the menu button at the top left of the sign-in page): type the SQL Server, sa and its
+  password, press Connect, then Start. The app creates the database if it is not there yet (once), creates the tables and the first
+  administrator, and gives this machine an account of its own. Every other machine on the network does the same against the same SQL
+  Server and finds the database, so it only gets its own account.
+
+  With -WithDatabase the script does that part itself, the old way (steps 1 to 5 below), with sqlcmd and the SQL scripts.
 
   Upgrade (-Upgrade): stops the service, replaces the program files, keeps the settings, starts it again.
   The database is brought up to date by the application itself when it starts.
@@ -28,12 +31,12 @@
   Asks for everything it needs.
 
 .EXAMPLE
-  .\install.ps1 -SqlServer SQL01 -Database helpdesk -AppAuth Windows -AppLogin 'CORP\svc-helpdesk' -ServiceAccount 'CORP\svc-helpdesk' -Port 8080
-  Application signs in to SQL Server with a Windows account, and the service runs as that account.
+  .\install.ps1 -PublicUrl http://helpdesk01:8080 -OpenFirewall
+  Installs the program and the service; the database is connected afterwards in the app.
 
 .EXAMPLE
-  .\install.ps1 -ConfigureLater -PublicUrl http://helpdesk01:8080 -OpenFirewall
-  Installs the program and the service now; the database is set up afterwards on the page the program shows.
+  .\install.ps1 -WithDatabase -SqlServer SQL01 -Database helpdesk -AppAuth Windows -AppLogin 'CORP\svc-helpdesk' -ServiceAccount 'CORP\svc-helpdesk' -Port 8080
+  Application signs in to SQL Server with a Windows account, and the service runs as that account.
 
 .EXAMPLE
   .\install.ps1 -Upgrade
@@ -68,8 +71,15 @@ param(
     [string]$AdminLastName,
     [securestring]$AdminPassword,
 
+    # The signing and encryption key of this installation (at least 32 characters). Leave it out on the first machine (one is generated).
+    # On the other machines that share one database pass the same key, so what is stored encrypted in the database (the e-mail password) can be read by all.
+    [securestring]$JwtKey,
+
     [switch]$OpenFirewall,
-    # Install the program and the service only. The database is chosen afterwards on the setup page (needs no SQL Server, sqlcmd or password now).
+    # Also create the database and the first administrator now, with sqlcmd and the SQL scripts (asks for the SQL Server and the administrator).
+    # Without it only the program and the service are installed and the database is connected in the app.
+    [switch]$WithDatabase,
+    # The default now; kept so commands written for the earlier version still work.
     [switch]$ConfigureLater,
     # Do everything except the Windows service: start the program once to check it, then stop it. For trying the installer out.
     [switch]$SkipService,
@@ -80,6 +90,9 @@ param(
 
 $ErrorActionPreference = 'Stop'
 Set-StrictMode -Version 2
+# Nothing about the database is asked unless -WithDatabase. A command written for the earlier version (it names the SQL Server) means the same as before.
+if ($PSBoundParameters.ContainsKey('SqlServer')) { $WithDatabase = [switch]$true }
+$ConfigureLater = -not $WithDatabase
 
 function Say($text) { Write-Host $text }
 function Step($text) { Write-Host ''; Write-Host "== $text" -ForegroundColor Cyan }
@@ -147,6 +160,12 @@ $databaseFile = Join-Path $dataDir 'database.json'
 $liveUrl = "http://localhost:$Port/health"
 $healthUrl = if ($ConfigureLater) { $liveUrl } else { "http://localhost:$Port/health/ready" }
 
+# The settings file holds the signing key and, in the old way, the database password: only administrators and the account that runs the service may read it.
+function Protect-SettingsFile([string]$file, [string]$identity) {
+    & icacls $file /inheritance:r /grant:r 'BUILTIN\Administrators:(F)' 'NT AUTHORITY\SYSTEM:(F)' | Out-Null
+    if ($identity) { & icacls $file /grant:r "$($identity):(R)" | Out-Null }
+}
+
 # The folder for what the program writes: only administrators and the account that runs the service may use it (it holds the setup key).
 function Protect-DataDirectory([string]$identity) {
     New-Item -ItemType Directory -Force -Path $dataDir | Out-Null
@@ -167,6 +186,10 @@ if ($Upgrade) {
     Get-ChildItem $apiDir -Force | Remove-Item -Recurse -Force
     Copy-Item (Join-Path $packageApi '*') $apiDir -Recurse -Force
     Set-Content -Path $settingsFile -Value $keep -Encoding UTF8
+    $upgradeIdentity = if ($ServiceAccount) { $ServiceAccount } else { "NT SERVICE\$ServiceName" }
+    Protect-SettingsFile $settingsFile $upgradeIdentity                                        # a new file would take the folder's rights: readable by everyone
+    $backupSettings = Join-Path $backup 'appsettings.Production.json'
+    if (Test-Path $backupSettings) { Protect-SettingsFile $backupSettings $null }              # and the copy in the backup holds the same secrets
     # An installation from before the setup page has no place for it to save to: add one (the settings file is otherwise kept as it is).
     $current = $keep | ConvertFrom-Json
     if (-not ($current.PSObject.Properties.Name -contains 'Setup') -or -not $current.Setup.ConfigFile) {
@@ -176,6 +199,7 @@ if ($Upgrade) {
         if ($setup) { $setup | Add-Member -NotePropertyName ConfigFile -NotePropertyValue $databaseFile -Force }
         else { $current | Add-Member -NotePropertyName Setup -NotePropertyValue ([pscustomobject]@{ ConfigFile = $databaseFile }) }
         [IO.File]::WriteAllText($settingsFile, ($current | ConvertTo-Json -Depth 8), (New-Object Text.UTF8Encoding($false)))
+        Protect-SettingsFile $settingsFile $upgradeIdentity
         Say "Added the place where the setup page saves the database settings: $databaseFile"
     }
     if ($service) { Say 'Starting the service...'; Start-Service -Name $ServiceName }
@@ -190,7 +214,7 @@ if ($Upgrade) {
 # ── what we need to know ─────────────────────────────────────────────────────────────────────────────────────────
 Step 'Checking this computer'
 if (-not $ConfigureLater -and -not (Get-Command sqlcmd -ErrorAction SilentlyContinue)) {
-    Fail 'sqlcmd was not found. Install "Microsoft SQL Server command line utilities" (sqlcmd) and open a new PowerShell window, or install with -ConfigureLater and create the database yourself.'
+    Fail 'sqlcmd was not found. Install "Microsoft SQL Server command line utilities" (sqlcmd) and open a new PowerShell window, or leave out -WithDatabase and connect the database in the app.'
 }
 if (Test-Path $settingsFile) { Fail "Helpdesk is already installed in $InstallDir. To install a newer version over it, run: .\install.ps1 -Upgrade" }
 if (Get-Service -Name $ServiceName -ErrorAction SilentlyContinue) { Fail "A service named '$ServiceName' already exists. Use -Upgrade, or -ServiceName to pick another name." }
@@ -206,7 +230,8 @@ $PublicUrl = $PublicUrl.TrimEnd('/')
 if ($PublicUrl -notmatch '^https?://') { Fail 'The address must start with http:// or https://' }
 
 if (-not $ConfigureLater) {
-    if (-not $AppLogin) { $AppLogin = if ($AppAuth -eq 'Sql') { 'helpdesk_app' } else { "NT SERVICE\$ServiceName" } }
+    # one login per machine (the app does the same): a second machine on the same SQL Server must not share, or reset, the first one's
+    if (-not $AppLogin) { $AppLogin = if ($AppAuth -eq 'Sql') { 'helpdesk_' + ($env:COMPUTERNAME.ToLower() -replace '[^a-z0-9]', '_').Trim('_') } else { "NT SERVICE\$ServiceName" } }
     if ($AppLogin -match "[\]\[';`"]") { Fail 'The login name must not contain quote marks, semicolons or square brackets.' }
     if ($Database -notmatch '^[A-Za-z0-9_]{1,100}$') { Fail 'The database name may only contain letters, digits and underscores.' }
 
@@ -222,8 +247,13 @@ if (-not $ConfigureLater) {
 
 $appPassword = $null
 if (-not $ConfigureLater -and $AppAuth -eq 'Sql') { $appPassword = New-RandomText 28; $appPassword = $appPassword + 'Aa1' }
-$rng = New-Object byte[] 48; [Security.Cryptography.RandomNumberGenerator]::Create().GetBytes($rng); $jwtKey = [Convert]::ToBase64String($rng)
-$setupKey = if ($ConfigureLater) { New-RandomText 24 } else { $null }
+if ($JwtKey) {
+    $signingKey = Get-PlainText $JwtKey
+    if ($signingKey.Length -lt 32) { Fail 'The key (-JwtKey) must have at least 32 characters.' }
+}
+else {
+    $rng = New-Object byte[] 48; [Security.Cryptography.RandomNumberGenerator]::Create().GetBytes($rng); $signingKey = [Convert]::ToBase64String($rng)
+}
 
 # ── SQL Server ───────────────────────────────────────────────────────────────────────────────────────────────────
 function Invoke-SqlFile([string]$file, [string]$databaseName, [hashtable]$variables) {
@@ -267,7 +297,7 @@ $trust = if ($TrustServerCertificate) { 'True' } else { 'False' }
 $settings = [ordered]@{
     Urls              = "http://0.0.0.0:$Port"
     Database          = [ordered]@{ Provider = 'SqlServer'; AutoMigrate = $true }
-    Jwt               = [ordered]@{ Key = $jwtKey; Issuer = 'Helpdesk'; Audience = 'Helpdesk' }
+    Jwt               = [ordered]@{ Key = $signingKey; Issuer = 'Helpdesk'; Audience = 'Helpdesk' }
     App               = [ordered]@{ BaseUrl = $PublicUrl; CompanyName = $CompanyName }
     Cors              = [ordered]@{ Origins = @($PublicUrl) }
     # E-mail is set up in the app (Settings > E-mail). This key only keeps the unused Resend option quiet.
@@ -275,10 +305,7 @@ $settings = [ordered]@{
     # Where the setup page saves the database it is told about (and where the program looks first at start-up).
     Setup             = [ordered]@{ ConfigFile = $databaseFile }
 }
-if ($ConfigureLater) {
-    $settings.Setup.Key = $setupKey
-}
-else {
+if (-not $ConfigureLater) {
     $settings.ConnectionStrings = if ($AppAuth -eq 'Sql') {
         [ordered]@{ DefaultConnection = "Server=$SqlServer;Database=$Database;User Id=$AppLogin;Password=$appPassword;TrustServerCertificate=$trust;Encrypt=True" }
     } else {
@@ -288,7 +315,7 @@ else {
 $json = $settings | ConvertTo-Json -Depth 5
 [IO.File]::WriteAllText($settingsFile, $json, (New-Object Text.UTF8Encoding($false)))
 $serviceIdentity = if ($ServiceAccount) { $ServiceAccount } else { "NT SERVICE\$ServiceName" }
-& icacls $settingsFile /inheritance:r /grant:r 'BUILTIN\Administrators:(F)' 'NT AUTHORITY\SYSTEM:(F)' | Out-Null
+Protect-SettingsFile $settingsFile $null
 Protect-DataDirectory $null
 if ($SkipService) {   # a trial run uses the signed-in person, not the service
     & icacls $settingsFile /grant:r "${env:USERDOMAIN}\${env:USERNAME}:(M)" | Out-Null   # (M) so the trial folder can be deleted again without elevation
@@ -362,12 +389,11 @@ if ($ConfigureLater) {
     Say 'The program is installed and running, but it does not know its database yet.'
     Say ''
     Say "1. On THIS server, open:  http://localhost:$Port"
-    Say "2. Setup key:             $setupKey"
-    Say '3. Type the SQL Server, the database and the login, press Test, then Save and start.'
-    Say '   The page creates the tables and the first administrator for you.'
+    Say '2. Press the menu button (top left), or "Connect the database", and type the SQL Server, sa and its password.'
+    Say '3. Press Connect, then Start. The app creates the database if it is not there yet, the tables and the first administrator.'
     Say ''
-    Say 'The database must exist first: run sqlserver\01-create-database.sql (see README-th.md; it also works in SQL Server Management Studio).'
-    Say "The setup key is also in $settingsFile (administrators only). The page only accepts changes from this server."
+    Say 'More machines on the network: install the same way and type the same SQL Server. They find the database and do not create it again.'
+    Say 'The page only accepts changes from this server itself. The SQL password is not kept: the app gets an account of its own.'
     Say "Settings:    $settingsFile  (keep it private; it holds the signing key)"
 }
 else {

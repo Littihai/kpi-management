@@ -11,6 +11,7 @@ import SettingsWindow from './components/settings/SettingsWindow'
 import { isSettingsPath, RealLocationContext, type SettingsLocationState } from './components/settings/settingsNav'
 import LoginPage from './pages/LoginPage'
 import { useAuthStore } from './stores/authStore'
+import { useSetupStore } from './stores/setupStore'
 
 // Each page is loaded when first visited, so the first screen downloads far less code
 // (the charts library alone is large and only a few pages use it).
@@ -33,11 +34,15 @@ function Home() {
 function AppRoutes() {
   const location = useLocation()
   const isAuthenticated = useAuthStore((s) => s.isAuthenticated)
+  const inSetup = useSetupStore((s) => s.status !== null)
   const settingsOpen = isSettingsPath(location.pathname)
   const background = (location.state as SettingsLocationState | null)?.backgroundLocation
   const routesLocation = settingsOpen
     ? background ?? { ...location, pathname: '/dashboard', search: '', hash: '', state: null, key: 'settings-bg' }
     : location
+
+  // While the server has no database nothing but the sign-in page (with its connection menu) can work
+  if (inSetup && location.pathname !== '/login') return <Navigate to="/login" replace />
 
   return (
     <RealLocationContext.Provider value={location}>

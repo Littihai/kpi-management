@@ -40,18 +40,31 @@ public static class DatabaseProvider
         string? password = null;
         if (!windows)
         {
-            var key = config["Jwt:Key"];
-            password = string.IsNullOrEmpty(key) || string.IsNullOrEmpty(config["Database:PasswordProtected"])
-                ? null
-                : new Services.SecretProtector(key).Unprotect(config["Database:PasswordProtected"]!);
+            // A saved password this server's key cannot open is not a setting: trying an empty one would only fail, again and again,
+            // and could lock the login out. The setup page asks for the password again instead.
+            password = StoredPassword(config);
+            if (password is null) return null;
         }
         return BuildSqlServer(server, config["Database:Name"] ?? string.Empty, windows, config["Database:User"], password,
             !string.Equals(config["Database:TrustServerCertificate"], "false", StringComparison.OrdinalIgnoreCase));
     }
 
+    private static string? StoredPassword(IConfiguration config)
+    {
+        var key = config["Jwt:Key"];
+        var stored = config["Database:PasswordProtected"];
+        return string.IsNullOrEmpty(key) || string.IsNullOrEmpty(stored) ? null : new Services.SecretProtector(key).Unprotect(stored);
+    }
+
+    /// <summary>The settings name a SQL login but the saved password cannot be read (the server's key was changed, or the file came from another server).</summary>
+    public static bool StoredPasswordUnreadable(IConfiguration config) =>
+        !string.IsNullOrWhiteSpace(config["Database:Server"]) && !string.IsNullOrWhiteSpace(config["Database:Name"])
+        && !string.Equals(config["Database:Auth"], "windows", StringComparison.OrdinalIgnoreCase) && StoredPassword(config) is null;
+
     public static bool IsConfigured(IConfiguration config) => !string.IsNullOrWhiteSpace(ConnectionString(config));
 
-    private static string? WithoutBlocking(string? connection)
+    /// <summary>The connection string without SqlClient's pool blocking period, for a check that must not remember a failure.</summary>
+    public static string? QuickConnectionString(string? connection)
     {
         if (string.IsNullOrWhiteSpace(connection)) return connection;
         try { return new Microsoft.Data.SqlClient.SqlConnectionStringBuilder(connection) { PoolBlockingPeriod = Microsoft.Data.SqlClient.PoolBlockingPeriod.NeverBlock }.ConnectionString; }
@@ -88,7 +101,7 @@ public static class DatabaseProvider
         switch (EngineOf(config))
         {
             case DatabaseEngine.SqlServer:
-                options.UseSqlServer(quick ? WithoutBlocking(connection) : connection, sql =>
+                options.UseSqlServer(quick ? QuickConnectionString(connection) : connection, sql =>
                 {
                     sql.MigrationsAssembly(SqlServerMigrationsAssembly);
                     if (!quick) sql.EnableRetryOnFailure(maxRetryCount: 3);

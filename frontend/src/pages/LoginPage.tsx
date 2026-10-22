@@ -1,10 +1,13 @@
 import { useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import BrandName from '../components/BrandName'
+import ConnectionMenu from '../components/ConnectionMenu'
+import DatabaseConnectionDialog from '../components/DatabaseConnectionDialog'
 import Button from '../components/ui/Button'
 import { TextInput } from '../components/ui/Field'
 import { Alert } from '../components/ui/Layout'
 import { authService } from '../services/auth.service'
+import { useSetupStore } from '../stores/setupStore'
 import ServerAddressDialog from '../components/ServerAddressDialog'
 import { currentServerUrl, describeServer, serverChoiceAllowed } from '../lib/server'
 import { useAuthStore } from '../stores/authStore'
@@ -19,6 +22,8 @@ export default function LoginPage() {
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
   const [serverOpen, setServerOpen] = useState(false)
+  const [databaseOpen, setDatabaseOpen] = useState(false)
+  const setup = useSetupStore((s) => s.status)
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -45,9 +50,10 @@ export default function LoginPage() {
 
   return (
     <div className="grid min-h-[var(--vh100)] lg:grid-cols-[minmax(0,1fr)_minmax(0,1.05fr)]">
+      <ConnectionMenu openDatabaseAtStart />
       {/* Brand panel */}
       <aside className="relative hidden overflow-hidden bg-deep p-12 text-on-deep lg:flex lg:flex-col lg:justify-between">
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-3 lg:ml-12">
           <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-accent" aria-hidden="true">
             <i className="ti ti-chart-donut-3 text-2xl" />
           </span>
@@ -80,13 +86,27 @@ export default function LoginPage() {
       {/* Form */}
       <main className="flex items-center justify-center bg-canvas px-4 py-12 sm:px-8">
         <div className="w-full max-w-sm">
-          <div className="mb-8 flex items-center gap-3 lg:hidden">
+          <div className="mb-8 ml-12 flex items-center gap-3 lg:hidden">
             <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-accent text-on-accent" aria-hidden="true">
               <i className="ti ti-chart-donut-3 text-2xl" />
             </span>
             <BrandName className="text-lg font-semibold" />
           </div>
 
+          {setup && (
+            <div className="mb-6">
+              <Alert tone="warning">
+                <p className="font-medium">
+                  {setup.problem === 'password-unreadable' ? 'รหัสผ่านฐานข้อมูลที่บันทึกไว้อ่านไม่ได้ จึงเข้าสู่ระบบยังไม่ได้'
+                    : setup.reason === 'Unreachable' ? 'เชื่อมต่อฐานข้อมูลที่ตั้งไว้ไม่ได้ จึงเข้าสู่ระบบยังไม่ได้'
+                    : setup.reason === 'StartupFailed' ? 'เชื่อมต่อฐานข้อมูลได้ แต่โปรแกรมเริ่มทำงานไม่สำเร็จ จึงเข้าสู่ระบบยังไม่ได้'
+                    : 'ระบบยังไม่ได้เชื่อมต่อฐานข้อมูล จึงเข้าสู่ระบบยังไม่ได้'}
+                </p>
+                <p className="mt-0.5 text-[13px]">เปิดหน้าต่างเชื่อมต่อเพื่อดูสาเหตุและตั้งค่า (ปุ่มเมนูมุมซ้ายบนก็เปิดได้)</p>
+                <Button size="sm" variant="primary" icon="plug-connected" className="mt-2" onClick={() => setDatabaseOpen(true)}>เชื่อมต่อฐานข้อมูล</Button>
+              </Alert>
+            </div>
+          )}
           <h2 className="text-2xl font-semibold">เข้าสู่ระบบ</h2>
           <p className="mt-1 text-sm text-ink-2">ใช้อีเมลและรหัสผ่านที่ผู้ดูแลระบบมอบให้</p>
 
@@ -106,7 +126,7 @@ export default function LoginPage() {
               </label>
             </div>
 
-            <Button type="submit" variant="primary" size="lg" loading={loading} className="w-full">เข้าสู่ระบบ</Button>
+            <Button type="submit" variant="primary" size="lg" loading={loading} disabled={!!setup} className="w-full">เข้าสู่ระบบ</Button>
           </form>
 
           {serverChoiceAllowed() && (
@@ -127,6 +147,7 @@ export default function LoginPage() {
         </div>
       </main>
       {serverOpen && <ServerAddressDialog open onClose={() => setServerOpen(false)} />}
+      {databaseOpen && <DatabaseConnectionDialog open onClose={() => setDatabaseOpen(false)} />}
     </div>
   )
 }

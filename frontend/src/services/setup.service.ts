@@ -13,34 +13,83 @@ export interface SetupStatus {
   problem: string | null
   engine: string
   remoteAllowed: boolean
+  /** A setup key must be sent (it was set on purpose, or this is not the server itself). */
+  keyRequired: boolean
   canWriteConfig: boolean
   jwtConfigured: boolean
   keyFile: string | null
+  /** The name this machine's own SQL account will get (helpdesk_ plus the computer's name). Only the server's own page is told. */
+  machineLogin: string | null
+  /** Why the application could not start, when it failed after the database was saved. Only the server's own page is told. */
+  message: string | null
   current: SetupCurrent | null
 }
 
+/** Where SQL Server is and who is asking: usually sa, or the Windows account the service runs as. */
 export interface SetupConnection { server: string; database: string; auth: 'sql' | 'windows'; user?: string; password?: string; trust: boolean }
 export interface SetupAdmin { email: string; firstName: string; lastName: string; password: string }
+/** "auto": the application gets an account of its own when the account typed in may create one; "same": it uses the account typed in. */
+export interface SetupAppAccess {
+  mode: 'auto' | 'dedicated' | 'same'
+  login?: string
+  /** The person agreed that a login of that name that already exists gets a new password. */
+  confirmReset?: boolean
+}
 
-export type SetupFailureCode = 'bad-key' | 'local-only' | 'too-many-attempts' | 'invalid' | 'admin' | 'not-connected' | 'cannot-write' | 'jwt-missing' | 'network' | 'other'
-const known: SetupFailureCode[] = ['bad-key', 'local-only', 'too-many-attempts', 'invalid', 'admin', 'not-connected', 'cannot-write', 'jwt-missing']
+/** What a SQL Server says about itself and about the account that connected. */
+export interface ServerProbe {
+  connected: boolean
+  problem: 'unreachable' | 'login-failed' | 'other' | null
+  message: string | null
+  version: string | null
+  canCreateDatabase: boolean
+  canCreateLogin: boolean
+  databaseExists: boolean
+  canOpenDatabase: boolean
+  loginExists: boolean
+}
+
+/** What "start" will do. */
+export interface SetupPlan {
+  createDatabase: boolean
+  access: 'windows' | 'dedicated' | 'same'
+  login: string | null
+  blocker: 'no-permission-database' | 'no-access' | 'no-permission-login' | 'invalid-login' | null
+  /** A login of that name is already on the server: it would get a new password. */
+  loginExists: boolean
+}
+
+export type SetupFailureCode =
+  | 'bad-key' | 'local-only' | 'too-many-attempts' | 'invalid' | 'admin' | 'not-connected' | 'cannot-write' | 'jwt-missing'
+  | 'no-permission' | 'no-permission-database' | 'no-access' | 'no-permission-login' | 'invalid-login' | 'login-in-use' | 'login-exists' | 'weak-password'
+  | 'app-login-failed' | 'grant-failed' | 'sql-error' | 'failed' | 'busy' | 'cross-origin'
+  | 'network' | 'other'
+const known: SetupFailureCode[] = [
+  'bad-key', 'local-only', 'too-many-attempts', 'invalid', 'admin', 'not-connected', 'cannot-write', 'jwt-missing',
+  'no-permission', 'no-permission-database', 'no-access', 'no-permission-login', 'invalid-login', 'login-in-use', 'login-exists', 'weak-password',
+  'app-login-failed', 'grant-failed', 'sql-error', 'failed', 'busy', 'cross-origin',
+]
 
 export class SetupFailure extends Error {
   code: SetupFailureCode
   report?: DatabaseReport
-  constructor(code: SetupFailureCode, message: string, report?: DatabaseReport) {
+  server?: ServerProbe
+  constructor(code: SetupFailureCode, message: string, report?: DatabaseReport, server?: ServerProbe) {
     super(message)
     this.code = code
     this.report = report
+    this.server = server
   }
 }
+
+type RawReport = Parameters<typeof normalizeReport>[0]
 
 function toFailure(error: unknown): SetupFailure {
   if (axios.isAxiosError(error)) {
     if (!error.response) return new SetupFailure('network', 'ติดต่อเซิร์ฟเวอร์ไม่ได้ ตรวจว่าโปรแกรมยังทำงานอยู่')
-    const data = error.response.data as { error?: string; message?: string; report?: Parameters<typeof normalizeReport>[0] } | undefined
+    const data = error.response.data as { error?: string; message?: string; report?: RawReport; server?: ServerProbe } | undefined
     const code = known.find((c) => c === data?.error) ?? 'other'
-    return new SetupFailure(code, data?.message ?? `เกิดข้อผิดพลาด (${error.response.status})`, data?.report ? normalizeReport(data.report) : undefined)
+    return new SetupFailure(code, data?.message ?? `เกิดข้อผิดพลาด (${error.response.status})`, data?.report ? normalizeReport(data.report) : undefined, data?.server)
   }
   return new SetupFailure('other', 'เกิดข้อผิดพลาด')
 }
@@ -55,10 +104,30 @@ async function call<T>(config: AxiosRequestConfig, key?: string): Promise<T> {
   }
 }
 
+/** The page and the API are on the same origin (the page was served by the server itself). Setup is refused from any other origin. */
+export function apiIsSameOrigin(): boolean {
+  try { return new URL(String(api.defaults.baseURL ?? ''), window.location.href).origin === window.location.origin } catch { return false }
+}
+
 export type SetupProbe = { kind: 'setup'; status: SetupStatus } | { kind: 'normal' } | { kind: 'unknown' }
 
-export interface SetupTestResult { report: DatabaseReport; startupError: string | null; jwtConfigured: boolean }
-export interface SetupApplyResult { saved: boolean; done: string[]; admin: { created: boolean; message: string } | null; report: DatabaseReport }
+export interface SetupTestResult {
+  server: ServerProbe
+  /** The database as it is now; null while it does not exist yet. */
+  report: DatabaseReport | null
+  plan: SetupPlan | null
+  startupError: string | null
+  jwtConfigured: boolean
+}
+export interface SetupApplyResult {
+  saved: boolean
+  createdDatabase: boolean
+  access: SetupPlan['access']
+  login: string | null
+  done: string[]
+  admin: { created: boolean; message: string } | null
+  report: DatabaseReport
+}
 
 export const setupService = {
   /**
@@ -76,14 +145,14 @@ export const setupService = {
     }
   },
 
-  async test(key: string, connection: SetupConnection): Promise<SetupTestResult> {
-    const data = await call<Omit<SetupTestResult, 'report'> & { report: Parameters<typeof normalizeReport>[0] }>(
-      { method: 'POST', url: '/api/setup/test', data: connection, timeout: 60000 }, key)
-    return { ...data, report: normalizeReport(data.report) }
+  async test(key: string | undefined, request: { connection: SetupConnection; appAccess?: SetupAppAccess }): Promise<SetupTestResult> {
+    const data = await call<Omit<SetupTestResult, 'report'> & { report: RawReport | null }>(
+      { method: 'POST', url: '/api/setup/test', data: request, timeout: 60000 }, key)
+    return { ...data, report: data.report ? normalizeReport(data.report) : null }
   },
 
-  async apply(key: string, request: { connection: SetupConnection; repair: RepairRequest; admin?: SetupAdmin }): Promise<SetupApplyResult> {
-    const data = await call<Omit<SetupApplyResult, 'report'> & { report: Parameters<typeof normalizeReport>[0] }>(
+  async apply(key: string | undefined, request: { connection: SetupConnection; repair: RepairRequest; admin?: SetupAdmin; appAccess?: SetupAppAccess }): Promise<SetupApplyResult> {
+    const data = await call<Omit<SetupApplyResult, 'report'> & { report: RawReport }>(
       { method: 'POST', url: '/api/setup/apply', data: request, timeout: 300000 }, key)
     return { ...data, report: normalizeReport(data.report) }
   },

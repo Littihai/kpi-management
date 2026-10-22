@@ -16,12 +16,16 @@ public sealed record SetupConnection(string? Server, string? Database, string? A
     public string? Validate()
     {
         if (string.IsNullOrWhiteSpace(Server) || Server.Length > 200 || Server.Any(char.IsControl)) return "กรอกชื่อหรือที่อยู่ SQL Server";
-        if (string.IsNullOrWhiteSpace(Database) || Database.Trim().Length > 128 || Database.Any(c => !(char.IsLetterOrDigit(c) || c is '_' or '-' or '.')))
-            return "ชื่อฐานข้อมูลใช้ได้เฉพาะตัวอักษร ตัวเลข _ - และ .";
+        // the same rule the database is created under (the name is written into CREATE DATABASE)
+        if (!SqlServerProvisioner.IsValidDatabaseName(Database?.Trim()))
+            return "ชื่อฐานข้อมูลใช้ได้เฉพาะตัวอักษรอังกฤษ ตัวเลข _ - และ . (ไม่เกิน 128 ตัว) และห้ามใช้ชื่อฐานข้อมูลของ SQL Server เอง (master, model, msdb, tempdb)";
         if (!Windows && !string.Equals(Auth, "sql", StringComparison.OrdinalIgnoreCase)) return "เลือกวิธีล็อกอิน";
         if (!Windows && (string.IsNullOrWhiteSpace(User) || string.IsNullOrEmpty(Password))) return "กรอกชื่อผู้ใช้และรหัสผ่านของ SQL Server";
         return null;
     }
+
+    /// <summary>Who this is, for creating things on the server (the database, the application's own account).</summary>
+    public ServerAccess Access() => new(Server!.Trim(), Windows, User?.Trim(), Password, Trust);
 
     public string ConnectionString(int connectTimeoutSeconds = 10) =>
         DatabaseProvider.BuildSqlServer(Server!, Database!, Windows, User, Password, Trust, connectTimeoutSeconds);
@@ -42,12 +46,16 @@ public sealed class SetupKey
     private int _failures;
     private DateTimeOffset _blockedUntil;
 
-    public SetupKey(string value, string? file, TimeProvider? time = null)
+    public SetupKey(string value, string? file, TimeProvider? time = null, bool fromConfiguration = false)
     {
         _value = value;
         _file = file;
         _time = time ?? TimeProvider.System;
+        FromConfiguration = fromConfiguration;
     }
+
+    /// <summary>The administrator chose it (Setup:Key): it is a secret they already know and must never be written to a log.</summary>
+    public bool FromConfiguration { get; }
 
     /// <summary>Where it is kept for the administrator to read, or null when it was given in the configuration instead.</summary>
     public string? File => _file;
@@ -58,7 +66,7 @@ public sealed class SetupKey
     /// </summary>
     public static SetupKey Resolve(IConfiguration config, string configFile, TimeProvider? time = null)
     {
-        if (config["Setup:Key"] is { Length: >= 8 } given) return new SetupKey(given, null, time);
+        if (config["Setup:Key"] is { Length: >= 8 } given) return new SetupKey(given, null, time, fromConfiguration: true);
 
         var file = Path.Combine(Path.GetDirectoryName(Path.GetFullPath(configFile))!, "setup-key.txt");
         try
@@ -85,6 +93,25 @@ public sealed class SetupKey
 
     /// <summary>The value, for the log line that tells the administrator where to find it (never for a response).</summary>
     public string Reveal() => _value;
+
+    public enum Outcome { Accepted, Wrong, Blocked }
+
+    /// <summary>
+    /// Checks a key, counts a failure and applies the block as one step, so a burst of parallel guesses cannot get more tries than
+    /// the limit allows. <paramref name="wait"/> is how long to wait when blocked.
+    /// </summary>
+    public Outcome Authorize(string? provided, out TimeSpan wait)
+    {
+        lock (_gate)
+        {
+            var now = _time.GetUtcNow();
+            if (_blockedUntil > now) { wait = _blockedUntil - now; return Outcome.Blocked; }
+            wait = TimeSpan.Zero;
+            if (Matches(provided)) { _failures = 0; return Outcome.Accepted; }
+            if (++_failures >= MaxFailures) { _blockedUntil = now + Window; _failures = 0; }
+            return Outcome.Wrong;
+        }
+    }
 
     public TimeSpan? BlockedFor()
     {
