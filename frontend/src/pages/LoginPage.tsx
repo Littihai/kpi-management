@@ -96,8 +96,13 @@ export default function LoginPage() {
           {setup && (
             <div className="mb-6">
               <Alert tone="warning">
-                <p className="font-medium">ระบบยังไม่ได้เชื่อมต่อฐานข้อมูล จึงเข้าสู่ระบบยังไม่ได้</p>
-                <p className="mt-0.5 text-[13px]">เชื่อมต่อกับ SQL Server ก่อน (ปุ่มเมนูมุมซ้ายบนก็เปิดได้)</p>
+                <p className="font-medium">
+                  {setup.problem === 'password-unreadable' ? 'รหัสผ่านฐานข้อมูลที่บันทึกไว้อ่านไม่ได้ จึงเข้าสู่ระบบยังไม่ได้'
+                    : setup.reason === 'Unreachable' ? 'เชื่อมต่อฐานข้อมูลที่ตั้งไว้ไม่ได้ จึงเข้าสู่ระบบยังไม่ได้'
+                    : setup.reason === 'StartupFailed' ? 'เชื่อมต่อฐานข้อมูลได้ แต่โปรแกรมเริ่มทำงานไม่สำเร็จ จึงเข้าสู่ระบบยังไม่ได้'
+                    : 'ระบบยังไม่ได้เชื่อมต่อฐานข้อมูล จึงเข้าสู่ระบบยังไม่ได้'}
+                </p>
+                <p className="mt-0.5 text-[13px]">เปิดหน้าต่างเชื่อมต่อเพื่อดูสาเหตุและตั้งค่า (ปุ่มเมนูมุมซ้ายบนก็เปิดได้)</p>
                 <Button size="sm" variant="primary" icon="plug-connected" className="mt-2" onClick={() => setDatabaseOpen(true)}>เชื่อมต่อฐานข้อมูล</Button>
               </Alert>
             </div>

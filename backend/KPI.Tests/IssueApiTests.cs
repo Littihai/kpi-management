@@ -399,10 +399,18 @@ public class IssueApiTests : IClassFixture<IssueApiFactory>, IAsyncLifetime
             .Build();
         await connection.StartAsync();
 
+        // StartAsync returns when the client is connected; the server records the person as online a moment later (a long-polling
+        // connection on a busy machine can take a few seconds), so look until they appear instead of once
         var admin = await As("admin");
-        var overview = await Json(await admin.GetAsync("/api/admin/overview"));
-        Assert.Contains(overview.GetProperty("online").EnumerateArray(),
-            o => o.GetProperty("role").GetString() == "Staff" && o.GetProperty("name").GetString()!.Contains("staff-a"));
+        var online = false;
+        for (var attempt = 0; attempt < 50 && !online; attempt++)
+        {
+            var overview = await Json(await admin.GetAsync("/api/admin/overview"));
+            online = overview.GetProperty("online").EnumerateArray()
+                .Any(o => o.GetProperty("role").GetString() == "Staff" && o.GetProperty("name").GetString()!.Contains("staff-a"));
+            if (!online) await Task.Delay(100);
+        }
+        Assert.True(online, "staff-a never showed as online");
 
         await connection.StopAsync();
     }

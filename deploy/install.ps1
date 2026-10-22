@@ -71,6 +71,10 @@ param(
     [string]$AdminLastName,
     [securestring]$AdminPassword,
 
+    # The signing and encryption key of this installation (at least 32 characters). Leave it out on the first machine (one is generated).
+    # On the other machines that share one database pass the same key, so what is stored encrypted in the database (the e-mail password) can be read by all.
+    [securestring]$JwtKey,
+
     [switch]$OpenFirewall,
     # Also create the database and the first administrator now, with sqlcmd and the SQL scripts (asks for the SQL Server and the administrator).
     # Without it only the program and the service are installed and the database is connected in the app.
@@ -86,7 +90,9 @@ param(
 
 $ErrorActionPreference = 'Stop'
 Set-StrictMode -Version 2
-$ConfigureLater = -not $WithDatabase   # nothing about the database is asked unless -WithDatabase
+# Nothing about the database is asked unless -WithDatabase. A command written for the earlier version (it names the SQL Server) means the same as before.
+if ($PSBoundParameters.ContainsKey('SqlServer')) { $WithDatabase = [switch]$true }
+$ConfigureLater = -not $WithDatabase
 
 function Say($text) { Write-Host $text }
 function Step($text) { Write-Host ''; Write-Host "== $text" -ForegroundColor Cyan }
@@ -154,6 +160,12 @@ $databaseFile = Join-Path $dataDir 'database.json'
 $liveUrl = "http://localhost:$Port/health"
 $healthUrl = if ($ConfigureLater) { $liveUrl } else { "http://localhost:$Port/health/ready" }
 
+# The settings file holds the signing key and, in the old way, the database password: only administrators and the account that runs the service may read it.
+function Protect-SettingsFile([string]$file, [string]$identity) {
+    & icacls $file /inheritance:r /grant:r 'BUILTIN\Administrators:(F)' 'NT AUTHORITY\SYSTEM:(F)' | Out-Null
+    if ($identity) { & icacls $file /grant:r "$($identity):(R)" | Out-Null }
+}
+
 # The folder for what the program writes: only administrators and the account that runs the service may use it (it holds the setup key).
 function Protect-DataDirectory([string]$identity) {
     New-Item -ItemType Directory -Force -Path $dataDir | Out-Null
@@ -174,6 +186,10 @@ if ($Upgrade) {
     Get-ChildItem $apiDir -Force | Remove-Item -Recurse -Force
     Copy-Item (Join-Path $packageApi '*') $apiDir -Recurse -Force
     Set-Content -Path $settingsFile -Value $keep -Encoding UTF8
+    $upgradeIdentity = if ($ServiceAccount) { $ServiceAccount } else { "NT SERVICE\$ServiceName" }
+    Protect-SettingsFile $settingsFile $upgradeIdentity                                        # a new file would take the folder's rights: readable by everyone
+    $backupSettings = Join-Path $backup 'appsettings.Production.json'
+    if (Test-Path $backupSettings) { Protect-SettingsFile $backupSettings $null }              # and the copy in the backup holds the same secrets
     # An installation from before the setup page has no place for it to save to: add one (the settings file is otherwise kept as it is).
     $current = $keep | ConvertFrom-Json
     if (-not ($current.PSObject.Properties.Name -contains 'Setup') -or -not $current.Setup.ConfigFile) {
@@ -183,6 +199,7 @@ if ($Upgrade) {
         if ($setup) { $setup | Add-Member -NotePropertyName ConfigFile -NotePropertyValue $databaseFile -Force }
         else { $current | Add-Member -NotePropertyName Setup -NotePropertyValue ([pscustomobject]@{ ConfigFile = $databaseFile }) }
         [IO.File]::WriteAllText($settingsFile, ($current | ConvertTo-Json -Depth 8), (New-Object Text.UTF8Encoding($false)))
+        Protect-SettingsFile $settingsFile $upgradeIdentity
         Say "Added the place where the setup page saves the database settings: $databaseFile"
     }
     if ($service) { Say 'Starting the service...'; Start-Service -Name $ServiceName }
@@ -213,7 +230,8 @@ $PublicUrl = $PublicUrl.TrimEnd('/')
 if ($PublicUrl -notmatch '^https?://') { Fail 'The address must start with http:// or https://' }
 
 if (-not $ConfigureLater) {
-    if (-not $AppLogin) { $AppLogin = if ($AppAuth -eq 'Sql') { 'helpdesk_app' } else { "NT SERVICE\$ServiceName" } }
+    # one login per machine (the app does the same): a second machine on the same SQL Server must not share, or reset, the first one's
+    if (-not $AppLogin) { $AppLogin = if ($AppAuth -eq 'Sql') { 'helpdesk_' + ($env:COMPUTERNAME.ToLower() -replace '[^a-z0-9]', '_').Trim('_') } else { "NT SERVICE\$ServiceName" } }
     if ($AppLogin -match "[\]\[';`"]") { Fail 'The login name must not contain quote marks, semicolons or square brackets.' }
     if ($Database -notmatch '^[A-Za-z0-9_]{1,100}$') { Fail 'The database name may only contain letters, digits and underscores.' }
 
@@ -229,7 +247,13 @@ if (-not $ConfigureLater) {
 
 $appPassword = $null
 if (-not $ConfigureLater -and $AppAuth -eq 'Sql') { $appPassword = New-RandomText 28; $appPassword = $appPassword + 'Aa1' }
-$rng = New-Object byte[] 48; [Security.Cryptography.RandomNumberGenerator]::Create().GetBytes($rng); $jwtKey = [Convert]::ToBase64String($rng)
+if ($JwtKey) {
+    $signingKey = Get-PlainText $JwtKey
+    if ($signingKey.Length -lt 32) { Fail 'The key (-JwtKey) must have at least 32 characters.' }
+}
+else {
+    $rng = New-Object byte[] 48; [Security.Cryptography.RandomNumberGenerator]::Create().GetBytes($rng); $signingKey = [Convert]::ToBase64String($rng)
+}
 
 # ── SQL Server ───────────────────────────────────────────────────────────────────────────────────────────────────
 function Invoke-SqlFile([string]$file, [string]$databaseName, [hashtable]$variables) {
@@ -273,7 +297,7 @@ $trust = if ($TrustServerCertificate) { 'True' } else { 'False' }
 $settings = [ordered]@{
     Urls              = "http://0.0.0.0:$Port"
     Database          = [ordered]@{ Provider = 'SqlServer'; AutoMigrate = $true }
-    Jwt               = [ordered]@{ Key = $jwtKey; Issuer = 'Helpdesk'; Audience = 'Helpdesk' }
+    Jwt               = [ordered]@{ Key = $signingKey; Issuer = 'Helpdesk'; Audience = 'Helpdesk' }
     App               = [ordered]@{ BaseUrl = $PublicUrl; CompanyName = $CompanyName }
     Cors              = [ordered]@{ Origins = @($PublicUrl) }
     # E-mail is set up in the app (Settings > E-mail). This key only keeps the unused Resend option quiet.
@@ -291,7 +315,7 @@ if (-not $ConfigureLater) {
 $json = $settings | ConvertTo-Json -Depth 5
 [IO.File]::WriteAllText($settingsFile, $json, (New-Object Text.UTF8Encoding($false)))
 $serviceIdentity = if ($ServiceAccount) { $ServiceAccount } else { "NT SERVICE\$ServiceName" }
-& icacls $settingsFile /inheritance:r /grant:r 'BUILTIN\Administrators:(F)' 'NT AUTHORITY\SYSTEM:(F)' | Out-Null
+Protect-SettingsFile $settingsFile $null
 Protect-DataDirectory $null
 if ($SkipService) {   # a trial run uses the signed-in person, not the service
     & icacls $settingsFile /grant:r "${env:USERDOMAIN}\${env:USERNAME}:(M)" | Out-Null   # (M) so the trial folder can be deleted again without elevation

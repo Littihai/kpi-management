@@ -168,4 +168,51 @@ public class DeploymentScriptTests
             await drop.ExecuteNonQueryAsync();
         }
     }
+
+    [Fact]
+    public async Task Running_the_create_script_again_gives_the_login_the_new_password_and_never_touches_a_sysadmin()
+    {
+        if (Server is null) return;
+        var name = "kpi_scripts_" + Guid.NewGuid().ToString("N")[..12];
+        var login = "helpdesk_s_" + Guid.NewGuid().ToString("N")[..8];
+        var admin = "helpdesk_admin_" + Guid.NewGuid().ToString("N")[..8];
+        var master = new SqlConnectionStringBuilder(Server) { InitialCatalog = "master" }.ConnectionString;
+        var directory = DeployDirectory();
+        string As(string user, string password) => new SqlConnectionStringBuilder(Server) { InitialCatalog = "master", IntegratedSecurity = false, UserID = user, Password = password }.ConnectionString;
+        async Task Run(string user, string password) => await RunScriptAsync(master, File.ReadAllText(Path.Combine(directory, "01-create-database.sql")), new()
+        {
+            ["DbName"] = name, ["AuthMode"] = "SQL", ["AppLogin"] = user, ["AppPassword"] = password,
+        });
+        try
+        {
+            await Run(login, "First-Pass-1Aa-" + Guid.NewGuid().ToString("N")[..6]);
+            var second = "Second-Pass-1Aa-" + Guid.NewGuid().ToString("N")[..6];
+            await Run(login, second);                           // a second machine, or a reinstall: the password in the new settings file must be the login's
+            SqlConnection.ClearAllPools();
+            await using (var connection = new SqlConnection(As(login, second))) { await connection.OpenAsync(); }
+
+            // an administrator's login is refused, not reset
+            var adminPassword = "Admin-Pass-1Aa-" + Guid.NewGuid().ToString("N")[..6];
+            await using (var connection = new SqlConnection(master))
+            {
+                await connection.OpenAsync();
+                await using var create = connection.CreateCommand();
+                create.CommandText = $"CREATE LOGIN [{admin}] WITH PASSWORD = N'{adminPassword}', CHECK_POLICY = OFF; ALTER SERVER ROLE sysadmin ADD MEMBER [{admin}]";
+                await create.ExecuteNonQueryAsync();
+            }
+            var refused = await Assert.ThrowsAsync<SqlException>(() => Run(admin, "Some-Other-Pass-1Aa"));
+            Assert.Contains("sysadmin", refused.Message);
+            SqlConnection.ClearAllPools();
+            await using (var connection = new SqlConnection(As(admin, adminPassword))) { await connection.OpenAsync(); }   // still its own password
+        }
+        finally
+        {
+            SqlConnection.ClearAllPools();
+            await using var connection = new SqlConnection(master);
+            await connection.OpenAsync();
+            await using var drop = connection.CreateCommand();
+            drop.CommandText = $"IF DB_ID(N'{name}') IS NOT NULL BEGIN ALTER DATABASE [{name}] SET SINGLE_USER WITH ROLLBACK IMMEDIATE; DROP DATABASE [{name}]; END; IF SUSER_ID(N'{login}') IS NOT NULL DROP LOGIN [{login}]; IF SUSER_ID(N'{admin}') IS NOT NULL DROP LOGIN [{admin}];";
+            await drop.ExecuteNonQueryAsync();
+        }
+    }
 }

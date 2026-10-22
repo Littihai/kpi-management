@@ -334,7 +334,7 @@ public class DatabaseConnectionPartsTests
     }
 
     [Fact]
-    public void A_password_that_cannot_be_decrypted_gives_an_empty_one_so_the_login_fails_and_setup_explains_it()
+    public void A_password_that_cannot_be_decrypted_is_not_a_setting_so_no_empty_password_is_ever_tried()
     {
         var encrypted = new SecretProtector(JwtKey).Protect("secret");
         var config = Config(new()
@@ -343,10 +343,55 @@ public class DatabaseConnectionPartsTests
             ["Database:PasswordProtected"] = encrypted, ["Jwt:Key"] = "a-different-signing-key-entirely-here",
         });
 
-        var built = new SqlConnectionStringBuilder(DatabaseProvider.ConnectionString(config));
+        Assert.Null(DatabaseProvider.ConnectionString(config));
+        Assert.False(DatabaseProvider.IsConfigured(config));
+        Assert.True(DatabaseProvider.StoredPasswordUnreadable(config));
+    }
 
-        Assert.Equal(string.Empty, built.Password);
-        Assert.True(DatabaseProvider.IsConfigured(config));
+    [Theory]
+    [InlineData(null, "enc1:whatever")]
+    [InlineData("a-long-enough-signing-key-for-the-test", null)]
+    [InlineData("a-long-enough-signing-key-for-the-test", "")]
+    public void A_missing_key_or_missing_password_is_treated_the_same_way(string? key, string? stored)
+    {
+        var values = new Dictionary<string, string?> { ["Database:Server"] = "srv", ["Database:Name"] = "helpdesk", ["Database:Auth"] = "sql", ["Database:User"] = "app" };
+        if (key is not null) values["Jwt:Key"] = key;
+        if (stored is not null) values["Database:PasswordProtected"] = stored;
+
+        var config = Config(values);
+
+        Assert.False(DatabaseProvider.IsConfigured(config));
+        Assert.True(DatabaseProvider.StoredPasswordUnreadable(config));
+    }
+
+    [Fact]
+    public void A_readable_password_and_a_Windows_login_are_not_reported_as_unreadable()
+    {
+        var readable = Config(new()
+        {
+            ["Database:Server"] = "srv", ["Database:Name"] = "helpdesk", ["Database:Auth"] = "sql", ["Database:User"] = "app",
+            ["Database:PasswordProtected"] = new SecretProtector(JwtKey).Protect("secret"), ["Jwt:Key"] = JwtKey,
+        });
+        var windows = Config(new() { ["Database:Server"] = "srv", ["Database:Name"] = "helpdesk", ["Database:Auth"] = "windows" });
+
+        Assert.False(DatabaseProvider.StoredPasswordUnreadable(readable));
+        Assert.False(DatabaseProvider.StoredPasswordUnreadable(windows));
+        Assert.True(DatabaseProvider.IsConfigured(readable));
+    }
+
+    [Fact]
+    public async Task A_saved_password_that_cannot_be_read_sends_the_person_to_connect_again_without_trying_to_log_in()
+    {
+        var config = Config(new()
+        {
+            ["Database:Server"] = "127.0.0.1,1", ["Database:Name"] = "helpdesk", ["Database:Auth"] = "sql", ["Database:User"] = "app",
+            ["Database:PasswordProtected"] = new SecretProtector(JwtKey).Protect("secret"), ["Jwt:Key"] = "a-different-signing-key-entirely-here",
+        });
+
+        var need = await SetupMode.CheckAsync(config, NullLogger.Instance, CancellationToken.None, patience: TimeSpan.Zero);
+
+        Assert.Equal(SetupReason.NotConfigured, need!.Reason);
+        Assert.Equal("password-unreadable", need.Problem);
     }
 
     [Fact]
@@ -474,10 +519,11 @@ internal sealed class SetupHarness : IAsyncDisposable
     public const string Key = "the-setup-key-for-tests";
 public const string JwtKey = "a-long-enough-signing-key-for-the-test";
 
-public async Task<(HttpStatusCode Status, JsonElement Body, string Text)> PostAsync(string url, object body, string? key = Key)
+public async Task<(HttpStatusCode Status, JsonElement Body, string Text)> PostAsync(string url, object body, string? key = Key, Dictionary<string, string>? headers = null)
     {
         using var request = new HttpRequestMessage(HttpMethod.Post, url) { Content = JsonContent.Create(body) };
         if (key is not null) request.Headers.Add("X-Setup-Key", key);
+        foreach (var header in headers ?? []) { if (header.Key == "Host") request.Headers.Host = header.Value; else request.Headers.TryAddWithoutValidation(header.Key, header.Value); }
         using var response = await Client.SendAsync(request);
         var text = await response.Content.ReadAsStringAsync();
         return (response.StatusCode, text.StartsWith('{') ? JsonDocument.Parse(text).RootElement.Clone() : default, text);
@@ -654,6 +700,9 @@ public class SetupEndpointsTests
     [InlineData("srv", "", "windows", null, null)]
     [InlineData("srv", "bad name;drop", "windows", null, null)]
     [InlineData("srv", "ฐานข้อมูล", "windows", null, null)]
+    [InlineData("srv", "master", "windows", null, null)]
+    [InlineData("srv", "TempDB", "windows", null, null)]
+    [InlineData("srv", "msdb", "windows", null, null)]
     [InlineData("srv", "helpdesk", "kerberos", null, null)]
     [InlineData("srv", "helpdesk", "sql", "sa", null)]
     [InlineData("srv", "helpdesk", "sql", null, "pw")]
