@@ -167,6 +167,7 @@ public static class SetupEndpoints
         {
             minDesktopVersion = ClientConfigController.NormalizeVersion(config["Client:MinDesktopVersion"]) ?? ClientConfigController.DefaultMinimum,
             latestDesktopVersion = ClientConfigController.NormalizeVersion(config["Client:LatestDesktopVersion"]),
+            companyName = ClientConfigController.CompanyName(null, config),   // no database to ask yet: only what the installer was given
         }));
 
         // Anyone who can reach the port may ask whether setup is needed; only someone on the server (or where the administrator allowed it) is told where things are kept.
