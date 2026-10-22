@@ -127,11 +127,21 @@ public static class DatabaseConfigFile
         config["Setup:ConfigFile"] is { Length: > 0 } path ? path : Path.Combine(contentRoot, DefaultFileName);
 
     /// <summary>Adds the file as the last, strongest source of settings. Safe to call again after the file was written.</summary>
-    public static void Add(IConfigurationBuilder configuration, IConfiguration current, string contentRoot)
+    public static void Add(IConfigurationBuilder configuration, IConfiguration current, string contentRoot, ILogger? log = null)
     {
         var path = Path.GetFullPath(PathFor(current, contentRoot));
         var directory = Path.GetDirectoryName(path)!;
         if (!Directory.Exists(directory)) return;
+        if (System.IO.File.Exists(path))
+        {
+            // A file that was edited by hand and is no longer valid JSON must not stop the service from starting: the setup page replaces it.
+            try { using var _ = JsonDocument.Parse(System.IO.File.ReadAllText(path)); }
+            catch (Exception ex) when (ex is JsonException or IOException or UnauthorizedAccessException)
+            {
+                log?.LogError("The database settings file {File} cannot be read ({Reason}); it is ignored. Fix it, or enter the database on the setup page.", path, ex.Message);
+                return;
+            }
+        }
         configuration.AddJsonFile(new PhysicalFileProvider(directory), Path.GetFileName(path), optional: true, reloadOnChange: false);
     }
 

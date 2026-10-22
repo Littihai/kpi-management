@@ -20,12 +20,12 @@ public sealed class Supervisor : BackgroundService
         _lifetime = lifetime;
     }
 
-    public static WebApplicationBuilder NewBuilder(string[] args)
+    public static WebApplicationBuilder NewBuilder(string[] args, ILogger? log = null)
     {
         // As a service the working folder is System32: the program's own folder is the content root.
         var options = new WebApplicationOptions { Args = args, ContentRootPath = Microsoft.Extensions.Hosting.WindowsServices.WindowsServiceHelpers.IsWindowsService() ? AppContext.BaseDirectory : null };
         var builder = WebApplication.CreateBuilder(options);
-        DatabaseConfigFile.Add(builder.Configuration, builder.Configuration, builder.Environment.ContentRootPath);
+        DatabaseConfigFile.Add(builder.Configuration, builder.Configuration, builder.Environment.ContentRootPath, log);
         return builder;
     }
 
@@ -35,7 +35,7 @@ public sealed class Supervisor : BackgroundService
         {
             while (!stoppingToken.IsCancellationRequested)
             {
-                var builder = NewBuilder(_args);
+                var builder = NewBuilder(_args, _log);
                 var need = await SetupMode.CheckAsync(builder.Configuration, _log, stoppingToken);
 
                 WebApplication? app = null;
@@ -48,7 +48,7 @@ public sealed class Supervisor : BackgroundService
                         // e.g. the account may not change the schema: say so on the setup page instead of dying in a loop
                         _log.LogError(ex, "The application could not start");
                         need = new SetupNeed(SetupReason.StartupFailed, null, ex.GetBaseException().Message);
-                        builder = NewBuilder(_args);
+                        builder = NewBuilder(_args, _log);
                     }
                 }
 

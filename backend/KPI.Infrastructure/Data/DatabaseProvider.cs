@@ -33,7 +33,8 @@ public static class DatabaseProvider
     public static string? ConnectionString(IConfiguration config)
     {
         var server = config["Database:Server"];
-        if (string.IsNullOrWhiteSpace(server)) return config.GetConnectionString("DefaultConnection");
+        // Without a database name SQL Server would open the login's default database (often master): not a usable setting.
+        if (string.IsNullOrWhiteSpace(server) || string.IsNullOrWhiteSpace(config["Database:Name"])) return config.GetConnectionString("DefaultConnection");
 
         var windows = string.Equals(config["Database:Auth"], "windows", StringComparison.OrdinalIgnoreCase);
         string? password = null;

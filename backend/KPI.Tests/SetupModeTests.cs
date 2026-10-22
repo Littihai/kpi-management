@@ -212,6 +212,20 @@ public class DatabaseConfigFileTests
         Assert.Equal("two", Read(folder.Path)["Database:Server"]);
     }
 
+    [Theory]
+    [InlineData("{ not json")]
+    [InlineData("")]
+    [InlineData("[1, 2,")]
+    public void A_settings_file_that_is_not_valid_json_is_ignored_instead_of_stopping_the_host(string content)
+    {
+        using var folder = new TempFolder();
+        File.WriteAllText(folder.File("database.json"), content);
+
+        var config = Read(folder.Path, new() { ["Database:Server"] = "from-elsewhere", ["Database:Name"] = "db" });
+
+        Assert.Equal("from-elsewhere", config["Database:Server"]);   // the other sources still apply
+    }
+
     [Fact]
     public void A_missing_file_or_folder_is_not_an_error()
     {
@@ -270,6 +284,16 @@ public class DatabaseConnectionPartsTests
 
         Assert.True(DatabaseProvider.IsConfigured(config));
         Assert.Equal("Host=db;Database=x", DatabaseProvider.ConnectionString(config));
+    }
+
+    [Fact]
+    public void A_server_without_a_database_name_is_not_a_setting_it_would_open_the_login_default_database()
+    {
+        var parts = Config(new() { ["Database:Server"] = "srv", ["Database:Auth"] = "windows" });
+        var withString = Config(new() { ["Database:Server"] = "srv", ["ConnectionStrings:DefaultConnection"] = "Server=other;Database=x" });
+
+        Assert.False(DatabaseProvider.IsConfigured(parts));
+        Assert.Equal("Server=other;Database=x", DatabaseProvider.ConnectionString(withString));
     }
 
     [Fact]
