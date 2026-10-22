@@ -37,6 +37,18 @@ The API exposes `GET /api/client-config` returning `minDesktopVersion` and `late
 etc. on Render). An app older than the minimum shows a blocking "update required" screen. If the API is unreachable,
 nothing is blocked.
 
+## Which server the app talks to
+
+The installer ships pointing at our hosted server. A company that runs its own server (see `deploy/README-th.md`) points the app at it in one of three ways; the first that applies wins:
+
+1. **The person chooses it** on the sign-in page ("เปลี่ยน" next to "เซิร์ฟเวอร์") or in Settings > About. The address is tested before it is used (it must answer `/api/client-config` like a Helpdesk server), remembered on that computer, and changing it signs the person out. "Back to the default" undoes it.
+2. **IT sets it for the computer**, so people never have to type it: the `HELPDESK_SERVER_URL` environment variable, or the first line of `%ProgramData%\Helpdesk\server.txt` (it survives app updates). Example: `http://helpdesk.company.local:8080`.
+3. **The build** (`VITE_API_URL`), for a web build served by the API itself (empty means the page's own address).
+
+An address is the server's origin only (`http(s)://host[:port]`, no path). `http` works (verified from the app to a non-local address) but is not encrypted, so the dialog warns about it; `https` needs a certificate the computer trusts (an internal CA installed in Windows works). The server must allow the app's origin (`app://local`), which it does by default.
+
+In a web build the choice is hidden unless it was built with `VITE_ALLOW_SERVER_CHOICE=true`: a web page belongs to the server that serves it.
+
 ## The API must allow the app's origin
 
 The window loads from `app://local`, so the API's CORS list has to include it. It is already in the default list in

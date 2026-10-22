@@ -8,6 +8,8 @@ interface DesktopUpdateState {
 interface DesktopApi {
   version: string
   isDesktop: true
+  /** The server address the company set for this computer (HELPDESK_SERVER_URL or ProgramData\\Helpdesk\\server.txt), if any. */
+  defaultServerUrl?: string
   checkForUpdates(): Promise<void>
   restartToUpdate(): void
   onUpdateState(cb: (state: DesktopUpdateState) => void): () => void

@@ -9,9 +9,13 @@ const CH_RESTART = 'desktop:restart-to-update'
 const arg = process.argv.find((a) => a.startsWith('--desktop-version='))
 const version = arg ? arg.slice('--desktop-version='.length) : '0.0.0'
 
+const serverArg = process.argv.find((a) => a.startsWith('--helpdesk-server='))
+const defaultServerUrl = serverArg ? serverArg.slice('--helpdesk-server='.length) : undefined
+
 contextBridge.exposeInMainWorld('desktop', {
   version,
   isDesktop: true,
+  defaultServerUrl,
   checkForUpdates: () => ipcRenderer.invoke(CH_CHECK),
   restartToUpdate: () => ipcRenderer.send(CH_RESTART),
   /** Calls cb with the current state now and on every change; returns an unsubscribe function. */
