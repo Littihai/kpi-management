@@ -33,6 +33,20 @@ function Run($command, $arguments, $directory) {
 Write-Host '== Program (self-contained, win-x64)'
 Run 'dotnet' @('publish', 'KPI.API/KPI.API.csproj', '-c', 'Release', '-r', 'win-x64', '--self-contained', 'true', '-p:DebugType=None', '-p:DebugSymbols=false', '-o', (Join-Path $root 'api')) (Join-Path $repo 'backend')
 
+Write-Host '== Settings (the development settings of the repository stay out of the package)'
+# The repository's appsettings.json holds the settings of the developers' own deployment (a connection string, keys). A package
+# goes to other companies and must carry none of that: keep only what is not secret. install.ps1 writes each company's own
+# settings (appsettings.Production.json), and a server started without any waits on the setup page.
+$apiOut = Join-Path $root 'api'
+$source = Get-Content (Join-Path $apiOut 'appsettings.json') -Raw | ConvertFrom-Json
+$clean = [ordered]@{}
+foreach ($name in @('Logging', 'AllowedHosts')) { if ($source.PSObject.Properties.Name -contains $name) { $clean[$name] = $source.$name } }
+$clean['Jwt'] = [ordered]@{ Issuer = $source.Jwt.Issuer; Audience = $source.Jwt.Audience }
+$cleanJson = $clean | ConvertTo-Json -Depth 8
+if ($cleanJson -match 'ConnectionStrings|"Key"|ApiKey|Password|Host=|Server=') { throw 'The package settings still look like they hold a secret. Stopping.' }
+[IO.File]::WriteAllText((Join-Path $apiOut 'appsettings.json'), $cleanJson, (New-Object Text.UTF8Encoding($false)))
+Remove-Item (Join-Path $apiOut 'appsettings.Example.json') -ErrorAction SilentlyContinue
+
 Write-Host '== Web app (same address as the API, so no API address is baked in)'
 $frontend = Join-Path $repo 'frontend'
 if (-not (Test-Path (Join-Path $frontend 'node_modules'))) { Run 'npm' @('ci') $frontend }

@@ -40,6 +40,17 @@ public static class StartupTasks
             app.Logger.LogWarning(
                 "Created the first SuperAdmin {Email} from the Admin__* settings. Remove Admin__Password once you have signed in.",
                 config["Admin:Email"]);
+
+        // Say what is missing (a table that was dropped after the migrations ran is not fixed by migrating). Never changes anything.
+        if (db.Database.IsRelational())
+        {
+            var report = await DatabaseDoctor.InspectAsync(db);
+            if (report is { Connected: true, State: not KPI.Application.Database.DatabaseState.Ready })
+                app.Logger.LogWarning(
+                    "The database is incomplete: missing tables [{Tables}], missing columns [{Columns}], migrations not applied [{Pending}]. See Settings > Database.",
+                    string.Join(", ", report.MissingTables), string.Join(", ", report.MissingColumns.Select(c => c.Table + "." + c.Column)),
+                    string.Join(", ", report.PendingMigrations));
+        }
     }
 
     /// <summary>

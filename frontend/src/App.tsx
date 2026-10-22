@@ -5,6 +5,7 @@ import UpdateBanner from './components/UpdateBanner'
 import ProtectedRoute, { RequirePermission } from './components/ProtectedRoute'
 import { Page, PageSkeleton } from './components/ui/Layout'
 import PasswordGate from './components/PasswordGate'
+import SetupGate from './components/SetupGate'
 import SettingsWindow from './components/settings/SettingsWindow'
 import { isSettingsPath, RealLocationContext, type SettingsLocationState } from './components/settings/settingsNav'
 import LoginPage from './pages/LoginPage'
@@ -72,7 +73,9 @@ function AppRoutes() {
 export default function App() {
   return (
     <BrowserRouter>
-      <AppRoutes />
+      <SetupGate>
+        <AppRoutes />
+      </SetupGate>
       <UpdateBanner />
     </BrowserRouter>
   )

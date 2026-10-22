@@ -173,9 +173,9 @@ public static class ServiceRegistration
             if (string.Equals(config["Jobs:Storage"], "InMemory", StringComparison.OrdinalIgnoreCase))
                 hangfire.UseInMemoryStorage();
             else if (DatabaseProvider.EngineOf(config) == DatabaseEngine.SqlServer)
-                hangfire.UseSqlServerStorage(config.GetConnectionString("DefaultConnection"));
+                hangfire.UseSqlServerStorage(DatabaseProvider.ConnectionString(config));
             else
-                hangfire.UsePostgreSqlStorage(config.GetConnectionString("DefaultConnection"));
+                hangfire.UsePostgreSqlStorage(DatabaseProvider.ConnectionString(config));
         });
         services.AddHangfireServer();
         return services;
