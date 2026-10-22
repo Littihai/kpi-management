@@ -16,12 +16,16 @@ public sealed record SetupConnection(string? Server, string? Database, string? A
     public string? Validate()
     {
         if (string.IsNullOrWhiteSpace(Server) || Server.Length > 200 || Server.Any(char.IsControl)) return "กรอกชื่อหรือที่อยู่ SQL Server";
-        if (string.IsNullOrWhiteSpace(Database) || Database.Trim().Length > 128 || Database.Any(c => !(char.IsLetterOrDigit(c) || c is '_' or '-' or '.')))
-            return "ชื่อฐานข้อมูลใช้ได้เฉพาะตัวอักษร ตัวเลข _ - และ .";
+        // the same rule the database is created under (the name is written into CREATE DATABASE)
+        if (!SqlServerProvisioner.IsValidDatabaseName(Database?.Trim()))
+            return "ชื่อฐานข้อมูลใช้ได้เฉพาะตัวอักษรอังกฤษ ตัวเลข _ - และ . (ไม่เกิน 128 ตัว)";
         if (!Windows && !string.Equals(Auth, "sql", StringComparison.OrdinalIgnoreCase)) return "เลือกวิธีล็อกอิน";
         if (!Windows && (string.IsNullOrWhiteSpace(User) || string.IsNullOrEmpty(Password))) return "กรอกชื่อผู้ใช้และรหัสผ่านของ SQL Server";
         return null;
     }
+
+    /// <summary>Who this is, for creating things on the server (the database, the application's own account).</summary>
+    public ServerAccess Access() => new(Server!.Trim(), Windows, User?.Trim(), Password, Trust);
 
     public string ConnectionString(int connectTimeoutSeconds = 10) =>
         DatabaseProvider.BuildSqlServer(Server!, Database!, Windows, User, Password, Trust, connectTimeoutSeconds);

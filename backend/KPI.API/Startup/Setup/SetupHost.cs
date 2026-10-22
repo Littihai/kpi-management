@@ -19,7 +19,14 @@ public sealed record SetupNeed(SetupReason Reason, string? Problem = null, strin
 public sealed class SetupState
 {
     public required SetupNeed Need { get; init; }
-    public required SetupKey Key { get; init; }
+    /// <summary>
+    /// Proves the person may change the server's settings. Null when nobody needs to prove it: on the server itself there is nothing to
+    /// prove (whoever can open a browser there can reach everything anyway), so a key exists only when one was configured (Setup:Key)
+    /// or when changes from other machines were allowed (Setup:AllowRemote).
+    /// </summary>
+    public SetupKey? Key { get; init; }
+    /// <summary>The key is asked for on the server itself too (it was set in the configuration on purpose).</summary>
+    public bool KeyForLocal { get; init; }
     public required IConfiguration Configuration { get; init; }
     public required string ConfigFile { get; init; }
     public bool AllowRemote { get; init; }
@@ -96,14 +103,17 @@ public static class SetupHost
     public static async Task<bool> RunAsync(WebApplicationBuilder builder, SetupNeed need, ILogger log, CancellationToken stopping)
     {
         var configFile = Path.GetFullPath(DatabaseConfigFile.PathFor(builder.Configuration, builder.Environment.ContentRootPath));
-        var key = SetupKey.Resolve(builder.Configuration, configFile);
+        var explicitKey = builder.Configuration["Setup:Key"] is { Length: >= 8 };
+        var allowRemote = string.Equals(builder.Configuration["Setup:AllowRemote"], "true", StringComparison.OrdinalIgnoreCase);
+        var key = explicitKey || allowRemote ? SetupKey.Resolve(builder.Configuration, configFile) : null;
         var state = new SetupState
         {
             Need = need,
             Key = key,
+            KeyForLocal = explicitKey,
             Configuration = builder.Configuration,
             ConfigFile = configFile,
-            AllowRemote = string.Equals(builder.Configuration["Setup:AllowRemote"], "true", StringComparison.OrdinalIgnoreCase),
+            AllowRemote = allowRemote,
             CanWriteConfig = DatabaseConfigFile.CanWrite(configFile),
         };
         builder.Services.AddSingleton(state);
@@ -113,7 +123,8 @@ public static class SetupHost
         SetupEndpoints.Map(app, state);
         app.UseFrontend();
 
-        if (key.File is not null) log.LogWarning("SETUP: the database is not ready ({Reason}). Open the site on this server and enter the setup key from {File}", need.Reason, key.File);
+        if (key is null) log.LogWarning("SETUP: the database is not ready ({Reason}). Open the site on this server and connect it to SQL Server", need.Reason);
+        else if (key.File is not null) log.LogWarning("SETUP: the database is not ready ({Reason}). Open the site and enter the setup key from {File}", need.Reason, key.File);
         else log.LogWarning("SETUP: the database is not ready ({Reason}). The setup key for this run is {Key}", need.Reason, key.Reveal());
         if (!state.CanWriteConfig) log.LogError("SETUP: the settings file {File} cannot be written; give the service account write access to its folder", configFile);
 
@@ -128,7 +139,7 @@ public static class SetupHost
         var completed = state.Completed.IsCompleted;
         await app.StopAsync(CancellationToken.None);
         await app.DisposeAsync();
-        if (completed) key.Discard();
+        if (completed) key?.Discard();
         return completed;
     }
 
@@ -183,7 +194,9 @@ public static class SetupEndpoints
                 remoteAllowed = state.AllowRemote,
                 canWriteConfig = state.CanWriteConfig,
                 jwtConfigured = !string.IsNullOrEmpty(state.Configuration["Jwt:Key"]),
-                keyFile = trusted ? state.Key.File : null,
+                keyRequired = state.Key is not null && (!IsLoopback(http) || state.KeyForLocal),
+                keyFile = trusted ? state.Key?.File : null,
+                machineLogin = SqlServerProvisioner.DefaultLoginName(),
                 current = trusted && DatabaseProvider.IsConfigured(state.Configuration) && !string.IsNullOrWhiteSpace(state.Configuration["Database:Server"])
                     ? new
                     {
@@ -197,20 +210,37 @@ public static class SetupEndpoints
             });
         });
 
-        app.MapPost("/api/setup/test", async (HttpContext http, SetupConnection connection, CancellationToken cancellationToken) =>
+        // Connect to the server (as sa, or the Windows account) and say what is there and what pressing "start" would do. Changes nothing.
+        app.MapPost("/api/setup/test", async (HttpContext http, SetupTestRequest request, CancellationToken cancellationToken) =>
         {
             if (Guard(http, state) is { } refused) return refused;
-            if (connection.Validate() is { } invalid) return json(new { error = "invalid", message = invalid }, 400);
-            await using var db = Context(connection.ConnectionString());
-            var report = await DatabaseDoctor.InspectAsync(db, cancellationToken);
+            var connection = request.Connection;
+            if (connection is null || connection.Validate() is { } invalid) return json(new { error = "invalid", message = connection?.Validate() ?? "กรอกข้อมูลการเชื่อมต่อ" }, 400);
+
+            var probe = await SqlServerProvisioner.ProbeAsync(connection.Access(), connection.Database!.Trim(), cancellationToken);
+            DatabaseReport? report = null;
+            SetupPlan? plan = null;
+            if (probe.Connected)
+            {
+                plan = Plan(connection, request.AppAccess, probe);
+                if (probe is { DatabaseExists: true, CanOpenDatabase: true })
+                {
+                    await using var db = Context(connection.ConnectionString());
+                    report = await DatabaseDoctor.InspectAsync(db, cancellationToken);
+                }
+            }
             return json(new
             {
+                server = probe,
                 report,
+                plan,
                 startupError = state.Need.Reason == SetupReason.StartupFailed ? state.Need.Message : null,
                 jwtConfigured = !string.IsNullOrEmpty(state.Configuration["Jwt:Key"]),
             }, 200);
         });
 
+        // Do it: create the database if it is not there (once, however many machines are set up against this server), give this machine
+        // an account of its own, create what is missing in the database, make the first administrator, remember the answer and start.
         app.MapPost("/api/setup/apply", async (HttpContext http, SetupApplyRequest request, ILoggerFactory loggers, CancellationToken cancellationToken) =>
         {
             if (Guard(http, state) is { } refused) return refused;
@@ -220,16 +250,48 @@ public static class SetupEndpoints
             if (!connection.Windows && string.IsNullOrEmpty(state.Configuration["Jwt:Key"]))
                 return json(new { error = "jwt-missing", message = "ยังไม่ได้ตั้งค่า Jwt__Key ของเซิร์ฟเวอร์ ตั้งค่านี้ก่อน (ใช้เข้ารหัสรหัสผ่านฐานข้อมูลที่บันทึก)" }, 400);
 
-            // the administrator is checked before the database is touched: a form that will be refused must change nothing
+            // the administrator is checked before the server is touched: a form that will be refused must change nothing
             if (request.Admin is { } asked && !string.IsNullOrWhiteSpace(asked.Email) && InvalidAdmin(asked) is { } wrong)
                 return json(new { error = "admin", message = wrong }, 400);
 
-            var connectionString = connection.ConnectionString();
-            await using var db = Context(connectionString);
-            var report = await DatabaseDoctor.InspectAsync(db, cancellationToken);
-            if (!report.Connected) return json(new { error = "not-connected", report }, 400);
+            var log = loggers.CreateLogger("Setup");
+            var database = connection.Database!.Trim();
+            var access = connection.Access();
+            var probe = await SqlServerProvisioner.ProbeAsync(access, database, cancellationToken);
+            if (!probe.Connected) return json(new { error = "not-connected", server = probe }, 400);
+            var plan = Plan(connection, request.AppAccess, probe);
+            if (plan.Blocker is { } blocker) return json(new { error = blocker, message = BlockerText(blocker, database), server = probe, plan }, 400);
 
             var done = new List<string>();
+            string? appUser = connection.User, appPassword = connection.Password;
+            try
+            {
+                if (plan.CreateDatabase)
+                {
+                    if (await SqlServerProvisioner.EnsureDatabaseAsync(access, database, cancellationToken)) { done.Add("create-database"); log.LogWarning("SETUP: created the database {Database} on {Server}", database, connection.Server); }
+                    else log.LogInformation("SETUP: the database {Database} was created by someone else a moment ago; using it", database);
+                }
+                if (plan.Access == "dedicated")
+                {
+                    var login = await SqlServerProvisioner.EnsureAppLoginAsync(access, database, plan.Login!, cancellationToken);
+                    appUser = login.Login;
+                    appPassword = login.Password;
+                    done.Add(login.Created ? "create-login" : "reset-login");
+                    log.LogWarning("SETUP: {Action} the SQL login {Login} for this machine (db_owner of {Database} only)", login.Created ? "created" : "reset the password of", login.Login, database);
+                }
+            }
+            catch (ProvisioningException ex)
+            {
+                return json(new { error = ex.Code, message = ex.Message, done }, 400);
+            }
+
+            // from here on the application's own account is used, which proves it works before anything is saved
+            var application = new SetupConnection(connection.Server, database, connection.Windows ? "windows" : "sql", appUser, appPassword, connection.Trust);
+            var connectionString = application.ConnectionString();
+            await using var db = Context(connectionString);
+            var report = await DatabaseDoctor.InspectAsync(db, cancellationToken);
+            if (!report.Connected) return json(new { error = "app-login-failed", message = "สร้างแล้ว แต่เชื่อมต่อด้วยบัญชีของโปรแกรมไม่ได้", report, done }, 400);
+
             if (request.Repair is { } repair)
             {
                 var result = await DatabaseDoctor.RepairAsync(db, repair, cancellationToken);
@@ -242,17 +304,17 @@ public static class SetupEndpoints
             {
                 var (code, message) = await CreateAdminAsync(connectionString, state.Configuration, wanted, cancellationToken);
                 admin = new { created = code == 0, code, message };
-                if (code is 3 or 2) return json(new { error = "admin", message, report }, 400);   // refused (e-mail or password): nothing saved yet
+                if (code is 3 or 2) return json(new { error = "admin", message, report, done }, 400);   // refused (e-mail or password): nothing saved yet
                 report = await DatabaseDoctor.InspectAsync(db, cancellationToken);
             }
 
-            string? protectedPassword = connection.Windows ? null : DatabaseConfigFile.Protect(state.Configuration, connection.Password!);
-            DatabaseConfigFile.Write(state.ConfigFile, connection, protectedPassword);
-            loggers.CreateLogger("Setup").LogWarning("SETUP: the database {Database} on {Server} was saved to {File}; starting the application", connection.Database, connection.Server, state.ConfigFile);
+            string? protectedPassword = application.Windows ? null : DatabaseConfigFile.Protect(state.Configuration, appPassword!);
+            DatabaseConfigFile.Write(state.ConfigFile, application, protectedPassword);
+            log.LogWarning("SETUP: the database {Database} on {Server} was saved to {File}; starting the application", database, connection.Server, state.ConfigFile);
 
             // answer first, then let the supervisor swap this page for the application
             _ = Task.Delay(1500, CancellationToken.None).ContinueWith(_ => state.Complete(), TaskScheduler.Default);
-            return json(new { saved = true, done, admin, report }, 200);
+            return json(new { saved = true, createdDatabase = done.Contains("create-database"), access = plan.Access, login = plan.Login, done, admin, report }, 200);
         });
 
         // anything else under /api: the application is not running yet
@@ -280,26 +342,55 @@ public static class SetupEndpoints
         return new AppDbContext(options.Options);
     }
 
-    private static bool IsTrusted(HttpContext http, SetupState state) =>
-        state.AllowRemote || IPAddress.IsLoopback(http.Connection.RemoteIpAddress ?? IPAddress.None);
+    private static bool IsLoopback(HttpContext http) => IPAddress.IsLoopback(http.Connection.RemoteIpAddress ?? IPAddress.None);
+
+    private static bool IsTrusted(HttpContext http, SetupState state) => state.AllowRemote || IsLoopback(http);
 
     private static IResult? Guard(HttpContext http, SetupState state)
     {
         if (!IsTrusted(http, state))
             return Results.Json(new { error = "local-only", message = "หน้านี้เปิดได้จากตัวเซิร์ฟเวอร์เท่านั้น (เปิดเว็บบนเครื่องเซิร์ฟเวอร์ด้วย http://localhost:พอร์ต)" }, statusCode: 403);
-        if (state.Key.BlockedFor() is { } wait)
+        // On the server itself there is nothing to prove unless a key was set on purpose; from anywhere else the key is needed.
+        if (state.Key is not { } key || (IsLoopback(http) && !state.KeyForLocal)) return null;
+        if (key.BlockedFor() is { } wait)
         {
             http.Response.Headers.RetryAfter = ((int)Math.Ceiling(wait.TotalSeconds)).ToString();
             return Results.Json(new { error = "too-many-attempts", message = "ใส่รหัสผิดหลายครั้ง รอสักครู่แล้วลองใหม่", retryAfterSeconds = (int)wait.TotalSeconds }, statusCode: 429);
         }
-        if (!state.Key.Matches(http.Request.Headers["X-Setup-Key"].ToString()))
+        if (!key.Matches(http.Request.Headers["X-Setup-Key"].ToString()))
         {
-            state.Key.RecordFailure();
+            key.RecordFailure();
             return Results.Json(new { error = "bad-key", message = "รหัสตั้งค่าไม่ถูกต้อง" }, statusCode: 401);
         }
-        state.Key.RecordSuccess();
+        key.RecordSuccess();
         return null;
     }
+
+    /// <summary>What pressing "start" would do on this server, and what stops it.</summary>
+    private static SetupPlan Plan(SetupConnection connection, SetupAppAccess? requested, ServerProbe probe)
+    {
+        var createDatabase = !probe.DatabaseExists;
+        var mode = (requested?.Mode ?? "auto").Trim().ToLowerInvariant();
+        var access = connection.Windows ? "windows"
+            : mode == "same" ? "same"
+            : mode == "dedicated" ? "dedicated"
+            : probe.CanCreateLogin ? "dedicated" : "same";
+        var login = access == "dedicated" ? (requested?.Login?.Trim() is { Length: > 0 } named ? named : SqlServerProvisioner.DefaultLoginName()) : null;
+        string? blocker =
+            createDatabase && !probe.CanCreateDatabase ? "no-permission-database"
+            : !createDatabase && !probe.CanOpenDatabase ? "no-access"
+            : access == "dedicated" && !probe.CanCreateLogin ? "no-permission-login"
+            : null;
+        return new SetupPlan(createDatabase, access, login, blocker);
+    }
+
+    private static string BlockerText(string blocker, string database) => blocker switch
+    {
+        "no-permission-database" => $"ฐานข้อมูล {database} ยังไม่มี และบัญชีนี้สร้างไม่ได้ ต้องเป็น sysadmin หรือมีบทบาท dbcreator (ใช้บัญชี sa หรือให้ผู้ดูแล SQL สร้างฐานข้อมูลนี้ไว้ก่อน)",
+        "no-access" => $"ฐานข้อมูล {database} มีอยู่แล้ว แต่บัญชีนี้เปิดไม่ได้ ให้ผู้ดูแล SQL เพิ่มบัญชีนี้เป็นผู้ใช้ของฐานข้อมูลนั้น หรือใช้บัญชี sa",
+        "no-permission-login" => "บัญชีนี้สร้างบัญชีสำหรับโปรแกรมไม่ได้ (ต้องเป็น sysadmin หรือ securityadmin) เลือก \"ใช้บัญชีนี้เป็นบัญชีของโปรแกรมด้วย\" หรือใช้บัญชี sa",
+        _ => "ทำต่อไม่ได้",
+    };
 
     /// <summary>The first administrator, made with the same rules and code as the create-admin command, on the database that was just chosen.</summary>
     private static async Task<(int Code, string Message)> CreateAdminAsync(string connectionString, IConfiguration config, SetupAdmin admin, CancellationToken cancellationToken)
@@ -334,4 +425,12 @@ public static class SetupEndpoints
     }
 }
 
-public sealed record SetupApplyRequest(SetupConnection? Connection, RepairRequest? Repair, SetupAdmin? Admin);
+/// <summary>Which account the application itself will use: "auto" (its own login when the account may create one), "dedicated", or "same" (the account typed in, kept encrypted in the settings).</summary>
+public sealed record SetupAppAccess(string? Mode, string? Login);
+
+public sealed record SetupTestRequest(SetupConnection? Connection, SetupAppAccess? AppAccess);
+
+public sealed record SetupApplyRequest(SetupConnection? Connection, RepairRequest? Repair, SetupAdmin? Admin, SetupAppAccess? AppAccess = null);
+
+/// <summary>What "start" will do: create the database (or find it), which account the application uses, and what, if anything, stops it.</summary>
+public sealed record SetupPlan(bool CreateDatabase, string Access, string? Login, string? Blocker);

@@ -51,7 +51,8 @@ public static class DatabaseProvider
 
     public static bool IsConfigured(IConfiguration config) => !string.IsNullOrWhiteSpace(ConnectionString(config));
 
-    private static string? WithoutBlocking(string? connection)
+    /// <summary>The connection string without SqlClient's pool blocking period, for a check that must not remember a failure.</summary>
+    public static string? QuickConnectionString(string? connection)
     {
         if (string.IsNullOrWhiteSpace(connection)) return connection;
         try { return new Microsoft.Data.SqlClient.SqlConnectionStringBuilder(connection) { PoolBlockingPeriod = Microsoft.Data.SqlClient.PoolBlockingPeriod.NeverBlock }.ConnectionString; }
@@ -88,7 +89,7 @@ public static class DatabaseProvider
         switch (EngineOf(config))
         {
             case DatabaseEngine.SqlServer:
-                options.UseSqlServer(quick ? WithoutBlocking(connection) : connection, sql =>
+                options.UseSqlServer(quick ? QuickConnectionString(connection) : connection, sql =>
                 {
                     sql.MigrationsAssembly(SqlServerMigrationsAssembly);
                     if (!quick) sql.EnableRetryOnFailure(maxRetryCount: 3);

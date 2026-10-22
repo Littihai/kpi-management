@@ -39,7 +39,7 @@ BEGIN
     IF SUSER_ID(N'$(AppLogin)') IS NULL
     BEGIN
         PRINT N'Creating login $(AppLogin)';
-        EXEC (N'CREATE LOGIN [$(AppLogin)] WITH PASSWORD = N''$(AppPassword)'', CHECK_POLICY = ON, DEFAULT_DATABASE = [$(DbName)]');
+        EXEC (N'CREATE LOGIN [$(AppLogin)] WITH PASSWORD = N''$(AppPassword)'', CHECK_POLICY = ON, CHECK_EXPIRATION = OFF, DEFAULT_DATABASE = [$(DbName)]');
     END
     ELSE
         PRINT N'Login $(AppLogin) already exists (its password is left as it is)';

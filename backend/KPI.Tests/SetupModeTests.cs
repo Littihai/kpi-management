@@ -442,12 +442,13 @@ internal sealed class SetupHarness : IAsyncDisposable
     public required SetupState State { get; init; }
     public required TempFolder Folder { get; init; }
 
-    public static async Task<SetupHarness> StartAsync(bool local = true, bool allowRemote = false, bool jwt = true, string? configFile = null, SetupNeed? need = null, Dictionary<string, string?>? more = null)
+    public static async Task<SetupHarness> StartAsync(bool local = true, bool allowRemote = false, bool jwt = true, string? configFile = null, SetupNeed? need = null, Dictionary<string, string?>? more = null, bool keyConfigured = true)
     {
         var folder = new TempFolder();
         var builder = WebApplication.CreateBuilder(new WebApplicationOptions { EnvironmentName = "Testing", ContentRootPath = folder.Path });
         builder.WebHost.UseTestServer();
-        var values = new Dictionary<string, string?> { ["Setup:Key"] = Key };
+        var values = new Dictionary<string, string?>();
+            if (keyConfigured) values["Setup:Key"] = Key;
         if (jwt) values["Jwt:Key"] = JwtKey;
         foreach (var pair in more ?? []) values[pair.Key] = pair.Value;
         builder.Configuration.AddInMemoryCollection(values);
@@ -456,7 +457,8 @@ internal sealed class SetupHarness : IAsyncDisposable
         var state = new SetupState
         {
             Need = need ?? new SetupNeed(SetupReason.NotConfigured),
-            Key = SetupKey.Resolve(builder.Configuration, file),
+            Key = keyConfigured || allowRemote ? SetupKey.Resolve(builder.Configuration, file) : null,
+            KeyForLocal = keyConfigured,
             Configuration = builder.Configuration,
             ConfigFile = file,
             AllowRemote = allowRemote,
@@ -590,7 +592,7 @@ public class SetupEndpointsTests
             using var response = await h.Client.GetAsync(url);
             Assert.Equal("*", Assert.Single(response.Headers.GetValues("Access-Control-Allow-Origin")));
         }
-        using var test = await h.Client.PostAsJsonAsync("/api/setup/test", Windows());
+        using var test = await h.Client.PostAsJsonAsync("/api/setup/test", new { connection = Windows() });
         Assert.False(test.Headers.Contains("Access-Control-Allow-Origin"));
     }
 
@@ -600,7 +602,7 @@ public class SetupEndpointsTests
         await using var h = await SetupHarness.StartAsync(local: false);
 
         var status = await h.Client.GetAsync("/api/setup/status");
-        var test = await h.PostAsync("/api/setup/test", Windows());
+        var test = await h.PostAsync("/api/setup/test", new { connection = Windows() });
         var apply = await h.PostAsync("/api/setup/apply", new { connection = Windows() });
 
         Assert.Equal(HttpStatusCode.OK, status.StatusCode);
@@ -614,7 +616,7 @@ public class SetupEndpointsTests
     {
         await using var h = await SetupHarness.StartAsync(local: false, allowRemote: true);
 
-        var test = await h.PostAsync("/api/setup/test", Windows(server: "", database: "x"));
+        var test = await h.PostAsync("/api/setup/test", new { connection = Windows(server: "", database: "x") });
 
         Assert.Equal(HttpStatusCode.BadRequest, test.Status);   // got past the guard: it is the form that is wrong
     }
@@ -624,8 +626,8 @@ public class SetupEndpointsTests
     {
         await using var h = await SetupHarness.StartAsync();
 
-        var none = await h.PostAsync("/api/setup/test", Windows(), key: null);
-        var wrong = await h.PostAsync("/api/setup/test", Windows(), key: "not-the-key");
+        var none = await h.PostAsync("/api/setup/test", new { connection = Windows() }, key: null);
+        var wrong = await h.PostAsync("/api/setup/test", new { connection = Windows() }, key: "not-the-key");
         var apply = await h.PostAsync("/api/setup/apply", new { connection = Windows() }, key: "not-the-key");
 
         Assert.Equal(HttpStatusCode.Unauthorized, none.Status);
@@ -640,8 +642,8 @@ public class SetupEndpointsTests
     {
         await using var h = await SetupHarness.StartAsync();
 
-        for (var i = 0; i < SetupKey.MaxFailures; i++) await h.PostAsync("/api/setup/test", Windows(), key: "guess-" + i);
-        var afterwards = await h.PostAsync("/api/setup/test", Windows());
+        for (var i = 0; i < SetupKey.MaxFailures; i++) await h.PostAsync("/api/setup/test", new { connection = Windows() }, key: "guess-" + i);
+        var afterwards = await h.PostAsync("/api/setup/test", new { connection = Windows() });
 
         Assert.Equal(HttpStatusCode.TooManyRequests, afterwards.Status);
         Assert.Equal("too-many-attempts", afterwards.Body.GetProperty("error").GetString());
@@ -651,6 +653,7 @@ public class SetupEndpointsTests
     [InlineData("", "helpdesk", "windows", null, null)]
     [InlineData("srv", "", "windows", null, null)]
     [InlineData("srv", "bad name;drop", "windows", null, null)]
+    [InlineData("srv", "ฐานข้อมูล", "windows", null, null)]
     [InlineData("srv", "helpdesk", "kerberos", null, null)]
     [InlineData("srv", "helpdesk", "sql", "sa", null)]
     [InlineData("srv", "helpdesk", "sql", null, "pw")]
@@ -658,7 +661,7 @@ public class SetupEndpointsTests
     {
         await using var h = await SetupHarness.StartAsync();
 
-        var response = await h.PostAsync("/api/setup/test", new { server, database, auth, user, password });
+        var response = await h.PostAsync("/api/setup/test", new { connection = new { server, database, auth, user, password } });
 
         Assert.Equal(HttpStatusCode.BadRequest, response.Status);
         Assert.Equal("invalid", response.Body.GetProperty("error").GetString());
@@ -670,12 +673,13 @@ public class SetupEndpointsTests
     {
         await using var h = await SetupHarness.StartAsync();
 
-        var response = await h.PostAsync("/api/setup/test", Windows());
+        var response = await h.PostAsync("/api/setup/test", new { connection = Windows() });
 
         Assert.Equal(HttpStatusCode.OK, response.Status);
-        var report = response.Body.GetProperty("report");
-        Assert.False(report.GetProperty("connected").GetBoolean());
-        Assert.Equal("unreachable", report.GetProperty("connectionProblem").GetString());
+        var server = response.Body.GetProperty("server");
+        Assert.False(server.GetProperty("connected").GetBoolean());
+        Assert.Equal("unreachable", server.GetProperty("problem").GetString());
+        Assert.Equal(JsonValueKind.Null, response.Body.GetProperty("report").ValueKind);
     }
 
     [Fact]
@@ -776,19 +780,21 @@ public class SetupLiveTests
     };
 
     [Fact]
-    public async Task A_database_that_has_not_been_created_yet_is_told_apart_from_a_server_that_is_down()
+    public async Task A_database_that_does_not_exist_yet_is_told_apart_from_a_server_that_is_down_and_will_be_created()
     {
         if (Server is null) return;
         await WithServerAsync(createDatabase: false, async (name, server) =>
         {
             await using var h = await SetupHarness.StartAsync();
 
-            var result = await h.PostAsync("/api/setup/test", Form(name, server));
+            var result = await h.PostAsync("/api/setup/test", new { connection = Form(name, server) });
 
             Assert.Equal(HttpStatusCode.OK, result.Status);
-            var report = result.Body.GetProperty("report");
-            Assert.False(report.GetProperty("connected").GetBoolean());
-            Assert.Equal("no-database", report.GetProperty("connectionProblem").GetString());
+            var serverPart = result.Body.GetProperty("server");
+            Assert.True(serverPart.GetProperty("connected").GetBoolean());
+            Assert.False(serverPart.GetProperty("databaseExists").GetBoolean());
+            Assert.Equal(JsonValueKind.Null, result.Body.GetProperty("report").ValueKind);   // nothing to inspect yet
+            Assert.True(result.Body.GetProperty("plan").GetProperty("createDatabase").GetBoolean());
         });
     }
 
@@ -801,16 +807,17 @@ public class SetupLiveTests
             await using var h = await SetupHarness.StartAsync();
             var watch = System.Diagnostics.Stopwatch.StartNew();
 
-            var before = await h.PostAsync("/api/setup/test", Form(name, server));
+            var before = await h.PostAsync("/api/setup/test", new { connection = Form(name, server) });
 
-            Assert.Equal("no-database", before.Body.GetProperty("report").GetProperty("connectionProblem").GetString());
+            Assert.False(before.Body.GetProperty("server").GetProperty("databaseExists").GetBoolean());
             Assert.True(watch.Elapsed < TimeSpan.FromSeconds(3), $"took {watch.Elapsed}: a missing database must not be retried for seconds");
 
             // the administrator creates it (with the script, in SSMS) and presses Test again straight away
             await ExecuteAsync(new SqlConnectionStringBuilder(Server!) { InitialCatalog = "master" }.ConnectionString, $"CREATE DATABASE [{name}] COLLATE Thai_CI_AS");
-            var after = await h.PostAsync("/api/setup/test", Form(name, server));
+            var after = await h.PostAsync("/api/setup/test", new { connection = Form(name, server) });
 
-            Assert.True(after.Body.GetProperty("report").GetProperty("connected").GetBoolean(), "the failed attempt must not be remembered by the connection pool");
+            Assert.True(after.Body.GetProperty("server").GetProperty("databaseExists").GetBoolean());
+            Assert.True(after.Body.GetProperty("report").GetProperty("connected").GetBoolean(), "the earlier answer must not be remembered by the connection pool");
         });
     }
 
@@ -822,7 +829,7 @@ public class SetupLiveTests
         {
             await using var h = await SetupHarness.StartAsync();
 
-            var result = await h.PostAsync("/api/setup/test", Form(name, server));
+            var result = await h.PostAsync("/api/setup/test", new { connection = Form(name, server) });
 
             var report = result.Body.GetProperty("report");
             Assert.True(report.GetProperty("connected").GetBoolean());
@@ -841,7 +848,7 @@ public class SetupLiveTests
 
             var result = await h.PostAsync("/api/setup/apply", new
             {
-                connection = Form(name, server),
+                connection = Form(name, server), appAccess = new { mode = "same" },
                 repair = new { applyMigrations = true, createMissingObjects = true, seed = true },
                 admin = new { email = "Boss@Company.th", firstName = "Boss", lastName = "Wizard", password = AdminPassword },
             });
@@ -886,13 +893,13 @@ public class SetupLiveTests
 
             var badEmail = await h.PostAsync("/api/setup/apply", new
             {
-                connection = Form(name, server),
+                connection = Form(name, server), appAccess = new { mode = "same" },
                 repair = new { applyMigrations = true, createMissingObjects = true, seed = true },
                 admin = new { email = "not-an-address", firstName = "Boss", lastName = "", password = AdminPassword },
             });
             var weakPassword = await h.PostAsync("/api/setup/apply", new
             {
-                connection = Form(name, server),
+                connection = Form(name, server), appAccess = new { mode = "same" },
                 repair = new { applyMigrations = true, createMissingObjects = true, seed = true },
                 admin = new { email = "boss@company.th", firstName = "Boss", lastName = "", password = "short" },
             });
@@ -913,9 +920,9 @@ public class SetupLiveTests
         {
             await using var h = await SetupHarness.StartAsync();
             var repair = new { applyMigrations = true, createMissingObjects = true, seed = true };
-            await h.PostAsync("/api/setup/apply", new { connection = Form(name, server), repair, admin = new { email = "first@company.th", firstName = "First", lastName = "", password = AdminPassword } });
+            await h.PostAsync("/api/setup/apply", new { connection = Form(name, server), appAccess = new { mode = "same" }, repair, admin = new { email = "first@company.th", firstName = "First", lastName = "", password = AdminPassword } });
 
-            var again = await h.PostAsync("/api/setup/apply", new { connection = Form(name, server), repair, admin = new { email = "second@company.th", firstName = "Second", lastName = "", password = AdminPassword } });
+            var again = await h.PostAsync("/api/setup/apply", new { connection = Form(name, server), appAccess = new { mode = "same" }, repair, admin = new { email = "second@company.th", firstName = "Second", lastName = "", password = AdminPassword } });
 
             Assert.Equal(HttpStatusCode.OK, again.Status);
             Assert.Equal(JsonValueKind.Null, again.Body.GetProperty("admin").ValueKind);
