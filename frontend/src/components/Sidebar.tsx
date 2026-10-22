@@ -1,5 +1,6 @@
 import { NavLink, useNavigate } from 'react-router-dom'
 import { useAuthStore } from '../stores/authStore'
+import BrandName from './BrandName'
 import ConnectionStatus from './ConnectionStatus'
 import { Avatar } from './ui/Layout'
 import { roleLabel } from '../utils/labels'
@@ -25,7 +26,7 @@ export default function Sidebar({ onNavigate, showAccount = false, rail = false 
         <span className="flex h-[30px] w-[30px] items-center justify-center rounded-lg bg-accent text-on-accent" aria-hidden="true">
           <i className="ti ti-chart-donut-3 text-lg" />
         </span>
-        {!rail && <p className="min-w-0 truncate text-base font-bold tracking-tight text-ink">Helpdesk</p>}
+        {!rail && <BrandName className="block min-w-0 truncate text-base font-bold tracking-tight text-ink" />}
       </div>
 
       <nav aria-label="เมนูหลัก" className={`flex-1 overflow-y-auto py-2 ${rail ? 'px-2' : 'px-2.5'}`}>

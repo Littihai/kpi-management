@@ -4,12 +4,14 @@ import Button from '../ui/Button'
 import { Card } from '../ui/Card'
 import { Alert, EmptyState, Segmented, Skeleton } from '../ui/Layout'
 import Modal from '../ui/Modal'
+import { refreshBrand } from '../../lib/brand'
 import { settingsService, type SettingHistoryRow, type SettingRow } from '../../services/settings.service'
 import { useCan } from '../../stores/authStore'
 import { apiError } from '../../utils/errors'
 import { formatDateTime } from '../../utils/format'
 
 const ALL = '__all__'
+const COMPANY_NAME_KEY = 'org.companyName'
 
 const display = (row: SettingRow, value: string) =>
   row.kind === 'bool' ? (value === 'true' ? 'เปิด' : 'ปิด') : `${value}${row.unit ? ' ' + row.unit : ''}`
@@ -76,6 +78,7 @@ export default function SystemSection() {
     setSaving(false)
     if (failures.length) setError(failures.join(' · '))
     if (saved) setNotice(`บันทึกแล้ว ${saved} รายการ มีผลทันที`)
+    if (dirty.some((r) => r.key === COMPANY_NAME_KEY)) void refreshBrand()   // the name shows in this window at once
   }
 
   const reset = async (r: SettingRow) => {
@@ -86,6 +89,7 @@ export default function SystemSection() {
       setRows((list) => list?.map((x) => (x.key === r.key ? updated : x)) ?? list)
       setDraft((d) => { const next = { ...d }; delete next[r.key]; return next })
       setNotice(`คืนค่าเริ่มต้นของ "${r.label}" แล้ว`)
+      if (r.key === COMPANY_NAME_KEY) void refreshBrand()
     } catch (err) {
       setError(apiError(err, 'คืนค่าเริ่มต้นไม่สำเร็จ'))
     } finally {
@@ -161,9 +165,10 @@ export default function SystemSection() {
                         ) : (
                           <label className="flex items-center gap-2 text-[13px] text-ink-2">
                             <input type={r.kind === 'number' ? 'number' : 'text'} inputMode={r.kind === 'number' ? 'decimal' : undefined}
-                              min={r.min ?? undefined} max={r.max ?? undefined} step="any" value={value} disabled={!canManage || saving}
+                              min={r.kind === 'number' ? r.min ?? undefined : undefined} max={r.kind === 'number' ? r.max ?? undefined : undefined}
+                              maxLength={r.kind === 'text' ? r.max ?? undefined : undefined} step="any" value={value} disabled={!canManage || saving}
                               aria-label={r.label} onChange={(e) => setValue(r, e.target.value)}
-                              className={`h-9 w-28 rounded-control border bg-card px-3 text-right text-[13px] tabular ${changed ? 'border-accent' : 'border-line-strong'}`} />
+                              className={`h-9 rounded-control border bg-card px-3 text-[13px] tabular ${r.kind === 'text' ? 'w-64 max-w-full text-left' : 'w-28 text-right'} ${changed ? 'border-accent' : 'border-line-strong'}`} />
                             {r.unit}
                           </label>
                         )}

@@ -4,6 +4,7 @@ import AppShell from './components/AppShell'
 import UpdateBanner from './components/UpdateBanner'
 import ProtectedRoute, { RequirePermission } from './components/ProtectedRoute'
 import { Page, PageSkeleton } from './components/ui/Layout'
+import BrandLoader from './components/BrandLoader'
 import PasswordGate from './components/PasswordGate'
 import SetupGate from './components/SetupGate'
 import SettingsWindow from './components/settings/SettingsWindow'
@@ -76,6 +77,7 @@ export default function App() {
       <SetupGate>
         <AppRoutes />
       </SetupGate>
+      <BrandLoader />
       <UpdateBanner />
     </BrowserRouter>
   )

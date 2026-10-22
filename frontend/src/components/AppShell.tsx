@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { Link, Outlet, useLocation } from 'react-router-dom'
 import Sidebar from './Sidebar'
+import BrandName from './BrandName'
 import TopNav from './TopNav'
 import AccountMenu from './AccountMenu'
 import SidebarToggle from './SidebarToggle'
@@ -91,7 +92,7 @@ export default function AppShell() {
           <span className="ml-1 flex h-[30px] w-[30px] items-center justify-center rounded-lg bg-accent text-on-accent" aria-hidden="true">
             <i className="ti ti-chart-donut-3" />
           </span>
-          <span className="ml-1.5 min-w-0 flex-1 truncate text-base font-bold tracking-tight text-ink">Helpdesk</span>
+          <BrandName className="ml-1.5 min-w-0 flex-1 truncate text-base font-bold tracking-tight text-ink" />
           <BarButtons />
         </header>
 
@@ -114,7 +115,7 @@ export default function AppShell() {
                   <span className="flex h-[30px] w-[30px] items-center justify-center rounded-lg bg-accent text-on-accent" aria-hidden="true">
                     <i className="ti ti-chart-donut-3 text-lg" />
                   </span>
-                  <span className="text-base font-bold tracking-tight text-ink">Helpdesk</span>
+                  <BrandName className="text-base font-bold tracking-tight text-ink" />
                 </span>
               )}
               <ConnectionStatus />

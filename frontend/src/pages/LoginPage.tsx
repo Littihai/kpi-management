@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
+import BrandName from '../components/BrandName'
 import Button from '../components/ui/Button'
 import { TextInput } from '../components/ui/Field'
 import { Alert } from '../components/ui/Layout'
@@ -50,7 +51,7 @@ export default function LoginPage() {
           <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-accent" aria-hidden="true">
             <i className="ti ti-chart-donut-3 text-2xl" />
           </span>
-          <span className="text-lg font-semibold">Helpdesk</span>
+          <BrandName className="text-lg font-semibold" />
         </div>
 
         <div>
@@ -83,7 +84,7 @@ export default function LoginPage() {
             <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-accent text-on-accent" aria-hidden="true">
               <i className="ti ti-chart-donut-3 text-2xl" />
             </span>
-            <span className="text-lg font-semibold">Helpdesk</span>
+            <BrandName className="text-lg font-semibold" />
           </div>
 
           <h2 className="text-2xl font-semibold">เข้าสู่ระบบ</h2>

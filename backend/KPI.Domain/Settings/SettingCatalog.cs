@@ -33,6 +33,7 @@ public sealed record SettingDefinition(
 /// </summary>
 public static class SettingCatalog
 {
+    public const string CategoryOrganization = "องค์กร";
     public const string CategorySla = "เป้าหมายเวลา (SLA)";
     public const string CategoryIssues = "การแจ้งปัญหา";
     public const string CategoryEmail = "อีเมล";
@@ -42,6 +43,7 @@ public static class SettingCatalog
 
     public static class Keys
     {
+        public const string CompanyName = "org.companyName";
         public const string FirstResponseHours = "sla.firstResponseHours";
         public const string ResolveHoursCritical = "sla.resolveHours.critical";
         public const string ResolveHoursHigh = "sla.resolveHours.high";
@@ -77,6 +79,9 @@ public static class SettingCatalog
 
     public static readonly IReadOnlyList<SettingDefinition> All =
     [
+        new(Keys.CompanyName, SettingType.Text, CategoryOrganization, "ชื่อองค์กร",
+            "แสดงบนหน้าเข้าสู่ระบบ แถบด้านข้าง ชื่อหน้าต่าง และอีเมลทดสอบ เว้นว่างไว้เพื่อใช้ชื่อที่ตั้งตอนติดตั้ง (ถ้ามี) หรือคำว่า Helpdesk", "", Max: 80),
+
         new(Keys.FirstResponseHours, SettingType.Number, CategorySla, "ตอบรับครั้งแรกภายใน",
             "เวลาที่ทีม IT ต้องรับเรื่องหรือตอบผู้แจ้งครั้งแรก นับจากเวลาที่แจ้ง (ชั่วโมงตามปฏิทิน)", "2", 0.25, 168, "ชั่วโมง"),
         new(Keys.ResolveHoursCritical, SettingType.Number, CategorySla, "แก้ไขเรื่องวิกฤตภายใน",
@@ -159,7 +164,9 @@ public static class SettingCatalog
                     throw new RequestValidationException($"ค่าต้องอยู่ระหว่าง {definition.Min:0.##} ถึง {definition.Max:0.##}");
                 return number.ToString("0.####", CultureInfo.InvariantCulture);
             default:
-                if (value.Length > 200) throw new RequestValidationException("ค่ายาวเกินไป");
+                if (value.Length > (definition.Max is { } limit ? (int)limit : 200)) throw new RequestValidationException("ค่ายาวเกินไป");
+                // a name or address is one line; a secret may hold anything
+                if (!definition.Sensitive && value.Any(char.IsControl)) throw new RequestValidationException("ใส่ได้เฉพาะข้อความบรรทัดเดียว");
                 if (definition.Options is { } options && !options.Any(o => o.Value == value))
                     throw new RequestValidationException("เลือกได้เฉพาะตัวเลือกที่กำหนด");
                 if (value.Length > 0)

@@ -24,9 +24,13 @@ public class EmailService : IEmailService
         await SendAsync(new OutgoingMail(message.ToEmail, IssueEmailTemplates.SingleLine(subject), html), cancellationToken);
     }
 
-    public Task SendTestAsync(string toEmail, CancellationToken cancellationToken = default) =>
-        SendAsync(new OutgoingMail(toEmail, "ทดสอบการส่งอีเมลจาก Helpdesk",
-            "<p>นี่คืออีเมลทดสอบจากระบบ Helpdesk</p><p>ถ้าคุณเห็นข้อความนี้ แสดงว่าการตั้งค่าอีเมลใช้งานได้</p>"), cancellationToken);
+    public async Task SendTestAsync(string toEmail, CancellationToken cancellationToken = default)
+    {
+        var company = (await _settings.GetAsync(SettingCatalog.Keys.CompanyName)).Trim();
+        var system = company.Length > 0 ? $"Helpdesk {company}" : "Helpdesk";
+        await SendAsync(new OutgoingMail(toEmail, $"ทดสอบการส่งอีเมลจาก {system}",
+            $"<p>นี่คืออีเมลทดสอบจากระบบ {System.Net.WebUtility.HtmlEncode(system)}</p><p>ถ้าคุณเห็นข้อความนี้ แสดงว่าการตั้งค่าอีเมลใช้งานได้</p>"), cancellationToken);
+    }
 
     private async Task SendAsync(OutgoingMail mail, CancellationToken cancellationToken)
     {
