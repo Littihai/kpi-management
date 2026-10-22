@@ -1,10 +1,9 @@
 import axios from 'axios'
+import { currentServerUrl } from '../lib/server'
 
-// VITE_API_URL overrides everything. Without it, `npm run dev` talks to the local
-// API and production builds fall back to the deployed Render API.
-const API_URL =
-  import.meta.env.VITE_API_URL ??
-  (import.meta.env.DEV ? 'http://localhost:5079' : 'https://kpi-management-p20d.onrender.com')
+// Which server to talk to is decided in lib/server.ts: the address chosen on this device, else the one the company's IT
+// set for the Windows app, else VITE_API_URL given at build time, else the local API (dev) or our hosted API.
+const API_URL = currentServerUrl()
 
 const api = axios.create({
   baseURL: API_URL,

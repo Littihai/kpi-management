@@ -3,6 +3,25 @@ const path = require('node:path')
 const fs = require('node:fs')
 const { pathToFileURL } = require('node:url')
 
+// The server the company's IT wants this computer to use (optional): the HELPDESK_SERVER_URL environment variable, or
+// the first line of %ProgramData%\Helpdesk\server.txt (it survives app updates). A person can still choose another.
+function validServerUrl(text) {
+  try {
+    const url = new URL(String(text || '').trim())
+    if (!/^https?:$/.test(url.protocol) || (url.pathname !== '/' && url.pathname !== '') || url.search || url.hash || url.username) return null
+    return url.origin
+  } catch { return null }
+}
+
+function defaultServerUrl() {
+  const fromEnv = validServerUrl(process.env.HELPDESK_SERVER_URL)
+  if (fromEnv) return fromEnv
+  try {
+    const file = path.join(process.env.ProgramData || 'C:\\ProgramData', 'Helpdesk', 'server.txt')
+    return validServerUrl(fs.readFileSync(file, 'utf8').split(/\r?\n/)[0])
+  } catch { return null }
+}
+
 // The web build is served from app://local/ so absolute asset paths, the router and
 // localStorage behave exactly as on a website (file:// would break all three).
 const SCHEME = 'app'
@@ -42,7 +61,7 @@ function createWindow() {
       nodeIntegration: false,
       sandbox: true,
       preload: path.join(__dirname, 'preload.cjs'),
-      additionalArguments: [`--desktop-version=${app.getVersion()}`],
+      additionalArguments: [`--desktop-version=${app.getVersion()}`, ...(defaultServerUrl() ? [`--helpdesk-server=${defaultServerUrl()}`] : [])],
     },
   })
   Menu.setApplicationMenu(null)

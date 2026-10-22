@@ -4,6 +4,8 @@ import Button from '../components/ui/Button'
 import { TextInput } from '../components/ui/Field'
 import { Alert } from '../components/ui/Layout'
 import { authService } from '../services/auth.service'
+import ServerAddressDialog from '../components/ServerAddressDialog'
+import { currentServerUrl, describeServer, serverChoiceAllowed } from '../lib/server'
 import { useAuthStore } from '../stores/authStore'
 import { apiError } from '../utils/errors'
 
@@ -15,6 +17,7 @@ export default function LoginPage() {
   const [showPassword, setShowPassword] = useState(false)
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
+  const [serverOpen, setServerOpen] = useState(false)
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -105,6 +108,14 @@ export default function LoginPage() {
             <Button type="submit" variant="primary" size="lg" loading={loading} className="w-full">เข้าสู่ระบบ</Button>
           </form>
 
+          {serverChoiceAllowed() && (
+            <p className="mt-6 flex flex-wrap items-center gap-x-2 text-[13px] text-ink-3">
+              <i className="ti ti-server text-base" aria-hidden="true" />
+              <span>เซิร์ฟเวอร์: <span className="font-medium text-ink-2" data-testid="server-address">{describeServer(currentServerUrl())}</span></span>
+              <button type="button" onClick={() => setServerOpen(true)} className="font-medium text-accent hover:underline">เปลี่ยน</button>
+            </p>
+          )}
+
           <div className="mt-8 rounded-card border border-line bg-card p-4 text-sm">
             <p className="flex items-center gap-2 font-medium"><i className="ti ti-lifebuoy text-lg text-accent" aria-hidden="true" />เข้าสู่ระบบไม่ได้?</p>
             <p className="mt-1 text-ink-2">ลืมรหัสผ่านหรือบัญชีถูกล็อก แจ้งทีม IT ได้โดยไม่ต้องเข้าสู่ระบบ</p>
@@ -114,6 +125,7 @@ export default function LoginPage() {
           </div>
         </div>
       </main>
+      {serverOpen && <ServerAddressDialog open onClose={() => setServerOpen(false)} />}
     </div>
   )
 }
