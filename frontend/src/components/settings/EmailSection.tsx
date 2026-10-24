@@ -3,6 +3,7 @@ import Button from '../ui/Button'
 import { Card, CardHeader } from '../ui/Card'
 import { SelectInput, TextInput } from '../ui/Field'
 import { Alert, Skeleton } from '../ui/Layout'
+import { SwitchLine } from '../ui/SettingLine'
 import { settingsService, type SettingRow } from '../../services/settings.service'
 import { useAuthStore, useCan } from '../../stores/authStore'
 import { apiError } from '../../utils/errors'
@@ -131,11 +132,8 @@ export default function EmailSection() {
       <Card>
         <CardHeader eyebrow="การส่ง" title="ช่องทางส่งอีเมล" />
         <div className="space-y-4 px-5 pb-5 pt-4">
-          <label className="flex items-start gap-3 text-[13px] text-ink">
-            <input type="checkbox" className="mt-0.5 h-4 w-4 accent-[var(--lt-accent)]" disabled={!canManage || saving}
-              checked={value(KEYS.enabled) === 'true'} onChange={(e) => set(KEYS.enabled, e.target.checked ? 'true' : 'false')} />
-            <span>ส่งอีเมลแจ้งเตือน<span className="block text-xs text-ink-3">{rows[KEYS.enabled].description}</span></span>
-          </label>
+          <SwitchLine title="ส่งอีเมลแจ้งเตือน" desc={rows[KEYS.enabled].description} disabled={!canManage || saving}
+            checked={value(KEYS.enabled) === 'true'} onChange={(on) => set(KEYS.enabled, on ? 'true' : 'false')} />
           <SelectInput label="ช่องทางที่ใช้ส่ง" options={optionsOf(KEYS.provider)} hint={rows[KEYS.provider].description} {...field(KEYS.provider)} />
           {provider === 'resend' && (
             <Alert tone="info">Resend ใช้คีย์และที่อยู่ผู้ส่งที่ตั้งไว้ที่เซิร์ฟเวอร์ (Resend__ApiKey, Resend__From) แก้ไขจากหน้านี้ไม่ได้ ถ้าต้องการใช้เซิร์ฟเวอร์อีเมลขององค์กร ให้กรอก SMTP ด้านล่างแล้วเลือกช่องทาง SMTP</Alert>

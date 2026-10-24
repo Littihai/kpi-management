@@ -4,6 +4,7 @@ import Button from '../ui/Button'
 import { Card } from '../ui/Card'
 import { Alert, EmptyState, Segmented, Skeleton } from '../ui/Layout'
 import Modal from '../ui/Modal'
+import Switch from '../ui/Switch'
 import { refreshBrand } from '../../lib/brand'
 import { settingsService, type SettingHistoryRow, type SettingRow } from '../../services/settings.service'
 import { useCan } from '../../stores/authStore'
@@ -157,11 +158,11 @@ export default function SystemSection() {
                       </div>
                       <div className="flex items-center gap-2">
                         {r.kind === 'bool' ? (
-                          <label className="flex items-center gap-2 text-[13px] text-ink">
-                            <input type="checkbox" className="h-4 w-4 accent-[var(--lt-accent)]" disabled={!canManage || saving}
-                              checked={value === 'true'} onChange={(e) => setValue(r, e.target.checked ? 'true' : 'false')} />
-                            {value === 'true' ? 'เปิด' : 'ปิด'}
-                          </label>
+                          <div className="flex items-center gap-2 text-[13px] text-ink">
+                            <Switch label={r.label} disabled={!canManage || saving} checked={value === 'true'}
+                              onChange={(on) => setValue(r, on ? 'true' : 'false')} />
+                            <span aria-hidden="true" className="w-7">{value === 'true' ? 'เปิด' : 'ปิด'}</span>
+                          </div>
                         ) : (
                           <label className="flex items-center gap-2 text-[13px] text-ink-2">
                             <input type={r.kind === 'number' ? 'number' : 'text'} inputMode={r.kind === 'number' ? 'decimal' : undefined}
