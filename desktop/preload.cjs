@@ -5,6 +5,11 @@ const CH_STATE = 'desktop:update-state'
 const CH_GET = 'desktop:get-update-state'
 const CH_CHECK = 'desktop:check-for-updates'
 const CH_RESTART = 'desktop:restart-to-update'
+const CH_CRED_AVAILABLE = 'desktop:credentials:available'
+const CH_CRED_GET = 'desktop:credentials:get'
+const CH_CRED_SAVE = 'desktop:credentials:save'
+const CH_CRED_UPDATE = 'desktop:credentials:update-password'
+const CH_CRED_FORGET = 'desktop:credentials:forget'
 
 const arg = process.argv.find((a) => a.startsWith('--desktop-version='))
 const version = arg ? arg.slice('--desktop-version='.length) : '0.0.0'
@@ -18,6 +23,14 @@ contextBridge.exposeInMainWorld('desktop', {
   defaultServerUrl,
   checkForUpdates: () => ipcRenderer.invoke(CH_CHECK),
   restartToUpdate: () => ipcRenderer.send(CH_RESTART),
+  /** The sign-in this computer was asked to remember, encrypted with the Windows account. One entry per server address. */
+  credentials: {
+    available: () => ipcRenderer.invoke(CH_CRED_AVAILABLE),
+    get: (server) => ipcRenderer.invoke(CH_CRED_GET, server),
+    save: (server, email, password) => ipcRenderer.invoke(CH_CRED_SAVE, server, email, password),
+    updatePassword: (server, email, password) => ipcRenderer.invoke(CH_CRED_UPDATE, server, email, password),
+    forget: (server) => ipcRenderer.invoke(CH_CRED_FORGET, server),
+  },
   /** Calls cb with the current state now and on every change; returns an unsubscribe function. */
   onUpdateState: (cb) => {
     if (typeof cb !== 'function') return () => {}

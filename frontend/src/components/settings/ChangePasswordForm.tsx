@@ -2,7 +2,9 @@ import { useEffect, useState } from 'react'
 import Button from '../ui/Button'
 import { TextInput } from '../ui/Field'
 import { Alert } from '../ui/Layout'
+import { updateRememberedPassword } from '../../lib/rememberLogin'
 import { authService, type PasswordPolicy } from '../../services/auth.service'
+import { useAuthStore } from '../../stores/authStore'
 import { apiError } from '../../utils/errors'
 import { checkPassword } from './passwordRules'
 
@@ -10,6 +12,7 @@ const FALLBACK: PasswordPolicy = { minLength: 8, requireUpper: false, requireLow
 
 /** Current password, new password twice, and a live checklist of what the policy asks for. */
 export default function ChangePasswordForm({ onChanged }: { onChanged: () => void }) {
+  const email = useAuthStore((s) => s.user?.email)
   const [policy, setPolicy] = useState<PasswordPolicy>(FALLBACK)
   const [form, setForm] = useState({ current: '', next: '', confirm: '' })
   const [saving, setSaving] = useState(false)
@@ -31,6 +34,8 @@ export default function ChangePasswordForm({ onChanged }: { onChanged: () => voi
     setError('')
     try {
       await authService.changePassword(form.current, form.next)
+      // a password this computer remembers for this account would be the old one from now on
+      if (email) void updateRememberedPassword(email, form.next)
       setForm({ current: '', next: '', confirm: '' })
       onChanged()
     } catch (err) {

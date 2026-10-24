@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import BrandName from '../components/BrandName'
 import ConnectionMenu from '../components/ConnectionMenu'
@@ -10,6 +10,7 @@ import { authService } from '../services/auth.service'
 import { useSetupStore } from '../stores/setupStore'
 import ServerAddressDialog from '../components/ServerAddressDialog'
 import { currentServerUrl, describeServer, serverChoiceAllowed } from '../lib/server'
+import { canRememberPassword, forgetRemembered, loadRemembered, saveRemembered } from '../lib/rememberLogin'
 import { useAuthStore } from '../stores/authStore'
 import { apiError } from '../utils/errors'
 
@@ -24,6 +25,23 @@ export default function LoginPage() {
   const [serverOpen, setServerOpen] = useState(false)
   const [databaseOpen, setDatabaseOpen] = useState(false)
   const setup = useSetupStore((s) => s.status)
+  const [remember, setRemember] = useState(false)
+  // the Windows app can remember the password itself; a web page only remembers the email
+  const [rememberPassword, setRememberPassword] = useState(false)
+  const typed = useRef(false)
+
+  // Fill in what this device was asked to remember, unless the person has already started typing.
+  useEffect(() => {
+    let alive = true
+    canRememberPassword().then((can) => { if (alive) setRememberPassword(can) })
+    loadRemembered().then((saved) => {
+      if (!alive || !saved || typed.current) return
+      setEmail(saved.email)
+      if (saved.password) setPassword(saved.password)
+      setRemember(true)
+    })
+    return () => { alive = false }
+  }, [])
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -40,6 +58,8 @@ export default function LoginPage() {
         passwordChangeRequired: res.passwordChangeRequired,
         passwordChangeReason: res.passwordChangeReason,
       })
+      if (remember) await saveRemembered(email, password)
+      else await forgetRemembered()
       navigate('/dashboard')
     } catch (err) {
       setError(apiError(err, 'อีเมลหรือรหัสผ่านไม่ถูกต้อง'))
@@ -114,16 +134,29 @@ export default function LoginPage() {
             {error && <Alert tone="error">{error}</Alert>}
 
             <TextInput label="อีเมล" type="email" required autoComplete="username" autoFocus value={email}
-              placeholder="name@company.com" onChange={(e) => setEmail(e.target.value)} />
+              name="username" placeholder="name@company.com" onChange={(e) => { typed.current = true; setEmail(e.target.value) }} />
 
             <div>
               <TextInput label="รหัสผ่าน" type={showPassword ? 'text' : 'password'} required autoComplete="current-password"
-                value={password} onChange={(e) => setPassword(e.target.value)} />
+                name="password" value={password} onChange={(e) => { typed.current = true; setPassword(e.target.value) }} />
               <label className="mt-2 inline-flex cursor-pointer items-center gap-2 text-[13px] text-ink-2">
                 <input type="checkbox" checked={showPassword} onChange={(e) => setShowPassword(e.target.checked)}
                   className="h-4 w-4 rounded border-line-strong accent-accent" />
                 แสดงรหัสผ่าน
               </label>
+            </div>
+
+            <div>
+              <label className="inline-flex cursor-pointer items-center gap-2 text-[13px] text-ink">
+                <input type="checkbox" checked={remember} onChange={(e) => setRemember(e.target.checked)}
+                  className="h-4 w-4 rounded border-line-strong accent-accent" />
+                {rememberPassword ? 'จำรหัสผ่านไว้ในเครื่องนี้' : 'จำอีเมลไว้ในเครื่องนี้'}
+              </label>
+              <p className="mt-1 text-xs text-ink-3">
+                {rememberPassword
+                  ? 'เก็บแบบเข้ารหัสด้วยบัญชี Windows ของคุณ อยู่ในเครื่องนี้เท่านั้น ไม่ควรเลือกบนเครื่องที่ใช้ร่วมกับคนอื่น'
+                  : 'รหัสผ่านให้ใช้ตัวจัดการรหัสผ่านของเบราว์เซอร์ ระบบไม่เก็บรหัสผ่านของคุณไว้เอง'}
+              </p>
             </div>
 
             <Button type="submit" variant="primary" size="lg" loading={loading} disabled={!!setup} className="w-full">เข้าสู่ระบบ</Button>
