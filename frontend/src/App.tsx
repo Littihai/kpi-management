@@ -10,6 +10,8 @@ import SetupGate from './components/SetupGate'
 import SettingsWindow from './components/settings/SettingsWindow'
 import { isSettingsPath, RealLocationContext, type SettingsLocationState } from './components/settings/settingsNav'
 import LoginPage from './pages/LoginPage'
+import ChooseServerPage from './pages/ChooseServerPage'
+import { hasServer } from './lib/server'
 import { useAuthStore } from './stores/authStore'
 import { useSetupStore } from './stores/setupStore'
 
@@ -77,6 +79,8 @@ function AppRoutes() {
 }
 
 export default function App() {
+  // Nothing is built in and none was chosen (the Windows app on first start): ask for the server, and call nothing before that
+  if (!hasServer()) return <ChooseServerPage />
   return (
     <BrowserRouter>
       <SetupGate>
