@@ -2,6 +2,7 @@ import type { ReactNode } from 'react'
 import { ACCENTS, CHOICES, RADIUS_PREVIEW, type Accent, type Container, type FontFamily, type GreyBase, type NavLayout, type Radius, type ThemePref } from '../../lib/appearance'
 import { useAppearance } from '../appearanceContext'
 import Button from '../ui/Button'
+import { SwitchLine } from '../ui/SettingLine'
 
 /** Every look-and-layout choice. Each applies at once to the page and is remembered on this device. */
 
@@ -21,9 +22,10 @@ const labels = {
   container: { narrow: 'แคบ', standard: 'มาตรฐาน', wide: 'กว้าง', fluid: 'เต็มจอ' } as Record<Container, string>,
 }
 
-function Block({ title, desc, children }: { title: string; desc?: string; children: ReactNode }) {
+/** `id` is the anchor the settings search scrolls to (see SETTINGS_ITEMS in settingsNav.ts). */
+function Block({ id, title, desc, children }: { id: string; title: string; desc?: string; children: ReactNode }) {
   return (
-    <section>
+    <section id={`setting-${id}`} className="rounded-md">
       <h3 className="text-[15px] font-semibold text-ink">{title}</h3>
       {desc && <p className="mt-0.5 text-[12.5px] text-ink-3">{desc}</p>}
       <div className="pt-2">{children}</div>
@@ -161,7 +163,7 @@ export default function AppearanceControls() {
     <div className="space-y-6">
           <Group title="หน้าตา" />
 
-          <Block title="ธีม" desc="สว่าง มืด หรือตามการตั้งค่าของเครื่อง">
+          <Block id="theme" title="ธีม" desc="สว่าง มืด หรือตามการตั้งค่าของเครื่อง">
             <OptionCards<ThemePref> label="ธีม" value={ap.theme} onChange={(v) => ap.set('theme', v)}
               options={CHOICES.theme.values.map((v) => ({
                 value: v, label: labels.theme[v],
@@ -171,7 +173,7 @@ export default function AppearanceControls() {
               }))} />
           </Block>
 
-          <Block title="สีหลัก" desc="สีของปุ่ม ลิงก์ และเมนูที่เลือก">
+          <Block id="accent" title="สีหลัก" desc="สีของปุ่ม ลิงก์ และเมนูที่เลือก">
             <div role="radiogroup" aria-label="สีหลัก" className="flex flex-wrap gap-x-2.5 gap-y-3 pt-1">
               {ACCENTS.map((a) => {
                 const on = ap.accent === a.id
@@ -190,46 +192,44 @@ export default function AppearanceControls() {
             </div>
           </Block>
 
-          <Block title="ฟอนต์" desc="อ่านภาษาไทยได้ทุกแบบ">
+          <Block id="font" title="ฟอนต์" desc="อ่านภาษาไทยได้ทุกแบบ">
             <OptionCards<FontFamily> label="ฟอนต์" min={140} value={ap.font} onChange={(v) => ap.set('font', v)}
               options={CHOICES.font.values.map((v) => ({ value: v, label: labels.font[v], preview: <FontSample id={v} /> }))} />
           </Block>
 
-          <Block title="โทนสีเทา" desc="สีพื้นหลังและเส้นขอบทั้งหมด">
+          <Block id="base" title="โทนสีเทา" desc="สีพื้นหลังและเส้นขอบทั้งหมด">
             <OptionCards<GreyBase> label="โทนสีเทา" value={ap.base} onChange={(v) => ap.set('base', v)}
               options={CHOICES.base.values.map((v) => ({ value: v, label: labels.base[v], preview: <ThemePreview scope={scope} base={v} /> }))} />
           </Block>
 
-          <Block title="ความโค้งของมุม">
+          <Block id="radius" title="ความโค้งของมุม">
             <OptionCards<Radius> label="ความโค้งของมุม" min={54} value={ap.radius} onChange={(v) => ap.set('radius', v)}
               options={CHOICES.radius.values.map((v) => ({ value: v, label: labels.radius[v], preview: <RadiusSample id={v} /> }))} />
           </Block>
 
           <Group title="การจัดวาง" />
 
-          <Block title="เมนูหลัก" desc="แถบด้านข้าง แถบไอคอน หรือแถบใต้หัวหน้า (บนมือถือเป็นเมนูเลื่อนลงเสมอ)">
+          <Block id="nav" title="เมนูหลัก" desc="แถบด้านข้าง แถบไอคอน หรือแถบใต้หัวหน้า (บนมือถือเป็นเมนูเลื่อนลงเสมอ)">
             <OptionCards<NavLayout> label="เมนูหลัก" value={ap.nav} onChange={(v) => ap.set('nav', v)}
               options={CHOICES.nav.values.map((v) => ({ value: v, label: labels.nav[v], preview: <NavPreview kind={v} /> }))} />
           </Block>
 
-          <Block title="ความกว้างของหน้า">
+          <Block id="container" title="ความกว้างของหน้า">
             <Choose<Container> label="ความกว้างของหน้า" value={ap.container} onChange={(v) => ap.set('container', v)}
               options={CHOICES.container.values.map((v) => ({ value: v, label: labels.container[v] }))} />
           </Block>
 
           <Group title="การเข้าถึง" />
 
-          <Block title="ขนาดตัวอักษร" desc="ขยายหรือย่อทั้งหน้า (ตัวอักษร ปุ่ม และระยะห่าง)">
+          <Block id="size" title="ขนาดตัวอักษร" desc="ขยายหรือย่อทั้งหน้า (ตัวอักษร ปุ่ม และระยะห่าง)">
             <Choose<'s' | 'm' | 'l'> label="ขนาดตัวอักษร" value={ap.size} onChange={(v) => ap.set('size', v)}
               options={[{ value: 's', label: 'เล็ก' }, { value: 'm', label: 'กลาง' }, { value: 'l', label: 'ใหญ่' }]} />
           </Block>
 
-          <Block title="ความคมชัดสูง" desc="ตัวอักษรเข้มขึ้นและเส้นขอบชัดขึ้น เหมาะกับจอที่มีแสงสะท้อน">
-            <Choose<'standard' | 'high'> label="ความคมชัด" value={ap.contrast} onChange={(v) => ap.set('contrast', v)}
-              options={[{ value: 'standard', label: 'มาตรฐาน' }, { value: 'high', label: 'สูง' }]} />
-          </Block>
+          <SwitchLine id="setting-contrast" className="rounded-md" title="ความคมชัดสูง" desc="ตัวอักษรเข้มขึ้นและเส้นขอบชัดขึ้น เหมาะกับจอที่มีแสงสะท้อน"
+            checked={ap.contrast === 'high'} onChange={(on) => ap.set('contrast', on ? 'high' : 'standard')} />
 
-          <Block title="การเคลื่อนไหว" desc="อัตโนมัติ = ตามที่เครื่องตั้งไว้">
+          <Block id="motion" title="การเคลื่อนไหว" desc="อัตโนมัติ = ตามที่เครื่องตั้งไว้">
             <Choose<'auto' | 'reduce' | 'full'> label="การเคลื่อนไหว" value={ap.motion} onChange={(v) => ap.set('motion', v)}
               options={[{ value: 'auto', label: 'อัตโนมัติ' }, { value: 'reduce', label: 'ลดลง' }, { value: 'full', label: 'เต็มที่' }]} />
           </Block>

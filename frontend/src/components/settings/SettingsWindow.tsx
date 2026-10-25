@@ -1,4 +1,4 @@
-import { lazy, Suspense, useEffect, useRef } from 'react'
+import { lazy, Suspense, useEffect, useMemo, useRef, useState } from 'react'
 import { Navigate, useLocation, useNavigate } from 'react-router-dom'
 import { EmbeddedContext } from '../ui/embedded'
 import { EmptyState, Skeleton } from '../ui/Layout'
@@ -6,6 +6,8 @@ import { useAuthStore } from '../../stores/authStore'
 import AboutSection from './AboutSection'
 import AccountSection from './AccountSection'
 import AppearanceControls from './AppearanceControls'
+import SettingsSearch from './SettingsSearch'
+import type { SettingsHit } from './settingsFind'
 import {
   SETTINGS_GROUPS, SETTINGS_SECTIONS, visibleSettingsSections,
   type SettingsLocationState, type SettingsSectionDef, type SettingsSectionId,
@@ -47,9 +49,13 @@ export default function SettingsWindow() {
   const navigate = useNavigate()
   const permissions = useAuthStore((s) => s.user?.permissions)
   const dialog = useRef<HTMLDivElement>(null)
+  const body = useRef<HTMLDivElement>(null)
+  const searchBox = useRef<HTMLInputElement>(null)
+  const [query, setQuery] = useState('')
 
   const state = location.state as SettingsLocationState | null
-  const visible = visibleSettingsSections(permissions)
+  const visible = useMemo(() => visibleSettingsSections(permissions), [permissions])
+  const visibleIds = useMemo(() => visible.map((s) => s.id), [visible])
   const def = SETTINGS_SECTIONS.find((s) => s.id === location.pathname.split('/')[2])
   const allowed = !!def && visible.some((s) => s.id === def.id)
 
@@ -82,9 +88,40 @@ export default function SettingsWindow() {
     return () => document.removeEventListener('keydown', onKey)
   }, [])
 
+  // "/" jumps to the search box (as in most apps), unless the person is typing somewhere.
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key !== '/' || e.ctrlKey || e.metaKey || e.altKey) return
+      const el = e.target as HTMLElement | null
+      if (el && (el.tagName === 'INPUT' || el.tagName === 'TEXTAREA' || el.tagName === 'SELECT' || el.isContentEditable)) return
+      e.preventDefault()
+      searchBox.current?.focus()
+    }
+    document.addEventListener('keydown', onKey)
+    return () => document.removeEventListener('keydown', onKey)
+  }, [])
+
+  // A search result with an anchor opens its section scrolled to that row, which flashes once so the eye finds it.
+  const anchor = location.hash.slice(1)
+  const sectionId = location.pathname.split('/')[2]
+  useEffect(() => {
+    if (!anchor) return
+    const row = body.current?.querySelector<HTMLElement>(`[id="setting-${anchor}"]`)
+    if (!row) return
+    row.scrollIntoView({ block: 'start', behavior: 'smooth' })
+    row.classList.remove('setting-flash')
+    void row.offsetWidth // restart the animation if the same row is picked twice
+    row.classList.add('setting-flash')
+    const done = () => row.classList.remove('setting-flash')
+    row.addEventListener('animationend', done, { once: true })
+    return () => row.removeEventListener('animationend', done)
+  }, [anchor, sectionId])
+
   if (!def) return <Navigate to="/settings/general" replace state={state} />
 
   const go = (id: SettingsSectionId) => navigate('/settings/' + id, { replace: true, state })
+  const pick = (hit: SettingsHit) => navigate({ pathname: '/settings/' + hit.section, hash: hit.anchor ?? '' }, { replace: true, state })
+  const searching = query.trim() !== ''
 
   const item = (s: SettingsSectionDef) => {
     const on = s.id === def.id
@@ -109,20 +146,26 @@ export default function SettingsWindow() {
 
         <nav aria-label="หมวดการตั้งค่า"
           className="shrink-0 border-b border-line bg-surface px-3 pb-2 pt-3 lg:w-64 lg:overflow-y-auto lg:border-b-0 lg:border-r lg:px-3.5 lg:py-6">
-          <h2 id="settings-title" className="px-2 pb-2 text-lg font-semibold lg:pb-4 lg:text-2xl">ตั้งค่า</h2>
-          <div className="flex gap-1 overflow-x-auto pb-1 lg:hidden">{visible.map(item)}</div>
-          <div className="hidden space-y-5 lg:block">
-            {SETTINGS_GROUPS.map((g) => {
-              const items = visible.filter((s) => s.group === g.id)
-              if (items.length === 0) return null
-              return (
-                <div key={g.id} className="space-y-0.5">
-                  <p className="px-3 pb-1 text-xs font-bold text-ink-3">{g.label}</p>
-                  {items.map(item)}
-                </div>
-              )
-            })}
+          <h2 id="settings-title" className="px-2 pb-2 text-lg font-semibold lg:pb-3 lg:text-2xl">ตั้งค่า</h2>
+          <div className="pb-2 lg:pb-4">
+            <SettingsSearch visible={visibleIds} onPick={pick} inputRef={searchBox} query={query} setQuery={setQuery} />
           </div>
+          {!searching && <div className="flex gap-1 overflow-x-auto pb-1 lg:hidden">{visible.map(item)}</div>}
+          {!searching && (
+            <div className="hidden space-y-5 lg:block">
+              {SETTINGS_GROUPS.map((g) => {
+                const items = visible.filter((s) => s.group === g.id)
+                if (items.length === 0) return null
+                return (
+                  <div key={g.id} className="space-y-0.5">
+                    <p className="px-3 text-xs font-bold text-ink-3">{g.label}</p>
+                    <p className="px-3 pb-1 text-[11px] text-ink-3">{g.note}</p>
+                    {items.map(item)}
+                  </div>
+                )
+              })}
+            </div>
+          )}
         </nav>
 
         <div className="flex min-h-0 min-w-0 flex-1 flex-col">
@@ -132,7 +175,7 @@ export default function SettingsWindow() {
             </h3>
             <p className="mt-0.5 text-[13px] text-ink-3">{def.desc}</p>
           </div>
-          <div className="min-h-0 flex-1 overflow-y-auto px-5 pb-12 pt-2 lg:px-9">
+          <div ref={body} className="min-h-0 flex-1 overflow-y-auto px-5 pb-12 pt-2 lg:px-9">
             {allowed ? (
               <EmbeddedContext.Provider value>
                 <Suspense fallback={<div className="space-y-3" role="status" aria-label="กำลังโหลด">{[0, 1, 2].map((i) => <Skeleton key={i} className="h-14" />)}</div>}>

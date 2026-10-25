@@ -125,6 +125,13 @@
 }
 .offcanvas-in { animation: offcanvas-in 0.22s cubic-bezier(0.2, 0.7, 0.2, 1); }
 
+/* the row a settings search result points at, lit once so the eye finds it */
+@keyframes setting-flash {
+  0%, 35% { background: var(--lt-a100); box-shadow: 0 0 0 8px var(--lt-a100); }
+  100% { background: transparent; box-shadow: 0 0 0 8px transparent; }
+}
+.setting-flash { animation: setting-flash 1.8s ease-out; }
+
 /* a picture above a label, picked like a radio (option cards in the Customize panel) */
 .opt-preview {
   display: block;

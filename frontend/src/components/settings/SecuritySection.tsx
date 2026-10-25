@@ -4,6 +4,7 @@ import Button from '../ui/Button'
 import { Card, CardHeader } from '../ui/Card'
 import { Alert, EmptyState, Pagination, Segmented, Skeleton } from '../ui/Layout'
 import { CompactSelect } from '../ui/Field'
+import Switch from '../ui/Switch'
 import { authLogService, type AuthLogRow } from '../../services/authLog.service'
 import { settingsService, type SettingRow } from '../../services/settings.service'
 import { useCan } from '../../stores/authStore'
@@ -127,11 +128,11 @@ function PolicyTab() {
                   </div>
                   <div className="flex items-center gap-2">
                     {r.kind === 'bool' ? (
-                      <label className="flex items-center gap-2 text-[13px] text-ink">
-                        <input type="checkbox" className="h-4 w-4 accent-[var(--lt-accent)]" disabled={!canManage || saving}
-                          checked={v === 'true'} onChange={(e) => set(key, e.target.checked ? 'true' : 'false')} />
-                        {v === 'true' ? 'เปิด' : 'ปิด'}
-                      </label>
+                      <div className="flex items-center gap-2 text-[13px] text-ink">
+                        <Switch label={r.label} disabled={!canManage || saving} checked={v === 'true'}
+                          onChange={(on) => set(key, on ? 'true' : 'false')} />
+                        <span aria-hidden="true" className="w-7">{v === 'true' ? 'เปิด' : 'ปิด'}</span>
+                      </div>
                     ) : (
                       <label className="flex items-center gap-2 text-[13px] text-ink-2">
                         <input type="number" inputMode="numeric" min={r.min ?? undefined} max={r.max ?? undefined} step="1" value={v}
