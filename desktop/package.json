@@ -8,8 +8,10 @@
   "scripts": {
     "web": "node scripts/prepare-web.cjs",
     "start": "npm run web && electron .",
-    "dist": "npm run web && electron-builder --win nsis --x64",
-    "pack": "npm run web && electron-builder --win dir --x64"
+    "dist": "npm run web && npm run api && electron-builder --win nsis --x64",
+    "pack": "npm run web && npm run api && electron-builder --win dir --x64",
+    "api": "node scripts/prepare-api.cjs",
+    "test": "node --test \"test/*.test.cjs\""
   },
   "devDependencies": {
     "electron": "^39.0.0",
@@ -26,6 +28,7 @@
       "main.cjs",
       "preload.cjs",
       "credentials.cjs",
+      "localServer.cjs",
       "app/**/*"
     ],
     "publish": [
@@ -54,7 +57,13 @@
       "createStartMenuShortcut": true,
       "shortcutName": "Helpdesk"
     },
-    "artifactName": "Helpdesk-Setup-${version}.${ext}"
+    "artifactName": "Helpdesk-Setup-${version}.${ext}",
+    "extraResources": [
+      {
+        "from": "api",
+        "to": "api"
+      }
+    ]
   },
   "dependencies": {
     "electron-updater": "^6.8.9"

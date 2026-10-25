@@ -16,6 +16,28 @@ interface DesktopCredentials {
   forget(server: string): Promise<boolean>
 }
 
+/** The Helpdesk server inside the app, connected to SQL Server by the person. Used when no company server was chosen. */
+interface DesktopLocalServerStatus {
+  /** the program is part of this installation (a development run without it can only use a company server) */
+  available: boolean
+  /** turned on: it starts with the app */
+  enabled: boolean
+  running: boolean
+  url: string
+  /** why it is not running, when it should be */
+  error: string
+}
+
+interface DesktopLocalServer {
+  status(): Promise<DesktopLocalServerStatus>
+  enable(): Promise<DesktopLocalServerStatus>
+  disable(): Promise<DesktopLocalServerStatus>
+  /** "Disconnect": forgets where the database is on this PC (its data is untouched) and starts again, waiting to be connected. */
+  resetDatabase(): Promise<DesktopLocalServerStatus>
+  /** The address of the running built-in server, or '' when it is off. Answered at once. */
+  url(): string
+}
+
 interface DesktopApi {
   version: string
   isDesktop: true
@@ -25,6 +47,8 @@ interface DesktopApi {
   restartToUpdate(): void
   /** Absent in a desktop build older than this feature. */
   credentials?: DesktopCredentials
+  /** Absent in a desktop build older than this feature. */
+  localServer?: DesktopLocalServer
   onUpdateState(cb: (state: DesktopUpdateState) => void): () => void
 }
 

@@ -1,12 +1,14 @@
 import { useEffect, useState } from 'react'
 import DatabaseConnectionForm from './DatabaseConnectionForm'
+import DisconnectDialog from './DisconnectDialog'
+import ServerAddressDialog from './ServerAddressDialog'
 import Button from './ui/Button'
 import Modal from './ui/Modal'
 import { Alert } from './ui/Layout'
 import { DatabaseFacts } from './settings/DatabaseChecklist'
 import { useOpenSettings } from './settings/settingsNav'
 import { clearHistory, describeEntry, forgetConnection, useConnectionHistory, type ConnectionEntry } from '../lib/connectionHistory'
-import { currentServerUrl, describeServer } from '../lib/server'
+import { currentServerUrl, describeServer, isLocalServer } from '../lib/server'
 import { databaseService, type DatabaseReport } from '../services/database.service'
 import { useAuthStore, useCan } from '../stores/authStore'
 import { useSetupStore } from '../stores/setupStore'
@@ -31,6 +33,7 @@ export default function DatabaseConnectionDialog({ open, onClose, tab: firstTab 
   const [tab, setTab] = useState<Tab>(firstTab)
   const [prefill, setPrefill] = useState<ConnectionEntry | undefined>(firstPrefill)
   const [formKey, setFormKey] = useState(0)
+  const [companyOpen, setCompanyOpen] = useState(false)
 
   const use = (entry: ConnectionEntry) => {
     setPrefill(entry)
@@ -57,8 +60,15 @@ export default function DatabaseConnectionDialog({ open, onClose, tab: firstTab 
             : <div role="tabpanel" id="connect-panel-connect" aria-labelledby="connect-tab-connect">
                 <DatabaseConnectionForm key={formKey} status={setup} onBusyChange={setBusy} prefill={prefill} />
               </div>}
+          {isLocalServer(currentServerUrl()) && (
+            <p className="border-t border-line pt-3 text-[13px] text-ink-3">
+              ที่บริษัทมีเซิร์ฟเวอร์ Helpdesk กลางอยู่แล้ว?{' '}
+              <button type="button" disabled={busy} onClick={() => setCompanyOpen(true)} className="font-medium text-accent hover:underline disabled:opacity-50">ใช้เซิร์ฟเวอร์ของบริษัทแทน</button>
+            </p>
+          )}
         </div>
       ) : <RunningInfo onClose={onClose} />}
+      {companyOpen && <ServerAddressDialog open onClose={() => setCompanyOpen(false)} />}
     </Modal>
   )
 }
@@ -109,6 +119,7 @@ function RunningInfo({ onClose }: { onClose: () => void }) {
   const openSettings = useOpenSettings()
   const [report, setReport] = useState<DatabaseReport | null>(null)
   const [failed, setFailed] = useState(false)
+  const [disconnectOpen, setDisconnectOpen] = useState(false)
 
   // the shared API client signs a person out on a 401, so it is only asked by someone who is signed in and may look
   const mayAsk = signedIn && canView
@@ -137,11 +148,13 @@ function RunningInfo({ onClose }: { onClose: () => void }) {
       {!signedIn && <p className="text-sm text-ink-2">ดูรายละเอียดฐานข้อมูลได้หลังเข้าสู่ระบบด้วยบัญชีผู้ดูแล การเปลี่ยนฐานข้อมูลทำได้เฉพาะตอนที่เซิร์ฟเวอร์ยังไม่ได้เชื่อมต่อฐานข้อมูล</p>}
       {signedIn && !canView && <p className="text-sm text-ink-2">ดูรายละเอียดฐานข้อมูลต้องมีสิทธิ์ "ดูการตั้งค่าระบบ"</p>}
 
-      {mayAsk && (
-        <div className="flex justify-end">
-          <Button variant="primary" icon="database-cog" onClick={() => { onClose(); openSettings('database') }}>เปิดหน้าตรวจฐานข้อมูล</Button>
+      {(mayAsk || isLocalServer(currentServerUrl())) && (
+        <div className="flex flex-wrap justify-end gap-2">
+          {isLocalServer(currentServerUrl()) && <Button icon="plug-x" onClick={() => setDisconnectOpen(true)}>ยกเลิกการเชื่อมต่อ</Button>}
+          {mayAsk && <Button variant="primary" icon="database-cog" onClick={() => { onClose(); openSettings('database') }}>เปิดหน้าตรวจฐานข้อมูล</Button>}
         </div>
       )}
+      {disconnectOpen && <DisconnectDialog open onClose={() => setDisconnectOpen(false)} />}
     </div>
   )
 }

@@ -3,6 +3,7 @@ const path = require('node:path')
 const fs = require('node:fs')
 const { pathToFileURL } = require('node:url')
 const { createCredentialStore } = require('./credentials.cjs')
+const { createLocalServer } = require('./localServer.cjs')
 
 // The server the company's IT wants this computer to use (optional): the HELPDESK_SERVER_URL environment variable, or
 // the first line of %ProgramData%\Helpdesk\server.txt (it survives app updates). A person can still choose another.
@@ -33,7 +34,8 @@ protocol.registerSchemesAsPrivileged([
   { scheme: SCHEME, privileges: { standard: true, secure: true, supportFetchAPI: true, corsEnabled: true } },
 ])
 
-if (!app.requestSingleInstanceLock()) {
+const gotLock = app.requestSingleInstanceLock()
+if (!gotLock) {
   app.quit()
 }
 
@@ -172,7 +174,60 @@ ipcMain.handle(CH_CRED_SAVE, (event, server, email, password) => trustedSender(e
 ipcMain.handle(CH_CRED_UPDATE, (event, server, email, password) => trustedSender(event) && credentialStore().updatePassword(server, email, password))
 ipcMain.handle(CH_CRED_FORGET, (event, server) => trustedSender(event) && credentialStore().forget(server))
 
-app.whenReady().then(() => {
+// ---- Built-in server ------------------------------------------------------------------------------------------------
+// The Helpdesk server, started by the app on 127.0.0.1 and connected to SQL Server by the person (see localServer.cjs). It is used when no
+// company server was chosen; choosing one turns it off. A flag file remembers that it is on, so the next start brings it up first.
+const CH_LOCAL_STATUS = 'desktop:local-server:status'
+const CH_LOCAL_ENABLE = 'desktop:local-server:enable'
+const CH_LOCAL_DISABLE = 'desktop:local-server:disable'
+const CH_LOCAL_RESET = 'desktop:local-server:reset-database'
+const CH_LOCAL_URL = 'desktop:local-server:url'
+
+const localExe = app.isPackaged ? path.join(process.resourcesPath, 'api', 'KPI.API.exe') : path.join(__dirname, 'api', 'KPI.API.exe')
+const localDataDir = path.join(app.getPath('userData'), 'local-server')
+const localFlag = path.join(localDataDir, 'enabled')
+
+let builtIn = null
+function builtInServer() {
+  if (!builtIn) builtIn = createLocalServer({ exe: localExe, dataDir: localDataDir, safeStorage })
+  return builtIn
+}
+
+function localStatus() {
+  return { available: fs.existsSync(localExe), enabled: fs.existsSync(localFlag), ...builtInServer().status() }
+}
+
+ipcMain.handle(CH_LOCAL_STATUS, (event) => (trustedSender(event) ? localStatus() : null))
+ipcMain.handle(CH_LOCAL_ENABLE, async (event) => {
+  if (!trustedSender(event)) return null
+  fs.mkdirSync(localDataDir, { recursive: true })
+  fs.writeFileSync(localFlag, '1')
+  try { await builtInServer().start() } catch (err) { console.error('[built-in server]', err && err.message) }
+  return localStatus()
+})
+ipcMain.handle(CH_LOCAL_DISABLE, async (event) => {
+  if (!trustedSender(event)) return null
+  try { fs.unlinkSync(localFlag) } catch { /* already off */ }
+  await builtInServer().stop()
+  return localStatus()
+})
+ipcMain.handle(CH_LOCAL_RESET, async (event) => {
+  if (!trustedSender(event)) return null
+  try { await builtInServer().resetDatabase() } catch (err) { console.error('[built-in server]', err && err.message) }
+  return localStatus()
+})
+// Asked synchronously, because the page needs the address before it makes its first call.
+ipcMain.on(CH_LOCAL_URL, (event) => { event.returnValue = trustedSender(event) && fs.existsSync(localFlag) ? builtInServer().status().url : '' })
+
+let quittingForServer = false
+app.on('before-quit', (event) => {
+  if (quittingForServer || !builtIn || !builtIn.status().running) return
+  event.preventDefault()
+  quittingForServer = true
+  builtIn.stop().finally(() => app.quit())
+})
+
+app.whenReady().then(async () => {
   protocol.handle(SCHEME, (request) => {
     const url = new URL(request.url)
     if (url.host !== HOST) return new Response('Not found', { status: 404 })
@@ -180,6 +235,10 @@ app.whenReady().then(() => {
     if (!file) return new Response('Not found', { status: 404 })
     return net.fetch(pathToFileURL(file).toString())
   })
+  // The built-in server comes up before the window, so the page finds its address on its first call.
+  if (gotLock && fs.existsSync(localFlag)) {
+    try { await builtInServer().start() } catch (err) { console.error('[built-in server]', err && err.message) }
+  }
   createWindow()
   setupUpdater()
   app.on('activate', () => { if (BrowserWindow.getAllWindows().length === 0) createWindow() })

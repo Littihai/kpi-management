@@ -19,9 +19,17 @@ jobs:
         with:
           node-version: 22
 
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 10.0.x
+
       - name: Install
         working-directory: desktop
         run: npm ci
+
+      - name: Publish the built-in server into desktop/api
+        working-directory: desktop
+        run: npm run api
 
       - name: Build the web app into desktop/app
         working-directory: desktop
