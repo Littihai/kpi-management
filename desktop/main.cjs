@@ -100,8 +100,13 @@ function setUpdateState(next) {
   if (win && !win.isDestroyed()) win.webContents.send(CH_STATE, updateState)
 }
 
+// Compares scheme and host, not `origin`: for a custom scheme such as app:// Node reports the origin as the string "null", which
+// made every check fail (the update buttons and "remember my password" never worked in the installed app).
 function trustedSender(event) {
-  try { return new URL(event.senderFrame.url).origin === `${SCHEME}://${HOST}` } catch { return false }
+  try {
+    const url = new URL(event.senderFrame.url)
+    return url.protocol === `${SCHEME}:` && url.host === HOST
+  } catch { return false }
 }
 
 async function checkForUpdates() {
