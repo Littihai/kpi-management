@@ -14,7 +14,7 @@
 --   :setvar AppLogin "helpdesk_app"
 --   :setvar AppPassword "<a long password without a quote mark>"
 --
--- The app can also do all of this itself: open it on the server (http://localhost:<port>), press the menu button at the top left of the
+-- The app can also do all of this itself: open it on the server (http://localhost:<port>), press Connect in the bar at the top of the
 -- sign-in page and connect the database with sa; it creates the database (once), the tables and an account for each machine. Use this
 -- script when you prefer to create the database yourself; the app then finds it and does not create it again. See README-th.md.
 -- Safe to run again: an existing SQL login of that name gets AppPassword as its password (so it matches what install.ps1 saves); a login

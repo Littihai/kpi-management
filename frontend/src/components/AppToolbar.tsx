@@ -2,11 +2,12 @@ import { useEffect, useRef, useState } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
 import BrandName from './BrandName'
 import DatabaseConnectionDialog from './DatabaseConnectionDialog'
+import DisconnectDialog from './DisconnectDialog'
 import ServerAddressDialog from './ServerAddressDialog'
 import SidebarToggle from './SidebarToggle'
 import { useOpenSettings } from './settings/settingsNav'
 import { describeEntry, useConnectionHistory, type ConnectionEntry } from '../lib/connectionHistory'
-import { currentServerUrl, describeServer, serverChoiceAllowed } from '../lib/server'
+import { currentServerUrl, describeServer, isLocalServer, serverChoiceAllowed } from '../lib/server'
 import { apiIsSameOrigin, setupService } from '../services/setup.service'
 import { useAuthStore, useCan } from '../stores/authStore'
 import { useSetupStore } from '../stores/setupStore'
@@ -44,6 +45,7 @@ export default function AppToolbar({ sidebarToggle = false, autoOpenDatabase = f
   const [menuOpen, setMenuOpen] = useState(false)
   const [dialog, setDialog] = useState<DialogRequest | null>(null)
   const [serverOpen, setServerOpen] = useState(false)
+  const [disconnectOpen, setDisconnectOpen] = useState(false)
   const [checking, setChecking] = useState(false)
   const [autoOpened, setAutoOpened] = useState(false)
   const box = useRef<HTMLDivElement>(null)
@@ -157,6 +159,11 @@ export default function AppToolbar({ sidebarToggle = false, autoOpenDatabase = f
       <button type="button" className={button} onClick={refresh} disabled={checking} aria-label="ตรวจสถานะการเชื่อมต่ออีกครั้ง" title="ตรวจสถานะการเชื่อมต่ออีกครั้ง">
         <i className={`ti ti-refresh text-lg ${checking ? 'animate-spin' : ''}`} aria-hidden="true" />
       </button>
+      {server === 'running' && isLocalServer(currentServerUrl()) && (
+        <button type="button" className={button} onClick={() => setDisconnectOpen(true)} aria-label="ยกเลิกการเชื่อมต่อฐานข้อมูล" title="ยกเลิกการเชื่อมต่อฐานข้อมูล (เพื่อต่อเซิร์ฟเวอร์อื่น)">
+          <i className="ti ti-plug-x text-lg" aria-hidden="true" />
+        </button>
+      )}
       {signedIn && canCheckDatabase && (
         <button type="button" className={button} onClick={() => openSettings('database')} aria-label="ตรวจฐานข้อมูล" title="ตรวจฐานข้อมูล (ตั้งค่า → ฐานข้อมูล)">
           <i className="ti ti-activity text-lg" aria-hidden="true" />
@@ -171,6 +178,7 @@ export default function AppToolbar({ sidebarToggle = false, autoOpenDatabase = f
 
       {dialog && <DatabaseConnectionDialog open tab={dialog.tab} prefill={dialog.prefill} onClose={() => { setDialog(null); toggle.current?.focus() }} />}
       {serverOpen && <ServerAddressDialog open onClose={() => setServerOpen(false)} />}
+      {disconnectOpen && <DisconnectDialog open onClose={() => setDisconnectOpen(false)} />}
     </div>
   )
 }

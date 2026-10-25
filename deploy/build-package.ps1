@@ -46,6 +46,8 @@ $cleanJson = $clean | ConvertTo-Json -Depth 8
 if ($cleanJson -match 'ConnectionStrings|"Key"|ApiKey|Password|Host=|Server=') { throw 'The package settings still look like they hold a secret. Stopping.' }
 [IO.File]::WriteAllText((Join-Path $apiOut 'appsettings.json'), $cleanJson, (New-Object Text.UTF8Encoding($false)))
 Remove-Item (Join-Path $apiOut 'appsettings.Example.json') -ErrorAction SilentlyContinue
+# dotnet publish copies a developer's local settings file when there is one; it must never travel in a package.
+Remove-Item (Join-Path $apiOut 'appsettings.Development.json') -ErrorAction SilentlyContinue
 
 Write-Host '== Web app (same address as the API, so no API address is baked in)'
 $frontend = Join-Path $repo 'frontend'

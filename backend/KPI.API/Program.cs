@@ -3,6 +3,9 @@ using KPI.API.Startup.Setup;
 
 AppContext.SetSwitch("Npgsql.EnableLegacyTimestampBehavior", true);
 
+// Started by the Windows app as its built-in server: leave when the app is gone (see ParentProcessWatcher).
+ParentProcessWatcher.StartFromEnvironment(Environment.GetEnvironmentVariable, () => Environment.Exit(0));
+
 // `KPI.API create-admin` creates the first administrator and exits (see AdminCommand).
 if (args.Length > 0 && args[0].Equals(AdminCommand.Name, StringComparison.OrdinalIgnoreCase))
 {

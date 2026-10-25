@@ -9,14 +9,17 @@ const KEY = 'helpdesk.serverUrl'
  *  1. the address chosen on this device (login page / Settings > About);
  *  2. the address the company's IT put on this computer for the Windows app (HELPDESK_SERVER_URL, or the first line of
  *     %ProgramData%\Helpdesk\server.txt);
- *  3. VITE_API_URL given when the web app was built (an empty value means "the page's own address");
- *  4. the local API in development;
- *  5. otherwise nothing is built in: a web page belongs to the server that serves it (its own address), and the Windows app,
- *     which has no server of its own, asks the person to choose one (null). No company's server is the default.
+ *  3. the Windows app's own built-in server, when it is on (see localServerUrl);
+ *  4. VITE_API_URL given when the web app was built (an empty value means "the page's own address");
+ *  5. the local API in development;
+ *  6. otherwise nothing is built in: a web page belongs to the server that serves it (its own address), and the Windows app,
+ *     which has no server of its own until it starts the built-in one, asks (null). No company's server is the default.
  */
 export function builtInServerUrl(): string | null {
   const fromIt = typeof window !== 'undefined' ? window.desktop?.defaultServerUrl : undefined
   if (fromIt) return fromIt
+  const own = localServerUrl()
+  if (own) return own
   const built = import.meta.env.VITE_API_URL as string | undefined
   if (built !== undefined) return built
   if (import.meta.env.DEV) return 'http://localhost:5079'
@@ -34,6 +37,14 @@ export function getServerOverride(): string | null {
   }
 }
 
+/** The address of the Windows app's built-in server while it is on; '' otherwise (and in a browser). */
+export function localServerUrl(): string {
+  try { return window.desktop?.localServer?.url() ?? '' } catch { return '' }
+}
+
+/** Is this address the app's own built-in server? (Its port is new every start, so it is told apart by this, not by its text.) */
+export const isLocalServer = (url: string | null): boolean => url !== null && url !== '' && url === localServerUrl()
+
 /** The address in use right now; null while none has been chosen (the Windows app before the person picks one). */
 export function currentServerUrl(): string | null {
   return getServerOverride() ?? builtInServerUrl()
@@ -42,12 +53,15 @@ export function currentServerUrl(): string | null {
 /** Has a server been chosen (or does the page have its own)? Without one the app only asks for it. */
 export const hasServer = (): boolean => currentServerUrl() !== null
 
-/** The address as a key for things kept per server ("" while none is chosen). */
-export const serverKey = (): string => currentServerUrl() ?? ''
+/** The address as a key for things kept per server ("" while none is chosen). The built-in server has one key whatever its port. */
+export const serverKey = (): string => {
+  const url = currentServerUrl()
+  return isLocalServer(url) ? 'built-in-server' : url ?? ''
+}
 
 /** What to show a person for an address ("" means the page's own address). */
 export function describeServer(url: string | null): string {
-  return url === null ? 'ยังไม่ได้เลือก' : url === '' ? window.location.origin : url
+  return url === null ? 'ยังไม่ได้เลือก' : isLocalServer(url) ? 'เซิร์ฟเวอร์ในตัวแอป' : url === '' ? window.location.origin : url
 }
 
 /**
@@ -67,6 +81,8 @@ export function switchServer(url: string | null): void {
     const builtIn = builtInServerUrl()
     if (url === null || (builtIn !== null && sameServer(url, builtIn))) localStorage.removeItem(KEY)
     else localStorage.setItem(KEY, url)
+    // A company server was chosen: the built-in one is not needed (asked in the background; the main process finishes it after the reload).
+    if (url !== null) void window.desktop?.localServer?.disable()
     localStorage.removeItem('token')
     localStorage.removeItem('user')
   } catch { /* storage unavailable: the reload below still returns to the sign-in page */ }
