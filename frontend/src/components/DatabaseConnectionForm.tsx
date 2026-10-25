@@ -7,7 +7,7 @@ import { stepLabel } from './settings/databaseText'
 import type { DatabaseReport } from '../services/database.service'
 import { rememberConnection, type ConnectionEntry } from '../lib/connectionHistory'
 import {
-  apiIsSameOrigin, setupService, SetupFailure, type ServerProbe, type SetupAdmin, type SetupConnection, type SetupPlan, type SetupStatus,
+  apiIsSameOrigin, appTalksToThisPc, setupService, SetupFailure, type ServerProbe, type SetupAdmin, type SetupConnection, type SetupPlan, type SetupStatus,
 } from '../services/setup.service'
 
 const MIN_PASSWORD = 8
@@ -199,7 +199,7 @@ export default function DatabaseConnectionForm({ status, onBusyChange, prefill }
 
       {!sameOrigin && (
         <Alert tone="error">
-          หน้านี้ไม่ได้เปิดจากตัวเซิร์ฟเวอร์เอง (เช่นแอป .exe หรือเว็บที่อยู่คนละที่กับเซิร์ฟเวอร์) จึงตั้งค่าที่นี่ไม่ได้ ให้เปิดเบราว์เซอร์บนเครื่องเซิร์ฟเวอร์ไปที่ <span className="font-mono">http://localhost:พอร์ต</span>
+          หน้านี้ไม่ได้เปิดจากตัวเซิร์ฟเวอร์เอง (เช่นเว็บที่อยู่คนละที่กับเซิร์ฟเวอร์ หรือแอป Windows ที่ต่อกับเซิร์ฟเวอร์เครื่องอื่น) จึงตั้งค่าที่นี่ไม่ได้ ให้เปิดเบราว์เซอร์บนเครื่องเซิร์ฟเวอร์ไปที่ <span className="font-mono">http://localhost:พอร์ต</span> หรือถ้าเซิร์ฟเวอร์อยู่ในเครื่องนี้ ให้เลือกเซิร์ฟเวอร์ในเครื่องนี้ที่ปุ่ม "เชื่อมต่อ" บนแถบด้านบน
         </Alert>
       )}
       {status.problem === 'password-unreadable' && (
@@ -211,7 +211,7 @@ export default function DatabaseConnectionForm({ status, onBusyChange, prefill }
           <p className="mt-1 text-[13px]">ถ้าแก้ที่ฝั่ง SQL Server แล้ว ระบบลองใหม่เองทุก 10 วินาที (ยกเว้นกรณีล็อกอินไม่ผ่าน ที่ต้องกรอกรหัสผ่านใหม่ด้านล่าง) และกลับมาทำงานเอง หรือกรอกที่อยู่ใหม่ด้านล่างได้เลย</p>
         </Alert>
       )}
-      {sameOrigin && !status.remoteAllowed && !localNames.includes(window.location.hostname) && (
+      {sameOrigin && !status.remoteAllowed && !appTalksToThisPc() && !localNames.includes(window.location.hostname) && (
         <Alert tone="info">
           บันทึกได้เฉพาะเมื่อเปิดจากตัวเครื่องเซิร์ฟเวอร์เอง ให้เปิดเว็บบนเครื่องเซิร์ฟเวอร์ด้วย <span className="font-mono">http://localhost:{window.location.port || '80'}</span> โดยตรง (ไม่ผ่าน proxy)
         </Alert>

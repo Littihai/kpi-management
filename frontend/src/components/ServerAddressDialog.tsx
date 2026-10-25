@@ -17,11 +17,14 @@ const reasons: Record<Exclude<ProbeResult, { ok: true }>['reason'], string> = {
 }
 
 /** Pick the server this app talks to: type an address, test it, then use it. The sign-in is dropped when it changes. */
-export default function ServerAddressDialog({ open, onClose, required = false }: { open: boolean; onClose: () => void; /** no server is chosen yet: the dialog cannot be closed until one is */ required?: boolean }) {
+/** The address the server package listens on unless the installer was given another port. */
+const LOCAL_SERVER = 'http://localhost:8080'
+
+export default function ServerAddressDialog({ open, onClose, preset }: { open: boolean; onClose: () => void; /** 'local': the server is on this PC (the person wants to set up its SQL Server) */ preset?: 'local' }) {
   const signedIn = useAuthStore((s) => s.isAuthenticated)
   const current = currentServerUrl()
   const builtIn = builtInServerUrl()
-  const [text, setText] = useState(getServerOverride() ?? '')
+  const [text, setText] = useState(getServerOverride() ?? (preset === 'local' ? LOCAL_SERVER : ''))
   const [testing, setTesting] = useState(false)
   const [error, setError] = useState('')
   const [probe, setProbe] = useState<{ url: string; result: ProbeResult } | null>(null)
@@ -45,15 +48,15 @@ export default function ServerAddressDialog({ open, onClose, required = false }:
   }
 
   return (
-    <Modal open={open} onClose={onClose} dismissible={!required} title={required ? 'เลือกเซิร์ฟเวอร์ของบริษัท' : 'เซิร์ฟเวอร์ที่ใช้เชื่อมต่อ'}
+    <Modal open={open} onClose={onClose} title={preset === 'local' ? 'เซิร์ฟเวอร์ Helpdesk ในเครื่องนี้' : 'เซิร์ฟเวอร์ที่ใช้เชื่อมต่อ'}
       footer={<>
-        {!required && <Button onClick={onClose}>ยกเลิก</Button>}
+        <Button onClick={onClose}>ยกเลิก</Button>
         <Button variant="primary" icon="plug-connected" disabled={!tested?.ok} onClick={use}>ใช้เซิร์ฟเวอร์นี้</Button>
       </>}>
       <div className="space-y-4">
         <p className="text-sm text-ink-2">
-          {required
-            ? 'แอปนี้ยังไม่ได้เชื่อมต่อกับเซิร์ฟเวอร์ใดเลย ใส่ที่อยู่เซิร์ฟเวอร์ Helpdesk ของบริษัทคุณ (ถามจากฝ่าย IT) แล้วทดสอบก่อนใช้'
+          {preset === 'local'
+            ? 'ใช้เมื่อติดตั้งเซิร์ฟเวอร์ Helpdesk ไว้ในเครื่องนี้แล้ว (ที่อยู่ปกติคือ http://localhost:8080 หรือพอร์ตที่ตั้งตอนติดตั้ง) หลังเลือก แอปจะเปิดหน้าต่างให้กรอก Server Name ชื่อผู้ใช้ และรหัสผ่านของ SQL Server เอง'
             : 'ใช้เมื่อบริษัทของคุณติดตั้ง Helpdesk ไว้ที่เซิร์ฟเวอร์ของตัวเอง ถามที่อยู่จากฝ่าย IT'}
         </p>
         <dl className="rounded-control border border-line bg-surface px-3.5 py-2.5 text-[13px]">
@@ -70,7 +73,12 @@ export default function ServerAddressDialog({ open, onClose, required = false }:
         </div>
 
         {tested?.ok && <Alert tone="success">เชื่อมต่อได้ ตอบกลับใน {tested.ms} มิลลิวินาที</Alert>}
-        {tested && !tested.ok && <Alert tone="error">{reasons[tested.reason]}{tested.status ? ` (รหัส ${tested.status})` : ''}</Alert>}
+        {tested && !tested.ok && (
+          <Alert tone="error">
+            {reasons[tested.reason]}{tested.status ? ` (รหัส ${tested.status})` : ''}
+            {preset === 'local' && <span className="mt-1 block text-[13px]">ถ้ายังไม่ได้ติดตั้งเซิร์ฟเวอร์ Helpdesk ในเครื่องนี้ ต้องติดตั้งก่อน (ดูคู่มือติดตั้งเซิร์ฟเวอร์ deploy/README-th.md)</span>}
+          </Alert>
+        )}
         {parsed.ok && isUnencrypted(parsed.url) && (
           <Alert tone="warning">ที่อยู่แบบ http ไม่เข้ารหัสข้อมูลระหว่างแอปกับเซิร์ฟเวอร์ รวมถึงรหัสผ่าน ควรใช้ในเครือข่ายภายในที่เชื่อถือได้เท่านั้น</Alert>
         )}
