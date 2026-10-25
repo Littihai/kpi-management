@@ -104,9 +104,19 @@ async function call<T>(config: AxiosRequestConfig, key?: string): Promise<T> {
   }
 }
 
-/** The page and the API are on the same origin (the page was served by the server itself). Setup is refused from any other origin. */
+const loopbackNames = ['localhost', '127.0.0.1', '[::1]']
+
+/** The Windows app talking to the server on this same PC (the server accepts the app's own origin from the loopback address). */
+export function appTalksToThisPc(): boolean {
+  try { return !!window.desktop && loopbackNames.includes(new URL(String(api.defaults.baseURL ?? ''), window.location.href).hostname) } catch { return false }
+}
+
+/**
+ * The page and the API are on the same origin (the page was served by the server itself), or this is the Windows app and the server is on
+ * this PC. Setup is refused from any other origin, and from another machine.
+ */
 export function apiIsSameOrigin(): boolean {
-  try { return new URL(String(api.defaults.baseURL ?? ''), window.location.href).origin === window.location.origin } catch { return false }
+  try { return new URL(String(api.defaults.baseURL ?? ''), window.location.href).origin === window.location.origin || appTalksToThisPc() } catch { return false }
 }
 
 export type SetupProbe = { kind: 'setup'; status: SetupStatus } | { kind: 'normal' } | { kind: 'unknown' }

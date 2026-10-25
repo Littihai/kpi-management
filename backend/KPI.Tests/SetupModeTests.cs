@@ -643,6 +643,85 @@ public class SetupEndpointsTests
     }
 
     [Fact]
+    public async Task The_windows_app_on_the_same_pc_may_call_the_setup_api_and_a_web_page_of_another_site_may_not()
+    {
+        await using var h = await SetupHarness.StartAsync();
+        var form = new { connection = Windows(server: "", database: "x") };
+
+        var app = await h.PostAsync("/api/setup/test", form, headers: new() { ["Origin"] = "app://local" });
+        var site = await h.PostAsync("/api/setup/test", form, headers: new() { ["Origin"] = "https://evil.example" });
+        var lookalike = await h.PostAsync("/api/setup/test", form, headers: new() { ["Origin"] = "app://local.evil.example" });
+
+        Assert.Equal(HttpStatusCode.BadRequest, app.Status);   // got past the guard: it is the form that is wrong
+        Assert.Equal(HttpStatusCode.Forbidden, site.Status);
+        Assert.Equal("cross-origin", site.Body.GetProperty("error").GetString());
+        Assert.Equal(HttpStatusCode.Forbidden, lookalike.Status);
+    }
+
+    [Fact]
+    public async Task The_windows_app_gets_the_cors_answers_it_needs_and_other_origins_get_none()
+    {
+        await using var h = await SetupHarness.StartAsync();
+
+        async Task<HttpResponseMessage> Preflight(string origin)
+        {
+            using var request = new HttpRequestMessage(HttpMethod.Options, "/api/setup/test");
+            request.Headers.Add("Origin", origin);
+            request.Headers.Add("Access-Control-Request-Method", "POST");
+            request.Headers.Add("Access-Control-Request-Headers", "content-type,x-setup-key");
+            return await h.Client.SendAsync(request);
+        }
+
+        using var app = await Preflight("app://local");
+        using var site = await Preflight("https://evil.example");
+
+        Assert.Equal(HttpStatusCode.NoContent, app.StatusCode);
+        Assert.Equal("app://local", Assert.Single(app.Headers.GetValues("Access-Control-Allow-Origin")));
+        Assert.Contains("x-setup-key", string.Join(",", app.Headers.GetValues("Access-Control-Allow-Headers")));
+        Assert.False(site.Headers.Contains("Access-Control-Allow-Origin"));
+    }
+
+    [Fact]
+    public async Task The_windows_app_from_another_machine_is_still_local_only_and_gets_no_cors_answers()
+    {
+        await using var h = await SetupHarness.StartAsync(local: false);
+
+        var test = await h.PostAsync("/api/setup/test", new { connection = Windows() }, headers: new() { ["Origin"] = "app://local" });
+        using var preflight = new HttpRequestMessage(HttpMethod.Options, "/api/setup/test");
+        preflight.Headers.Add("Origin", "app://local");
+        using var answer = await h.Client.SendAsync(preflight);
+
+        Assert.Equal(HttpStatusCode.Forbidden, test.Status);
+        Assert.Equal("local-only", test.Body.GetProperty("error").GetString());
+        Assert.False(answer.Headers.Contains("Access-Control-Allow-Origin") && answer.StatusCode == HttpStatusCode.NoContent);
+    }
+
+    [Fact]
+    public async Task The_windows_app_on_the_same_pc_is_told_where_things_are_kept_and_a_web_page_of_another_site_is_not()
+    {
+        await using var h = await SetupHarness.StartAsync(more: new()
+        {
+            ["Database:Server"] = "srv", ["Database:Name"] = "helpdesk", ["Database:Auth"] = "sql", ["Database:User"] = "app",
+        });
+
+        async Task<(HttpResponseMessage Response, JsonElement Body)> Status(string origin)
+        {
+            using var request = new HttpRequestMessage(HttpMethod.Get, "/api/setup/status");
+            request.Headers.Add("Origin", origin);
+            var response = await h.Client.SendAsync(request);
+            return (response, JsonDocument.Parse(await response.Content.ReadAsStringAsync()).RootElement.Clone());
+        }
+
+        var app = await Status("app://local");
+        var site = await Status("https://evil.example");
+
+        Assert.Equal("srv", app.Body.GetProperty("current").GetProperty("server").GetString());
+        Assert.Equal("app://local", Assert.Single(app.Response.Headers.GetValues("Access-Control-Allow-Origin")));
+        Assert.Equal(JsonValueKind.Null, site.Body.GetProperty("current").ValueKind);
+        Assert.Equal("*", Assert.Single(site.Response.Headers.GetValues("Access-Control-Allow-Origin")));
+    }
+
+    [Fact]
     public async Task The_status_can_be_read_from_another_machine_but_the_actions_cannot()
     {
         await using var h = await SetupHarness.StartAsync(local: false);

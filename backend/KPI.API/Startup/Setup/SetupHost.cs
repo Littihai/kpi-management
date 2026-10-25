@@ -194,6 +194,22 @@ public static class SetupEndpoints
             if (HttpMethods.IsGet(context.Request.Method)
                 && (path.StartsWithSegments("/api/setup/status") || path.StartsWithSegments("/health") || path.StartsWithSegments("/api/client-config")))
                 context.Response.Headers.AccessControlAllowOrigin = "*";
+
+            // The Windows app's own page (app://local) may call the setup API of the server on the same PC: it is as much "its own page"
+            // as the server's web page is. Only the exact origin, and only from where the guard would let the call through anyway.
+            if (path.StartsWithSegments("/api/setup") && IsDesktopOrigin(context) && (IsLocal(context) || state.AllowRemote))
+            {
+                context.Response.Headers.AccessControlAllowOrigin = DesktopOrigin;
+                context.Response.Headers.Vary = "Origin";
+                if (HttpMethods.IsOptions(context.Request.Method))
+                {
+                    context.Response.Headers.AccessControlAllowMethods = "GET, POST";
+                    context.Response.Headers.AccessControlAllowHeaders = "content-type, x-setup-key";
+                    context.Response.Headers.AccessControlMaxAge = "600";
+                    context.Response.StatusCode = StatusCodes.Status204NoContent;
+                    return Task.CompletedTask;
+                }
+            }
             return next();
         });
 
@@ -211,7 +227,7 @@ public static class SetupEndpoints
         // also the one that may be read cross-origin.
         app.MapGet("/api/setup/status", (HttpContext http) =>
         {
-            var trusted = IsLocal(http) && !http.Request.Headers.ContainsKey("Origin");
+            var trusted = IsLocal(http) && (!http.Request.Headers.ContainsKey("Origin") || IsDesktopOrigin(http));
             return Results.Json(new
             {
                 mode = "setup",
@@ -414,9 +430,18 @@ public static class SetupEndpoints
         return localName && !ForwardingHeaders.Any(http.Request.Headers.ContainsKey);
     }
 
-    /// <summary>A browser sends Origin on a cross-site request. This API is only ever called by its own page, so any other origin is refused.</summary>
+    /// <summary>Where the Windows app's own pages come from (see desktop/main.cjs). A web page cannot send this Origin: the browser sets it.</summary>
+    private const string DesktopOrigin = "app://local";
+
+    private static bool IsDesktopOrigin(HttpContext http) =>
+        http.Request.Headers.TryGetValue("Origin", out var origin) && string.Equals(origin.ToString(), DesktopOrigin, StringComparison.OrdinalIgnoreCase);
+
+    /// <summary>
+    /// A browser sends Origin on a cross-site request. This API is only ever called by its own page (the server's web page, or the Windows
+    /// app's), so any other origin is refused.
+    /// </summary>
     private static bool IsCrossOrigin(HttpContext http) =>
-        http.Request.Headers.TryGetValue("Origin", out var origin) && origin.Count > 0
+        http.Request.Headers.TryGetValue("Origin", out var origin) && origin.Count > 0 && !IsDesktopOrigin(http)
         && !(Uri.TryCreate(origin.ToString(), UriKind.Absolute, out var uri) && string.Equals(uri.Authority, http.Request.Host.Value, StringComparison.OrdinalIgnoreCase));
 
     private static IResult? Guard(HttpContext http, SetupState state)
