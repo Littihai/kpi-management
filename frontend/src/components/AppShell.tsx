@@ -4,7 +4,7 @@ import Sidebar from './Sidebar'
 import BrandName from './BrandName'
 import TopNav from './TopNav'
 import AccountMenu from './AccountMenu'
-import SidebarToggle from './SidebarToggle'
+import AppToolbar from './AppToolbar'
 import ConnectionStatus from './ConnectionStatus'
 import { useOpenSettings } from './settings/settingsNav'
 import { useAppearance } from './appearanceContext'
@@ -70,11 +70,12 @@ export default function AppShell() {
 
   return (
     <RealtimeProvider>
-      <div className="min-h-[var(--vh100)] lg:flex">
+      <AppToolbar sidebarToggle />
+      <div className="min-h-[calc(var(--vh100)-var(--toolbar-h))] lg:flex">
         {/* Desktop sidebar / icon rail */}
         {sideLayout && (
           <aside id="app-sidebar" inert={sideHidden}
-            className={`sticky top-0 hidden h-[var(--vh100)] shrink-0 overflow-hidden transition-[width,visibility] duration-200 ease-out lg:block
+            className={`sticky top-[var(--toolbar-h)] hidden h-[calc(var(--vh100)-var(--toolbar-h))] shrink-0 overflow-hidden transition-[width,visibility] duration-200 ease-out lg:block
               ${sideHidden ? 'invisible w-0' : nav === 'rail' ? 'w-[68px]' : 'w-[252px]'}`}>
             {/* fixed inner width: the menu slides away instead of being squeezed while the width animates */}
             <div className={`h-full ${nav === 'rail' ? 'w-[68px]' : 'w-[252px]'}`}>
@@ -84,7 +85,7 @@ export default function AppShell() {
         )}
 
         {/* Phone top bar + drawer */}
-        <header className="sticky top-0 z-30 flex h-14 items-center gap-1 border-b border-line bg-card px-3 lg:hidden">
+        <header className="sticky top-[var(--toolbar-h)] z-30 flex h-14 items-center gap-1 border-b border-line bg-card px-3 lg:hidden">
           <button type="button" aria-label="เปิดเมนู" aria-expanded={menuOpen} onClick={() => setMenuOpen(true)}
             className="flex h-10 w-10 items-center justify-center rounded-control text-ink-2 hover:bg-surface">
             <i className="ti ti-menu-2 text-xl" aria-hidden="true" />
@@ -107,9 +108,8 @@ export default function AppShell() {
 
         <div className="flex min-w-0 flex-1 flex-col">
           {/* Desktop top bar (as in Lotline): live-update status on the left, switches and the account menu on the right */}
-          <header className="sticky top-0 z-30 hidden h-14 flex-none items-center justify-between gap-4 border-b border-line bg-card px-6 lg:flex">
+          <header className="sticky top-[var(--toolbar-h)] z-30 hidden h-14 flex-none items-center justify-between gap-4 border-b border-line bg-card px-6 lg:flex">
             <div className="flex min-w-0 items-center gap-4">
-              <SidebarToggle />
               {!sideLayout && (
                 <span className="flex items-center gap-2.5">
                   <span className="flex h-[30px] w-[30px] items-center justify-center rounded-lg bg-accent text-on-accent" aria-hidden="true">

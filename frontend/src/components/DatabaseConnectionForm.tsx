@@ -5,6 +5,7 @@ import { Alert } from './ui/Layout'
 import { ConnectionProblem, DatabaseChecklist } from './settings/DatabaseChecklist'
 import { stepLabel } from './settings/databaseText'
 import type { DatabaseReport } from '../services/database.service'
+import { rememberConnection, type ConnectionEntry } from '../lib/connectionHistory'
 import {
   apiIsSameOrigin, setupService, SetupFailure, type ServerProbe, type SetupAdmin, type SetupConnection, type SetupPlan, type SetupStatus,
 } from '../services/setup.service'
@@ -43,16 +44,16 @@ const localNames = ['localhost', '127.0.0.1', '[::1]', '::1']
  * database if it is not there yet (once: the next machine finds it and only gets an account of its own), creates what is missing in it,
  * makes the first administrator if there is none, and remembers the answer. sa is used once and not kept unless asked.
  */
-export default function DatabaseConnectionForm({ status, onBusyChange }: { status: SetupStatus; onBusyChange?: (busy: boolean) => void }) {
+export default function DatabaseConnectionForm({ status, onBusyChange, prefill }: { status: SetupStatus; onBusyChange?: (busy: boolean) => void; prefill?: ConnectionEntry }) {
   const current = status.current
   const sameOrigin = apiIsSameOrigin()
   const [key, setKey] = useState('')
-  const [server, setServer] = useState(current?.server ?? '')
-  const [auth, setAuth] = useState<'sql' | 'windows'>(current?.auth === 'windows' ? 'windows' : 'sql')
-  const [user, setUser] = useState(current?.user ?? 'sa')
+  const [server, setServer] = useState(prefill?.server ?? current?.server ?? '')
+  const [auth, setAuth] = useState<'sql' | 'windows'>(prefill?.auth ?? (current?.auth === 'windows' ? 'windows' : 'sql'))
+  const [user, setUser] = useState(prefill?.user ?? current?.user ?? 'sa')
   const [password, setPassword] = useState('')
-  const [database, setDatabase] = useState(current?.database ?? 'helpdesk')
-  const [trust, setTrust] = useState(current?.trust ?? true)
+  const [database, setDatabase] = useState(prefill?.database ?? current?.database ?? 'helpdesk')
+  const [trust, setTrust] = useState(prefill?.trust ?? current?.trust ?? true)
   const [useSame, setUseSame] = useState(false)
   const [loginName, setLoginName] = useState(status.machineLogin ?? '')
   const [confirmReset, setConfirmReset] = useState(false)
@@ -125,7 +126,11 @@ export default function DatabaseConnectionForm({ status, onBusyChange }: { statu
     const mine = generation.current
     try {
       const result = await setupService.test(keyNeeded ? key.trim() : undefined, { connection: connection(), appAccess: appAccess(false) })
-      if (mine === generation.current) show(result)
+      if (mine === generation.current) {
+        show(result)
+        // it worked: it goes to the History tab (where and who only, never the password)
+        if (result.server.connected) rememberConnection({ server: server.trim(), database: database.trim(), auth, user: user.trim(), trust })
+      }
     } catch (failure) {
       if (mine === generation.current) setError(explain(failure))
     } finally {
