@@ -2,8 +2,9 @@ import axios from 'axios'
 import { currentServerUrl } from '../lib/server'
 
 // Which server to talk to is decided in lib/server.ts: the address chosen on this device, else the one the company's IT
-// set for the Windows app, else VITE_API_URL given at build time, else the local API (dev) or our hosted API.
-const API_URL = currentServerUrl()
+// set for the Windows app, else VITE_API_URL given at build time, else the local API (dev), else the page's own address. With none
+// chosen (the Windows app before the person picks a server) App shows the "choose a server" page and nothing calls the API.
+const API_URL = currentServerUrl() ?? ''
 
 const api = axios.create({
   baseURL: API_URL,

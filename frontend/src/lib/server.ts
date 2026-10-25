@@ -10,13 +10,17 @@ const KEY = 'helpdesk.serverUrl'
  *  2. the address the company's IT put on this computer for the Windows app (HELPDESK_SERVER_URL, or the first line of
  *     %ProgramData%\Helpdesk\server.txt);
  *  3. VITE_API_URL given when the web app was built (an empty value means "the page's own address");
- *  4. the local API in development, otherwise our hosted server.
+ *  4. the local API in development;
+ *  5. otherwise nothing is built in: a web page belongs to the server that serves it (its own address), and the Windows app,
+ *     which has no server of its own, asks the person to choose one (null). No company's server is the default.
  */
-export function builtInServerUrl(): string {
+export function builtInServerUrl(): string | null {
   const fromIt = typeof window !== 'undefined' ? window.desktop?.defaultServerUrl : undefined
   if (fromIt) return fromIt
   const built = import.meta.env.VITE_API_URL as string | undefined
-  return built ?? (import.meta.env.DEV ? 'http://localhost:5079' : 'https://kpi-management-p20d.onrender.com')
+  if (built !== undefined) return built
+  if (import.meta.env.DEV) return 'http://localhost:5079'
+  return typeof window !== 'undefined' && window.desktop ? null : ''
 }
 
 export function getServerOverride(): string | null {
@@ -30,14 +34,20 @@ export function getServerOverride(): string | null {
   }
 }
 
-/** The address in use right now. */
-export function currentServerUrl(): string {
+/** The address in use right now; null while none has been chosen (the Windows app before the person picks one). */
+export function currentServerUrl(): string | null {
   return getServerOverride() ?? builtInServerUrl()
 }
 
+/** Has a server been chosen (or does the page have its own)? Without one the app only asks for it. */
+export const hasServer = (): boolean => currentServerUrl() !== null
+
+/** The address as a key for things kept per server ("" while none is chosen). */
+export const serverKey = (): string => currentServerUrl() ?? ''
+
 /** What to show a person for an address ("" means the page's own address). */
-export function describeServer(url: string): string {
-  return url === '' ? window.location.origin : url
+export function describeServer(url: string | null): string {
+  return url === null ? 'ยังไม่ได้เลือก' : url === '' ? window.location.origin : url
 }
 
 /**
@@ -49,12 +59,13 @@ export function serverChoiceAllowed(): boolean {
 }
 
 /**
- * Uses another server from now on (null = go back to the built-in one). The sign-in belongs to the old server, so it is
+ * Uses another server from now on (null = go back to the built-in one, if there is one). The sign-in belongs to the old server, so it is
  * dropped, and the page is reloaded because the API client and the live connection read the address once, when they start.
  */
 export function switchServer(url: string | null): void {
   try {
-    if (url === null || sameServer(url, builtInServerUrl())) localStorage.removeItem(KEY)
+    const builtIn = builtInServerUrl()
+    if (url === null || (builtIn !== null && sameServer(url, builtIn))) localStorage.removeItem(KEY)
     else localStorage.setItem(KEY, url)
     localStorage.removeItem('token')
     localStorage.removeItem('user')

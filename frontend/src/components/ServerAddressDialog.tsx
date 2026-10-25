@@ -17,7 +17,7 @@ const reasons: Record<Exclude<ProbeResult, { ok: true }>['reason'], string> = {
 }
 
 /** Pick the server this app talks to: type an address, test it, then use it. The sign-in is dropped when it changes. */
-export default function ServerAddressDialog({ open, onClose }: { open: boolean; onClose: () => void }) {
+export default function ServerAddressDialog({ open, onClose, required = false }: { open: boolean; onClose: () => void; /** no server is chosen yet: the dialog cannot be closed until one is */ required?: boolean }) {
   const signedIn = useAuthStore((s) => s.isAuthenticated)
   const current = currentServerUrl()
   const builtIn = builtInServerUrl()
@@ -40,23 +40,25 @@ export default function ServerAddressDialog({ open, onClose }: { open: boolean; 
 
   const use = () => {
     if (!parsed.ok) return
-    if (sameServer(parsed.url, current)) { onClose(); return }
+    if (current !== null && sameServer(parsed.url, current)) { onClose(); return }
     switchServer(parsed.url)
   }
 
   return (
-    <Modal open={open} onClose={onClose} title="เซิร์ฟเวอร์ที่ใช้เชื่อมต่อ"
+    <Modal open={open} onClose={onClose} dismissible={!required} title={required ? 'เลือกเซิร์ฟเวอร์ของบริษัท' : 'เซิร์ฟเวอร์ที่ใช้เชื่อมต่อ'}
       footer={<>
-        <Button onClick={onClose}>ยกเลิก</Button>
+        {!required && <Button onClick={onClose}>ยกเลิก</Button>}
         <Button variant="primary" icon="plug-connected" disabled={!tested?.ok} onClick={use}>ใช้เซิร์ฟเวอร์นี้</Button>
       </>}>
       <div className="space-y-4">
         <p className="text-sm text-ink-2">
-          ใช้เมื่อบริษัทของคุณติดตั้ง Helpdesk ไว้ที่เซิร์ฟเวอร์ของตัวเอง ถามที่อยู่จากฝ่าย IT
+          {required
+            ? 'แอปนี้ยังไม่ได้เชื่อมต่อกับเซิร์ฟเวอร์ใดเลย ใส่ที่อยู่เซิร์ฟเวอร์ Helpdesk ของบริษัทคุณ (ถามจากฝ่าย IT) แล้วทดสอบก่อนใช้'
+            : 'ใช้เมื่อบริษัทของคุณติดตั้ง Helpdesk ไว้ที่เซิร์ฟเวอร์ของตัวเอง ถามที่อยู่จากฝ่าย IT'}
         </p>
         <dl className="rounded-control border border-line bg-surface px-3.5 py-2.5 text-[13px]">
           <div className="flex justify-between gap-4"><dt className="text-ink-3">กำลังใช้</dt><dd className="min-w-0 break-all text-right font-medium text-ink">{describeServer(current)}</dd></div>
-          {!usingBuiltIn && <div className="mt-1 flex justify-between gap-4"><dt className="text-ink-3">ค่าเริ่มต้นของแอป</dt><dd className="min-w-0 break-all text-right text-ink-2">{describeServer(builtIn)}</dd></div>}
+          {!usingBuiltIn && builtIn !== null && <div className="mt-1 flex justify-between gap-4"><dt className="text-ink-3">ค่าเริ่มต้นของแอป</dt><dd className="min-w-0 break-all text-right text-ink-2">{describeServer(builtIn)}</dd></div>}
         </dl>
 
         <div className="flex items-end gap-2">
@@ -74,7 +76,7 @@ export default function ServerAddressDialog({ open, onClose }: { open: boolean; 
         )}
         {signedIn && <p className="text-xs text-ink-3">เมื่อเปลี่ยนเซิร์ฟเวอร์ ระบบจะออกจากระบบและกลับไปหน้าเข้าสู่ระบบ</p>}
 
-        {!usingBuiltIn && (
+        {!usingBuiltIn && builtIn !== null && (
           <button type="button" onClick={() => switchServer(null)} className="text-[13px] font-medium text-accent hover:underline">
             กลับไปใช้ค่าเริ่มต้น ({describeServer(builtIn)})
           </button>

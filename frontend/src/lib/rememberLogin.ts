@@ -1,4 +1,4 @@
-import { currentServerUrl } from './server'
+import { serverKey } from './server'
 
 /**
  * "Remember me" on the login page, per server address (the same email can be another account on another server).
@@ -38,7 +38,7 @@ function writeEmails(map: Record<string, string>) {
   } catch { /* not remembered, sign-in still works */ }
 }
 
-export async function loadRemembered(server = currentServerUrl()): Promise<Remembered | null> {
+export async function loadRemembered(server = serverKey()): Promise<Remembered | null> {
   if (await canRememberPassword()) {
     try {
       const saved = await desktopStore()!.get(server)
@@ -50,7 +50,7 @@ export async function loadRemembered(server = currentServerUrl()): Promise<Remem
 }
 
 /** Called after a successful sign-in with "remember me" ticked. */
-export async function saveRemembered(email: string, password: string, server = currentServerUrl()): Promise<void> {
+export async function saveRemembered(email: string, password: string, server = serverKey()): Promise<void> {
   if (await canRememberPassword()) {
     try {
       if (await desktopStore()!.save(server, email, password)) return
@@ -60,7 +60,7 @@ export async function saveRemembered(email: string, password: string, server = c
 }
 
 /** Forgets everything remembered for this server on this device. */
-export async function forgetRemembered(server = currentServerUrl()): Promise<void> {
+export async function forgetRemembered(server = serverKey()): Promise<void> {
   const { [server]: _gone, ...rest } = readEmails()
   void _gone
   writeEmails(rest)
@@ -68,6 +68,6 @@ export async function forgetRemembered(server = currentServerUrl()): Promise<voi
 }
 
 /** After a password change: keep the remembered password current, but only if it belongs to this account. */
-export async function updateRememberedPassword(email: string, password: string, server = currentServerUrl()): Promise<void> {
+export async function updateRememberedPassword(email: string, password: string, server = serverKey()): Promise<void> {
   try { await desktopStore()?.updatePassword(server, email, password) } catch { /* the old one just fails once at the next sign-in */ }
 }
