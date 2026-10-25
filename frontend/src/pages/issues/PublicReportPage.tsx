@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
+import AppToolbar from '../../components/AppToolbar'
 import IssueFormFields from '../../components/issues/IssueFormFields'
 import { emptyIssueForm, validateIssueForm } from '../../components/issues/issueForm'
 import Button from '../../components/ui/Button'
@@ -47,7 +48,9 @@ export default function PublicReportPage() {
   }
 
   return (
-    <div className="min-h-[var(--vh100)] bg-canvas">
+    <>
+    <AppToolbar />
+    <div className="min-h-[calc(var(--vh100)-var(--toolbar-h))] bg-canvas">
       <header className="border-b border-line bg-card">
         <div className="mx-auto flex max-w-3xl items-center justify-between px-4 py-4">
           <div className="flex items-center gap-3">
@@ -123,5 +126,6 @@ export default function PublicReportPage() {
         )}
       </main>
     </div>
+    </>
   )
 }

@@ -426,7 +426,7 @@
 }
 
 /* Text size S / M / L: CSS zoom scales the whole interface (text, controls, spacing), as in Lotline. */
-:root { --vh100: 100vh; }
+:root { --vh100: 100vh; --toolbar-h: 2.5rem; }
 html[data-size="s"] { zoom: 0.92; --vh100: calc(100vh / 0.92); }
 html[data-size="l"] { zoom: 1.18; --vh100: calc(100vh / 1.18); }
 

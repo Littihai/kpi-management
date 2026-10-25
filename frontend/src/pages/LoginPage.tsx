@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import BrandName from '../components/BrandName'
-import ConnectionMenu from '../components/ConnectionMenu'
+import AppToolbar from '../components/AppToolbar'
 import DatabaseConnectionDialog from '../components/DatabaseConnectionDialog'
 import Button from '../components/ui/Button'
 import { TextInput } from '../components/ui/Field'
@@ -49,8 +49,9 @@ export default function LoginPage() {
   }
 
   return (
-    <div className="grid min-h-[var(--vh100)] lg:grid-cols-[minmax(0,1fr)_minmax(0,1.05fr)]">
-      <ConnectionMenu openDatabaseAtStart />
+    <>
+    <AppToolbar autoOpenDatabase />
+    <div className="grid min-h-[calc(var(--vh100)-var(--toolbar-h))] lg:grid-cols-[minmax(0,1fr)_minmax(0,1.05fr)]">
       {/* Brand panel */}
       <aside className="relative hidden overflow-hidden bg-deep p-12 text-on-deep lg:flex lg:flex-col lg:justify-between">
         <div className="flex items-center gap-3 lg:ml-12">
@@ -102,7 +103,7 @@ export default function LoginPage() {
                     : setup.reason === 'StartupFailed' ? 'เชื่อมต่อฐานข้อมูลได้ แต่โปรแกรมเริ่มทำงานไม่สำเร็จ จึงเข้าสู่ระบบยังไม่ได้'
                     : 'ระบบยังไม่ได้เชื่อมต่อฐานข้อมูล จึงเข้าสู่ระบบยังไม่ได้'}
                 </p>
-                <p className="mt-0.5 text-[13px]">เปิดหน้าต่างเชื่อมต่อเพื่อดูสาเหตุและตั้งค่า (ปุ่มเมนูมุมซ้ายบนก็เปิดได้)</p>
+                <p className="mt-0.5 text-[13px]">เปิดหน้าต่างเชื่อมต่อเพื่อดูสาเหตุและตั้งค่า (ปุ่ม "เชื่อมต่อ" บนแถบด้านบนก็เปิดได้)</p>
                 <Button size="sm" variant="primary" icon="plug-connected" className="mt-2" onClick={() => setDatabaseOpen(true)}>เชื่อมต่อฐานข้อมูล</Button>
               </Alert>
             </div>
@@ -149,5 +150,6 @@ export default function LoginPage() {
       {serverOpen && <ServerAddressDialog open onClose={() => setServerOpen(false)} />}
       {databaseOpen && <DatabaseConnectionDialog open onClose={() => setDatabaseOpen(false)} />}
     </div>
+    </>
   )
 }
