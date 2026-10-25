@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { Card, CardHeader } from '../ui/Card'
 import { Alert, Avatar } from '../ui/Layout'
 import ChangePasswordForm from './ChangePasswordForm'
+import RememberedLoginCard from './RememberedLoginCard'
 import { useAuthStore } from '../../stores/authStore'
 import { roleLabel } from '../../utils/labels'
 
@@ -48,6 +49,8 @@ export default function AccountSection() {
           <ChangePasswordForm onChanged={() => { setDone(true); updateUser({ passwordChangeRequired: false, passwordChangeReason: null }) }} />
         </div>
       </Card>
+
+      <RememberedLoginCard />
     </div>
   )
 }

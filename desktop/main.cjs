@@ -1,7 +1,8 @@
-const { app, BrowserWindow, Menu, protocol, net, shell, ipcMain } = require('electron')
+const { app, BrowserWindow, Menu, protocol, net, shell, ipcMain, safeStorage } = require('electron')
 const path = require('node:path')
 const fs = require('node:fs')
 const { pathToFileURL } = require('node:url')
+const { createCredentialStore } = require('./credentials.cjs')
 
 // The server the company's IT wants this computer to use (optional): the HELPDESK_SERVER_URL environment variable, or
 // the first line of %ProgramData%\Helpdesk\server.txt (it survives app updates). A person can still choose another.
@@ -144,6 +145,27 @@ ipcMain.on(CH_RESTART, (event) => {
   if (!trustedSender(event) || !autoUpdater || updateState.status !== 'downloaded') return
   autoUpdater.quitAndInstall()
 })
+
+// ---- Remembered sign-in ("remember my password" on the login page) -----------------------------------------------
+// Encrypted with the Windows account (see credentials.cjs). Only the app's own pages may ask; the answer to anything
+// else is "nothing".
+const CH_CRED_AVAILABLE = 'desktop:credentials:available'
+const CH_CRED_GET = 'desktop:credentials:get'
+const CH_CRED_SAVE = 'desktop:credentials:save'
+const CH_CRED_UPDATE = 'desktop:credentials:update-password'
+const CH_CRED_FORGET = 'desktop:credentials:forget'
+
+let credentials = null
+function credentialStore() {
+  if (!credentials) credentials = createCredentialStore({ safeStorage, file: path.join(app.getPath('userData'), 'credentials.bin') })
+  return credentials
+}
+
+ipcMain.handle(CH_CRED_AVAILABLE, (event) => trustedSender(event) && credentialStore().available())
+ipcMain.handle(CH_CRED_GET, (event, server) => (trustedSender(event) ? credentialStore().get(server) : null))
+ipcMain.handle(CH_CRED_SAVE, (event, server, email, password) => trustedSender(event) && credentialStore().save(server, email, password))
+ipcMain.handle(CH_CRED_UPDATE, (event, server, email, password) => trustedSender(event) && credentialStore().updatePassword(server, email, password))
+ipcMain.handle(CH_CRED_FORGET, (event, server) => trustedSender(event) && credentialStore().forget(server))
 
 app.whenReady().then(() => {
   protocol.handle(SCHEME, (request) => {
