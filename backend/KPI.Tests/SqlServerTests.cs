@@ -1,6 +1,9 @@
+using KPI.Application.Issues;
 using KPI.Domain.Constants;
 using KPI.Domain.Entities;
+using KPI.Domain.Issues;
 using KPI.Infrastructure.Data;
+using KPI.Infrastructure.Services;
 using Microsoft.Data.SqlClient;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
@@ -199,6 +202,49 @@ public class SqlServerLiveTests
 
             db.Issues.Add(new Issue { Title = "ซ้ำเลข", Description = "x", ReporterName = "y", NumberYear = 2569, Number = 1, ResponseDueAt = DateTime.UtcNow, ResolveDueAt = DateTime.UtcNow });
             await Assert.ThrowsAsync<DbUpdateException>(() => db.SaveChangesAsync());   // the service retries on this
+        });
+    }
+
+    [Fact]
+    public async Task The_attention_numbers_are_counted_by_one_query_that_SQL_Server_accepts()
+    {
+        if (Server is null) return;
+        await WithDatabaseAsync(async db =>
+        {
+            await db.Database.MigrateAsync();
+            await DbSeeder.SeedAsync(db);
+            var roleId = (await db.Roles.FirstAsync(r => r.Name == RoleNames.Staff)).Id;
+            var me = new User { FirstName = "A", LastName = "B", Email = "me@example.com", PasswordHash = "x", RoleId = roleId };
+            var other = new User { FirstName = "C", LastName = "D", Email = "other@example.com", PasswordHash = "x", RoleId = roleId };
+            db.Users.AddRange(me, other);
+            await db.SaveChangesAsync();
+
+            var now = new DateTime(2026, 10, 17, 8, 0, 0, DateTimeKind.Utc);
+            var number = 0;
+            void Add(IssueStatus status, Guid? assignee = null, Guid? reporter = null, bool late = false) => db.Issues.Add(new Issue
+            {
+                Title = "เรื่องที่ " + ++number, Description = "x", ReporterName = "y", NumberYear = 2569, Number = number,
+                Status = status, AssigneeId = assignee, ReporterUserId = reporter,
+                ResponseDueAt = now.AddHours(late ? -1 : 1), ResolveDueAt = now.AddHours(late ? -1 : 1),
+            });
+            Add(IssueStatus.New);                                    // unclaimed
+            Add(IssueStatus.New, late: true);                        // unclaimed and overdue
+            Add(IssueStatus.InProgress, assignee: me.Id);            // mine to work on
+            Add(IssueStatus.Assigned, assignee: me.Id, late: true);  // mine, and overdue
+            Add(IssueStatus.WaitingForReporter, reporter: me.Id);
+            Add(IssueStatus.Resolved, reporter: me.Id);
+            Add(IssueStatus.Closed, reporter: me.Id, late: true);    // finished: waits for nobody
+            Add(IssueStatus.OnHold, assignee: me.Id);                // parked: nobody's move
+            Add(IssueStatus.InProgress, assignee: other.Id);         // somebody else's
+            await db.SaveChangesAsync();
+
+            var worker = await IssueService.AttentionCounts(db.Issues, me.Id, queueWorker: true, now).SingleAsync();
+            Assert.Equal(new IssueAttentionDto(6, 2, 2, 2, 1, 1), worker);
+
+            var requester = await IssueService.AttentionCounts(db.Issues, me.Id, queueWorker: false, now).SingleAsync();
+            Assert.Equal(new IssueAttentionDto(4, 0, 2, 0, 1, 1), requester);
+
+            Assert.Empty(await IssueService.AttentionCounts(db.Issues, Guid.NewGuid(), queueWorker: false, now).ToListAsync());
         });
     }
 }

@@ -4,7 +4,7 @@ import { Card, CardHeader } from '../ui/Card'
 import { SelectInput, TextInput } from '../ui/Field'
 import { Alert, Skeleton } from '../ui/Layout'
 import { SwitchLine } from '../ui/SettingLine'
-import { settingsService, type SettingRow } from '../../services/settings.service'
+import { settingsService, type EmailDiagnosis, type SettingRow } from '../../services/settings.service'
 import { useAuthStore, useCan } from '../../stores/authStore'
 import { apiError } from '../../utils/errors'
 
@@ -20,7 +20,41 @@ const KEYS = {
   timeout: 'smtp.timeoutSeconds',
 }
 
-/** How the system sends e-mail: through an SMTP server set up here, plus a test send. */
+const securityLabel: Record<string, string> = { starttls: 'STARTTLS', ssl: 'SSL/TLS', none: 'ไม่เข้ารหัส' }
+
+/** What the connection check found: each step it tried, then what to do about it. */
+function DiagnosisReport({ report }: { report: EmailDiagnosis }) {
+  return (
+    <div role="status" className="space-y-3 rounded-control border border-line bg-surface p-4">
+      <p className="text-sm font-semibold text-ink">
+        {report.ok ? 'เชื่อมต่อเซิร์ฟเวอร์ได้' : 'เชื่อมต่อเซิร์ฟเวอร์ไม่ได้'}
+        {report.host && <span className="ml-2 font-normal text-ink-3">{report.host}:{report.port} · {securityLabel[report.security] ?? report.security}</span>}
+      </p>
+      <ol className="space-y-2">
+        {report.steps.map((step) => (
+          <li key={step.name} className="flex items-start gap-2.5 text-[13px]">
+            <i className={`ti ${step.ok ? 'ti-circle-check text-green-ink' : 'ti-circle-x text-red-ink'} mt-0.5 text-base`} aria-hidden="true" />
+            <div className="min-w-0">
+              <p className="font-medium text-ink">{step.name}<span className="sr-only">{step.ok ? ' ผ่าน' : ' ไม่ผ่าน'}</span></p>
+              <p className="break-words text-ink-3">{step.detail}</p>
+            </div>
+          </li>
+        ))}
+      </ol>
+      {report.advice.length > 0 && (
+        <div>
+          <p className="text-[13px] font-semibold text-ink">ควรทำอย่างไร</p>
+          <ul className="mt-1 list-disc space-y-1 pl-5 text-[13px] text-ink-2">
+            {report.advice.map((line) => <li key={line}>{line}</li>)}
+          </ul>
+        </div>
+      )}
+      {report.ok && <p className="text-xs text-ink-3">ตรวจเฉพาะการเชื่อมต่อ ยังไม่ได้ลองล็อกอินหรือส่งอีเมล ใช้ "ส่งอีเมลทดสอบ" เพื่อลองส่งจริง</p>}
+    </div>
+  )
+}
+
+/** How the system sends e-mail: through an SMTP server set up here, plus a test send and a connection check. */
 export default function EmailSection() {
   const canManage = useCan('settings.manage')
   const myEmail = useAuthStore((s) => s.user?.email ?? '')
@@ -32,6 +66,9 @@ export default function EmailSection() {
   const [to, setTo] = useState(myEmail)
   const [testing, setTesting] = useState(false)
   const [testResult, setTestResult] = useState<{ ok: boolean; text: string } | null>(null)
+  const [diagnosing, setDiagnosing] = useState(false)
+  const [diagnosis, setDiagnosis] = useState<EmailDiagnosis | null>(null)
+  const [diagnosisError, setDiagnosisError] = useState('')
 
   const load = useCallback(() => {
     settingsService.list()
@@ -54,6 +91,8 @@ export default function EmailSection() {
   const set = (key: string, v: string) => {
     setNotice('')
     setTestResult(null)
+    setDiagnosis(null)
+    setDiagnosisError('')
     setDraft((d) => {
       const next = { ...d }
       if (v === rows[key].value) delete next[key]; else next[key] = v
@@ -114,6 +153,19 @@ export default function EmailSection() {
     }
   }
 
+  const diagnose = async () => {
+    setDiagnosing(true)
+    setDiagnosis(null)
+    setDiagnosisError('')
+    try {
+      setDiagnosis(await settingsService.diagnoseEmail())
+    } catch (err) {
+      setDiagnosisError(apiError(err, 'ตรวจการเชื่อมต่อไม่สำเร็จ'))
+    } finally {
+      setDiagnosing(false)
+    }
+  }
+
   const passwordSet = !rows[KEYS.password].isDefault
   const unsaved = changedKeys.length > 0
 
@@ -170,14 +222,20 @@ export default function EmailSection() {
 
       {canManage && (
         <Card>
-          <CardHeader eyebrow="ตรวจสอบ" title="ส่งอีเมลทดสอบ" />
+          <CardHeader eyebrow="ตรวจสอบ" title="ทดสอบและตรวจการเชื่อมต่อ" />
           <div className="space-y-3 px-5 pb-5 pt-4">
-            <p className="text-[13px] text-ink-3">ส่งด้วยค่า SMTP ที่บันทึกไว้แล้วเท่านั้น {unsaved ? '— บันทึกการแก้ไขก่อนจึงจะทดสอบได้' : ''}</p>
+            <p className="text-[13px] text-ink-3">
+              ใช้ค่า SMTP ที่บันทึกไว้แล้วเท่านั้น {unsaved ? '— บันทึกการแก้ไขก่อนจึงจะทดสอบได้ ' : ''}
+              "ตรวจการเชื่อมต่อ" จะบอกว่าติดที่ขั้นไหน (ชื่อเซิร์ฟเวอร์ พอร์ต การเข้ารหัส ใบรับรอง) โดยไม่ล็อกอินและไม่ส่งอีเมล
+            </p>
             <div className="flex flex-wrap items-end gap-3">
               <TextInput label="ส่งไปที่" type="email" value={to} onChange={(e) => { setTo(e.target.value); setTestResult(null) }} wrapperClassName="w-full sm:w-80" />
               <Button icon="send" loading={testing} disabled={unsaved || !to.trim()} onClick={sendTest}>ส่งอีเมลทดสอบ</Button>
+              <Button icon="plug-connected" loading={diagnosing} disabled={unsaved} onClick={diagnose}>ตรวจการเชื่อมต่อ</Button>
             </div>
             {testResult && <Alert tone={testResult.ok ? 'success' : 'error'}>{testResult.text}</Alert>}
+            {diagnosisError && <Alert tone="error">{diagnosisError}</Alert>}
+            {diagnosis && <DiagnosisReport report={diagnosis} />}
           </div>
         </Card>
       )}

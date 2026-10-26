@@ -1,6 +1,6 @@
 import api from './api'
 import type {
-  Assignee, IssueDetail, IssueFormValues, IssueListItem, IssueQuery, IssueSummary, Paged, PublicReceipt,
+  Assignee, IssueAttention, IssueDetail, IssueFormValues, IssueListItem, IssueQuery, IssueSummary, Paged, PublicReceipt,
 } from '../types/issue'
 
 function toForm(values: IssueFormValues, files: File[], extra: Record<string, string | undefined> = {}) {
@@ -34,6 +34,10 @@ export const issueService = {
 
   async summary(): Promise<IssueSummary> {
     return (await api.get<IssueSummary>('/api/issues/summary')).data
+  },
+
+  async attention(): Promise<IssueAttention> {
+    return (await api.get<IssueAttention>('/api/issues/attention')).data
   },
 
   async get(id: string): Promise<IssueDetail> {

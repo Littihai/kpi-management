@@ -5,6 +5,7 @@ import BrandName from './BrandName'
 import TopNav from './TopNav'
 import AccountMenu from './AccountMenu'
 import AppToolbar from './AppToolbar'
+import AttentionTracker from './AttentionTracker'
 import ConnectionStatus from './ConnectionStatus'
 import { useOpenSettings } from './settings/settingsNav'
 import { useAppearance } from './appearanceContext'
@@ -70,6 +71,7 @@ export default function AppShell() {
 
   return (
     <RealtimeProvider>
+      <AttentionTracker />
       <AppToolbar sidebarToggle />
       <div className="min-h-[calc(var(--vh100)-var(--toolbar-h))] lg:flex">
         {/* Desktop sidebar / icon rail */}

@@ -16,6 +16,9 @@ public interface IIssueService
 
     Task<PagedResult<IssueListItemDto>> ListAsync(IssueQuery query, Guid userId);
     Task<IssueSummaryDto> SummaryAsync(Guid userId);
+
+    /// <summary>What is waiting for this person right now; the number behind the red badge in the app.</summary>
+    Task<IssueAttentionDto> AttentionAsync(Guid userId);
     Task<IssueDetailDto> GetAsync(Guid id, Guid userId);
 
     Task<IssueDetailDto> CommentAsync(Guid id, string body, bool internalNote, Guid userId);

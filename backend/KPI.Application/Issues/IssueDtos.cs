@@ -111,6 +111,18 @@ public record IssueSummaryDto(
     int ResolvedLast7Days,
     int Mine);
 
+/// <summary>
+/// The work waiting for one person. <see cref="Total"/> counts each issue once, so it can be less than the sum of the
+/// others when one issue meets two rules (an unclaimed issue that is also overdue, say).
+/// </summary>
+public record IssueAttentionDto(
+    int Total,
+    int NewInQueue,
+    int AssignedToMe,
+    int Overdue,
+    int WaitingForMe,
+    int ToConfirm);
+
 /// <summary>Reporter details come from the profile when signed in; visitors fill them in.</summary>
 public record CreateIssueRequest(
     string Title,

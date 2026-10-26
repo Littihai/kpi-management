@@ -127,6 +127,20 @@ export interface IssueSummary {
   mine: number
 }
 
+/** What is waiting for the signed-in person. The numbers can overlap; `total` counts each issue once. */
+export interface IssueAttention {
+  total: number
+  /** new and unassigned (people who work the queue only) */
+  newInQueue: number
+  assignedToMe: number
+  /** past the due time (people who work the queue only) */
+  overdue: number
+  /** reported by me, waiting for my answer */
+  waitingForMe: number
+  /** reported by me, resolved and waiting for my confirmation */
+  toConfirm: number
+}
+
 export interface Assignee {
   id: string
   name: string

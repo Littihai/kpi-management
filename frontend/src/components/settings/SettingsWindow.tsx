@@ -6,6 +6,7 @@ import { useAuthStore } from '../../stores/authStore'
 import AboutSection from './AboutSection'
 import AccountSection from './AccountSection'
 import AppearanceControls from './AppearanceControls'
+import NotificationControls from './NotificationControls'
 import SettingsSearch from './SettingsSearch'
 import type { SettingsHit } from './settingsFind'
 import {
@@ -25,7 +26,12 @@ const AuditPage = lazy(() => import('../../pages/admin/AuditPage'))
 
 function SectionBody({ id }: { id: SettingsSectionId }) {
   switch (id) {
-    case 'general': return <AppearanceControls />
+    case 'general': return (
+      <div className="space-y-6">
+        <AppearanceControls />
+        <NotificationControls />
+      </div>
+    )
     case 'account': return <AccountSection />
     case 'about': return <AboutSection />
     case 'users': return <UsersPage />

@@ -6,9 +6,11 @@ import {
   type IssueChangedEvent,
   type RealtimeNotification,
 } from '../services/realtime'
+import { announce } from '../lib/notify'
 import {
   RealtimeContext,
   type IssueHandler,
+  type NotificationHandler,
   type RealtimeStatus,
 } from './realtimeContext'
 
@@ -25,19 +27,30 @@ const levelStyle: Record<RealtimeNotification['level'], { icon: string; bar: str
 
 /**
  * Keeps one SignalR connection open while the user is signed in, shows incoming
- * notifications as toasts, and lets pages refresh themselves when an issue changes.
+ * notifications as toasts (and, when the page is not in front, as a Windows or browser
+ * notification), and lets pages refresh themselves when an issue changes.
  */
 export function RealtimeProvider({ children }: { children: React.ReactNode }) {
   const navigate = useNavigate()
   const [status, setStatus] = useState<RealtimeStatus>('connecting')
   const [toasts, setToasts] = useState<Toast[]>([])
   const issueHandlers = useRef(new Set<IssueHandler>())
+  const notificationHandlers = useRef(new Set<NotificationHandler>())
   const nextId = useRef(1)
+  const navigateRef = useRef(navigate)
+  useEffect(() => { navigateRef.current = navigate })
 
   const subscribeIssues = useCallback((handler: IssueHandler) => {
     issueHandlers.current.add(handler)
     return () => { issueHandlers.current.delete(handler) }
   }, [])
+
+  const subscribeNotifications = useCallback((handler: NotificationHandler) => {
+    notificationHandlers.current.add(handler)
+    return () => { notificationHandlers.current.delete(handler) }
+  }, [])
+
+  const openIssue = useCallback((issueId: string) => navigateRef.current(`/issues/${issueId}`), [])
 
   const dismiss = useCallback((id: number) => {
     setToasts((current) => current.filter((t) => t.id !== id))
@@ -47,6 +60,7 @@ export function RealtimeProvider({ children }: { children: React.ReactNode }) {
     const connection = createHubConnection()
     let disposed = false
     const issues = issueHandlers.current
+    const notifications = notificationHandlers.current
 
     connection.on('IssueChanged', (event: IssueChangedEvent) => {
       issues.forEach((handler) => handler(event))
@@ -56,6 +70,8 @@ export function RealtimeProvider({ children }: { children: React.ReactNode }) {
       const id = nextId.current++
       setToasts((current) => [...current.slice(-3), { ...notification, id }])
       window.setTimeout(() => dismiss(id), 8000)
+      notifications.forEach((handler) => handler(notification))
+      announce(notification, openIssue)
     })
 
     connection.onreconnecting(() => setStatus('reconnecting'))
@@ -69,14 +85,21 @@ export function RealtimeProvider({ children }: { children: React.ReactNode }) {
     return () => {
       disposed = true
       issues.clear()
+      notifications.clear()
       // Stopping while negotiation is in flight (React StrictMode) rejects harmlessly.
       if (connection.state !== signalR.HubConnectionState.Disconnected) {
         connection.stop().catch(() => {})
       }
     }
-  }, [dismiss])
+  }, [dismiss, openIssue])
 
-  const value = useMemo(() => ({ status, subscribeIssues }), [status, subscribeIssues])
+  // A click on a Windows notification in the desktop app.
+  useEffect(() => window.desktop?.onOpenIssue(openIssue), [openIssue])
+
+  const value = useMemo(
+    () => ({ status, subscribeIssues, subscribeNotifications }),
+    [status, subscribeIssues, subscribeNotifications],
+  )
 
   const open = (toast: Toast) => {
     if (toast.issueId) navigate(`/issues/${toast.issueId}`)

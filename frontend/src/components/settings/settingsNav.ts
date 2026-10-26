@@ -20,7 +20,7 @@ export interface SettingsSectionDef {
 }
 
 export const SETTINGS_SECTIONS: SettingsSectionDef[] = [
-  { id: 'general', group: 'device', label: 'ทั่วไป', desc: 'ธีม สี ฟอนต์ และการจัดวางหน้าจอ', icon: 'adjustments-horizontal' },
+  { id: 'general', group: 'device', label: 'ทั่วไป', desc: 'ธีม สี ฟอนต์ การจัดวางหน้าจอ และการแจ้งเตือน', icon: 'adjustments-horizontal' },
   { id: 'account', group: 'personal', label: 'บัญชีของฉัน', desc: 'ข้อมูลของคุณและการเปลี่ยนรหัสผ่าน', icon: 'user-circle' },
   { id: 'system', group: 'admin', label: 'ตั้งค่าระบบ', desc: 'เป้าหมายเวลา SLA ขีดจำกัด อีเมล และการเก็บข้อมูล', icon: 'settings-cog', permission: 'settings.view' },
   { id: 'security', group: 'admin', label: 'ความปลอดภัย', desc: 'นโยบายรหัสผ่าน การล็อกบัญชี อายุการเข้าสู่ระบบ และบันทึกการเข้าสู่ระบบ', icon: 'shield-check', permission: 'settings.view' },
@@ -63,6 +63,7 @@ export const SETTINGS_ITEMS: SettingsItem[] = [
   { section: 'general', label: 'ขนาดตัวอักษร', anchor: 'size', keywords: 'ใหญ่ เล็ก ซูม' },
   { section: 'general', label: 'ความคมชัดสูง', anchor: 'contrast', keywords: 'contrast ตัวอักษรเข้ม' },
   { section: 'general', label: 'การเคลื่อนไหว', anchor: 'motion', keywords: 'animation แอนิเมชัน ลดการเคลื่อนไหว' },
+  { section: 'general', label: 'การแจ้งเตือน', anchor: 'notify', keywords: 'notification แจ้งเตือนบนเดสก์ท็อป toast ป๊อปอัป เด้ง เบราว์เซอร์ Windows tray ถาดระบบ ปิดหน้าต่าง ย่อ เบื้องหลัง startup เริ่มต้นระบบ เปิดเอง อัตโนมัติ บูตเครื่อง' },
   { section: 'account', label: 'เปลี่ยนรหัสผ่าน', keywords: 'password รหัสผ่านใหม่' },
   { section: 'system', label: 'เป้าหมายเวลา SLA', keywords: 'sla เวลาตอบ เวลาแก้ ชั่วโมง ขีดจำกัด การเก็บข้อมูล ชื่อองค์กร' },
   { section: 'security', label: 'นโยบายรหัสผ่าน', keywords: 'ความยาวรหัสผ่าน หมดอายุ ประวัติรหัสผ่าน' },

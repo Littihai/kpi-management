@@ -29,6 +29,9 @@
       "preload.cjs",
       "credentials.cjs",
       "localServer.cjs",
+      "statusModel.cjs",
+      "notifyModel.cjs",
+      "prefs.cjs",
       "app/**/*"
     ],
     "publish": [
@@ -62,6 +65,14 @@
       {
         "from": "api",
         "to": "api"
+      },
+      {
+        "from": "build",
+        "to": "build",
+        "filter": [
+          "icon.png",
+          "status/*.png"
+        ]
       }
     ]
   },

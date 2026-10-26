@@ -1,9 +1,12 @@
-const { app, BrowserWindow, Menu, protocol, net, shell, ipcMain, safeStorage } = require('electron')
+const { app, BrowserWindow, Menu, Tray, Notification, nativeImage, protocol, net, shell, ipcMain, safeStorage } = require('electron')
 const path = require('node:path')
 const fs = require('node:fs')
 const { pathToFileURL } = require('node:url')
 const { createCredentialStore } = require('./credentials.cjs')
 const { createLocalServer } = require('./localServer.cjs')
+const { describeStatus } = require('./statusModel.cjs')
+const { normalizeNotification, shouldShowToast } = require('./notifyModel.cjs')
+const { createPrefsStore } = require('./prefs.cjs')
 
 // The server the company's IT wants this computer to use (optional): the HELPDESK_SERVER_URL environment variable, or
 // the first line of %ProgramData%\Helpdesk\server.txt (it survives app updates). A person can still choose another.
@@ -30,6 +33,12 @@ const SCHEME = 'app'
 const HOST = 'local'
 const WEB_ROOT = path.join(__dirname, 'app')
 
+// Files under build/ are not packed into app.asar: package.json copies build/icon.png and build/status next to it (extraResources).
+const BUILD_DIR = app.isPackaged ? path.join(process.resourcesPath, 'build') : path.join(__dirname, 'build')
+const APP_ICON = path.join(BUILD_DIR, 'icon.png')
+const APP_ID = 'com.ritz.helpdesk'   // the same as build.appId in package.json: Windows shows the app's name and icon on its toasts
+const HIDDEN_ARG = '--hidden'        // given when Windows starts the app at sign-in: it goes straight to the system tray
+
 protocol.registerSchemesAsPrivileged([
   { scheme: SCHEME, privileges: { standard: true, secure: true, supportFetchAPI: true, corsEnabled: true } },
 ])
@@ -38,8 +47,12 @@ const gotLock = app.requestSingleInstanceLock()
 if (!gotLock) {
   app.quit()
 }
+// A development run has no installed shortcut carrying the app id, which Windows needs before it shows toasts.
+app.setAppUserModelId(app.isPackaged ? APP_ID : process.execPath)
 
 let win = null
+let tray = null
+let quitting = false // set by every real quit (see before-quit below); until then the close button may only hide the window
 
 function resolveFile(urlPath) {
   const clean = path.normalize(decodeURIComponent(urlPath)).split(path.sep).filter(Boolean).join(path.sep)
@@ -49,20 +62,22 @@ function resolveFile(urlPath) {
   return path.extname(clean) ? null : path.join(WEB_ROOT, 'index.html') // client-side routes fall back to the app
 }
 
-function createWindow() {
+function createWindow({ hidden = false } = {}) {
   win = new BrowserWindow({
     width: 1360,
     height: 860,
     minWidth: 960,
     minHeight: 600,
+    show: !hidden,
     backgroundColor: '#f6f8fb',
     title: 'Helpdesk',
-    icon: path.join(__dirname, 'build', 'icon.png'),
+    icon: APP_ICON,
     autoHideMenuBar: true,
     webPreferences: {
       contextIsolation: true,
       nodeIntegration: false,
       sandbox: true,
+      backgroundThrottling: false, // hidden in the tray the page must keep receiving real-time updates at full speed
       preload: path.join(__dirname, 'preload.cjs'),
       additionalArguments: [`--desktop-version=${app.getVersion()}`, ...(defaultServerUrl() ? [`--helpdesk-server=${defaultServerUrl()}`] : [])],
     },
@@ -81,6 +96,18 @@ function createWindow() {
     }
   })
 
+  // With "close to tray" on, the close button hides the window and the app keeps running in the system tray. Only while no real quit is on its way, and
+  // only when there is a tray to find it again: without one the window closes (and the app quits) as it always did.
+  win.on('close', (event) => {
+    if (quitting || !tray || !prefs.get().closeToTray) return
+    event.preventDefault()
+    win.hide()
+    tellAboutTray()
+  })
+  // Windows ending the session (shutdown, restart, sign-out) must never be held up by a hidden window.
+  for (const name of ['query-session-end', 'session-end']) win.on(name, () => { quitting = true })
+  win.on('show', applyOverlay)                           // a hidden window has no taskbar button, so its overlay is put back when it returns
+  win.webContents.on('did-finish-load', applyOverlay)    // ...and the first one needs the taskbar button, which exists by the time the page is up
   win.loadURL(`${SCHEME}://${HOST}/`)
   win.on('closed', () => { win = null })
 }
@@ -174,6 +201,132 @@ ipcMain.handle(CH_CRED_SAVE, (event, server, email, password) => trustedSender(e
 ipcMain.handle(CH_CRED_UPDATE, (event, server, email, password) => trustedSender(event) && credentialStore().updatePassword(server, email, password))
 ipcMain.handle(CH_CRED_FORGET, (event, server) => trustedSender(event) && credentialStore().forget(server))
 
+// ---- System tray, taskbar status and Windows notifications ------------------------------------------------------------
+// The page reports what is waiting for the person (setStatus) and passes on every real-time notification it receives (notify). What shows
+// is decided here, because only the main process knows whether the window is in front, minimised or hidden in the tray.
+const CH_SET_STATUS = 'desktop:set-status'
+const CH_NOTIFY = 'desktop:notify'
+const CH_OPEN_ISSUE = 'desktop:open-issue'
+const CH_PREFS_GET = 'desktop:prefs:get'
+const CH_PREFS_SET = 'desktop:prefs:set'
+
+// notifications / closeToTray / startWithWindows, kept in the user data folder (see prefs.cjs).
+const prefs = createPrefsStore({ file: path.join(app.getPath('userData'), 'desktop-prefs.json') })
+const trayHintFlag = path.join(app.getPath('userData'), 'tray-hint-shown')
+
+let status = describeStatus({ state: 'connecting', count: 0 }) // until the page reports in
+const statusImages = new Map()
+
+// Each icon is read once, and only counts when the file is really there: a missing icon must never stop the app.
+function statusImage(file) {
+  if (!statusImages.has(file)) {
+    const image = nativeImage.createFromPath(path.join(BUILD_DIR, 'status', file))
+    if (image.isEmpty()) {
+      console.error('[status] icon not found:', file)
+      return null
+    }
+    statusImages.set(file, image)
+  }
+  return statusImages.get(file)
+}
+
+function applyOverlay() {
+  if (win && !win.isDestroyed()) win.setOverlayIcon(statusImage(status.overlayIcon), status.description) // null clears it
+}
+
+function applyStatus(next) {
+  status = next
+  if (tray) {
+    const image = statusImage(next.trayIcon)
+    if (image) tray.setImage(image)
+    tray.setToolTip(`Helpdesk - ${next.tooltip}`)
+  }
+  applyOverlay()
+}
+
+function showWindow() {
+  if (!win || win.isDestroyed()) return
+  if (win.isMinimized()) win.restore()
+  win.show()
+  win.focus()
+}
+
+function openIssue(issueId) {
+  showWindow()
+  if (issueId && win && !win.isDestroyed()) win.webContents.send(CH_OPEN_ISSUE, issueId)
+}
+
+function createTray() {
+  const image = statusImage(status.trayIcon)
+  if (!image) return // no icon, no tray: the window then closes and quits as it always did
+  tray = new Tray(image)
+  tray.setToolTip(`Helpdesk - ${status.tooltip}`)
+  tray.setContextMenu(Menu.buildFromTemplate([
+    { label: 'เปิด Helpdesk', click: () => showWindow() },
+    { type: 'separator' },
+    { label: 'ออกจากโปรแกรม', click: () => app.quit() },
+  ]))
+  tray.on('click', () => showWindow())
+}
+
+// A Notification that is garbage collected stops reporting clicks, so the ones on screen are kept until they are gone.
+const toasts = new Set()
+function showToast(options, onClick) {
+  if (!Notification.isSupported()) return
+  const toast = new Notification({ ...options, icon: APP_ICON })
+  const done = () => toasts.delete(toast)
+  toast.on('click', () => { done(); onClick() })
+  toast.on('close', done)
+  toast.on('failed', done)
+  toasts.add(toast)
+  if (toasts.size > 20) toasts.delete(toasts.values().next().value) // one that is never clicked or closed does not stay forever
+  toast.show()
+}
+
+// Said once per installation, so that a person who closes the window does not think the app is gone.
+function tellAboutTray() {
+  if (fs.existsSync(trayHintFlag)) return
+  try {
+    fs.mkdirSync(path.dirname(trayHintFlag), { recursive: true })
+    fs.writeFileSync(trayHintFlag, '1')
+  } catch { return } // not saved means it would be said at every close, so it is not said
+  showToast({ title: 'Helpdesk ยังทำงานอยู่ที่ถาดระบบ' }, () => showWindow())
+}
+
+// Windows starts the app at sign-in with HIDDEN_ARG (the app is only registered when installed: a development run would register Electron itself).
+function applyStartWithWindows(enabled) {
+  if (!app.isPackaged) return
+  try {
+    app.setLoginItemSettings({ openAtLogin: enabled, args: [HIDDEN_ARG] })
+  } catch (err) {
+    console.error('[startup]', err && err.message)
+  }
+}
+
+ipcMain.on(CH_SET_STATUS, (event, input) => {
+  if (!trustedSender(event)) return
+  const next = describeStatus(input)
+  if (next && JSON.stringify(next) !== JSON.stringify(status)) applyStatus(next)
+})
+
+ipcMain.on(CH_NOTIFY, (event, input) => {
+  if (!trustedSender(event)) return
+  const note = normalizeNotification(input)
+  if (!note) return
+  const alive = !!win && !win.isDestroyed()
+  const window = { exists: alive, visible: alive && win.isVisible(), minimized: alive && win.isMinimized(), focused: alive && win.isFocused() }
+  if (shouldShowToast({ enabled: prefs.get().notifications, window })) showToast({ title: note.title, body: note.message }, () => openIssue(note.issueId))
+})
+
+ipcMain.handle(CH_PREFS_GET, (event) => (trustedSender(event) ? prefs.get() : null))
+ipcMain.handle(CH_PREFS_SET, (event, partial) => {
+  if (!trustedSender(event)) return null
+  const before = prefs.get()
+  const after = prefs.set(partial)
+  if (after.startWithWindows !== before.startWithWindows) applyStartWithWindows(after.startWithWindows)
+  return after
+})
+
 // ---- Built-in server ------------------------------------------------------------------------------------------------
 // The Helpdesk server, started by the app on 127.0.0.1 and connected to SQL Server by the person (see localServer.cjs). It is used when no
 // company server was chosen; choosing one turns it off. A flag file remembers that it is on, so the next start brings it up first.
@@ -221,6 +374,7 @@ ipcMain.on(CH_LOCAL_URL, (event) => { event.returnValue = trustedSender(event) &
 
 let quittingForServer = false
 app.on('before-quit', (event) => {
+  quitting = true // every real quit passes here first: the tray's "ออกจากโปรแกรม", restart-to-update, the last window closing with "close to tray" off
   if (quittingForServer || !builtIn || !builtIn.status().running) return
   event.preventDefault()
   quittingForServer = true
@@ -228,6 +382,7 @@ app.on('before-quit', (event) => {
 })
 
 app.whenReady().then(async () => {
+  if (!gotLock) return // a second copy only hands over to the first and quits
   protocol.handle(SCHEME, (request) => {
     const url = new URL(request.url)
     if (url.host !== HOST) return new Response('Not found', { status: 404 })
@@ -236,19 +391,22 @@ app.whenReady().then(async () => {
     return net.fetch(pathToFileURL(file).toString())
   })
   // The built-in server comes up before the window, so the page finds its address on its first call.
-  if (gotLock && fs.existsSync(localFlag)) {
+  if (fs.existsSync(localFlag)) {
     try { await builtInServer().start() } catch (err) { console.error('[built-in server]', err && err.message) }
   }
-  createWindow()
+  createTray()
+  createWindow({ hidden: !!tray && process.argv.includes(HIDDEN_ARG) })
   setupUpdater()
   app.on('activate', () => { if (BrowserWindow.getAllWindows().length === 0) createWindow() })
 })
 
-app.on('second-instance', () => {
-  if (win) {
-    if (win.isMinimized()) win.restore()
-    win.focus()
-  }
+// A second launch shows the running app, wherever it is (also when it is hidden in the tray), unless it is only Windows starting the app at sign-in.
+app.on('second-instance', (_event, argv) => {
+  if (!argv.includes(HIDDEN_ARG)) showWindow()
 })
 
 app.on('window-all-closed', () => { if (process.platform !== 'darwin') app.quit() })
+app.on('will-quit', () => {
+  if (tray) tray.destroy() // otherwise Windows leaves the icon in the tray until the mouse passes over it
+  tray = null
+})
