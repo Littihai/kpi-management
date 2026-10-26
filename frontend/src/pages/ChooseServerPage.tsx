@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import BrandName from '../components/BrandName'
 import ServerAddressDialog from '../components/ServerAddressDialog'
 import Button from '../components/ui/Button'
-import { LoadingState } from '../components/ui/LoadingBar'
+import { LoadingState } from '../components/ui/LoadingIndicator'
 import { Alert } from '../components/ui/Layout'
 
 type Phase = 'starting' | 'choose'

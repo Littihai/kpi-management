@@ -14,7 +14,7 @@ interface LottiePlayerProps {
   onFail: () => void
 }
 
-/** Plays one looping Lottie animation. Kept apart from LoadingBar so the player (about 170 kB) is fetched after the first page, not with it. */
+/** Plays one looping Lottie animation. Kept apart from LoadingIndicator so the player (about 170 kB) is fetched after the first page, not with it. */
 export default function LottiePlayer({ data, width, height, onReady, onFail }: LottiePlayerProps) {
   const attach = useCallback((player: DotLottie | null) => {
     if (!player) return

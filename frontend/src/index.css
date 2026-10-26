@@ -143,10 +143,3 @@
 }
 .opt-card:hover .opt-preview { outline-color: var(--lt-n500); }
 .opt-card[aria-checked="true"] .opt-preview { outline: 2px solid var(--lt-accent); outline-offset: 2px; }
-
-/* the plain bar that stands in for the loading-bar animation until (or unless) the animation starts */
-@keyframes loading-bar-run {
-  0% { transform: translateX(-100%); }
-  100% { transform: translateX(250%); }
-}
-.loading-bar-run { animation: loading-bar-run 1.3s ease-in-out infinite; }
