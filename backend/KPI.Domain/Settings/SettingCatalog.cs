@@ -53,7 +53,6 @@ public static class SettingCatalog
         public const string MaxAttachments = "issues.maxAttachments";
         public const string MaxAttachmentMb = "issues.maxAttachmentMb";
         public const string EmailEnabled = "email.enabled";
-        public const string EmailProvider = "email.provider";
         public const string SmtpHost = "smtp.host";
         public const string SmtpPort = "smtp.port";
         public const string SmtpSecurity = "smtp.security";
@@ -102,10 +101,6 @@ public static class SettingCatalog
 
         new(Keys.EmailEnabled, SettingType.Bool, CategoryEmail, "ส่งอีเมลแจ้งเตือน",
             "ปิดเมื่อต้องการหยุดส่งอีเมลทั้งระบบชั่วคราว (การแจ้งเตือนในแอปยังทำงานตามปกติ)", "true"),
-
-        new(Keys.EmailProvider, SettingType.Text, CategoryEmail, "ช่องทางส่งอีเมล",
-            "Resend คือบริการส่งอีเมลที่ตั้งค่าไว้ที่เซิร์ฟเวอร์ ส่วน SMTP ใช้เซิร์ฟเวอร์อีเมลขององค์กรหรือผู้ให้บริการอื่น", "resend",
-            Options: [new("resend", "Resend (ตั้งค่าที่เซิร์ฟเวอร์)"), new("smtp", "SMTP")]),
 
         new(Keys.SmtpHost, SettingType.Text, CategorySmtp, "เซิร์ฟเวอร์ SMTP", "ชื่อโฮสต์หรือ IP เช่น smtp.office365.com", "", Format: TextFormat.Host),
         new(Keys.SmtpPort, SettingType.Number, CategorySmtp, "พอร์ต", "587 สำหรับ STARTTLS, 465 สำหรับ SSL/TLS, 25 สำหรับไม่เข้ารหัส", "587", 1, 65535),
