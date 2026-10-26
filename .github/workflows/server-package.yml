@@ -2,6 +2,7 @@ name: Server package
 
 # Push a tag like server-v1.1.0 to build helpdesk-server-1.1.0.zip (program + web app + SQL scripts + install.ps1)
 # and attach it to a GitHub release. The desktop app has its own tags (v1.1.0), see desktop-release.yml.
+# The release is not marked "latest": the Windows app finds its updates in the latest release, which must stay the app's.
 on:
   push:
     tags: ['server-v*']
@@ -31,4 +32,4 @@ jobs:
         shell: pwsh
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: gh release create $env:GITHUB_REF_NAME (Get-ChildItem dist/helpdesk-server-*.zip).FullName --title $env:GITHUB_REF_NAME --generate-notes
+        run: gh release create $env:GITHUB_REF_NAME (Get-ChildItem dist/helpdesk-server-*.zip).FullName --title $env:GITHUB_REF_NAME --generate-notes --latest=false
