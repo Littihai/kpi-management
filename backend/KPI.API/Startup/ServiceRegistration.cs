@@ -23,7 +23,6 @@ using KPI.Infrastructure.Services;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.IdentityModel.Tokens;
-using Resend;
 
 namespace KPI.API.Startup;
 
@@ -36,8 +35,6 @@ public static class ServiceRegistration
         services.AddSignalR();
         services.AddSingleton<IRealtimeNotifier, SignalRNotifier>();
 
-        services.AddResend(options => { options.ApiToken = config["Resend:ApiKey"]!; });
-        services.AddScoped<IMailTransport, ResendTransport>();
         services.AddScoped<IMailTransport, SmtpTransport>();
         services.AddScoped<IEmailService, EmailService>();
         services.AddSingleton<ISecretProtector>(_ => new SecretProtector(config["Jwt:Key"]!));

@@ -43,7 +43,7 @@
 | ![Hangfire](https://img.shields.io/badge/Hangfire-Latest-grey?style=flat) | Latest | Background Jobs |
 | ![QuestPDF](https://img.shields.io/badge/QuestPDF-Latest-grey?style=flat) | Latest | PDF Generation |
 | ![ClosedXML](https://img.shields.io/badge/ClosedXML-Latest-grey?style=flat) | Latest | Excel Generation |
-| ![Resend](https://img.shields.io/badge/Resend-Latest-000000?style=flat) | Latest | Email Service |
+| ![MailKit](https://img.shields.io/badge/MailKit-Latest-grey?style=flat) | Latest | Email (SMTP) |
 
 ### Frontend
 | Technology | Version | Purpose |
@@ -63,7 +63,6 @@
 | Render | ![Render](https://img.shields.io/badge/Render-46E3B7?style=flat&logo=render&logoColor=white) | Backend API Hosting |
 | Vercel | ![Vercel](https://img.shields.io/badge/Vercel-000000?style=flat&logo=vercel&logoColor=white) | Frontend Hosting |
 | GitHub | ![GitHub](https://img.shields.io/badge/GitHub-181717?style=flat&logo=github&logoColor=white) | Version Control |
-| Resend | ![Resend](https://img.shields.io/badge/Resend-000000?style=flat&logo=mail&logoColor=white) | Email Delivery |
 
 ---
 
@@ -165,9 +164,6 @@ dotnet restore
     "Key": "<random secret, 32+ characters>",
     "Issuer": "kpi-management",
     "Audience": "kpi-management"
-  },
-  "Resend": {
-    "ApiKey": "re_your_api_key"
   },
   "Admin": {
     "Email": "you@example.com",
@@ -276,17 +272,13 @@ POST /api/jobs/trigger-maintenance  # รันงานดูแลประจ
     "Key": "Secret key (min 32 chars)",
     "Issuer": "kpi-management",
     "Audience": "kpi-management"
-  },
-  "Resend": {
-    "ApiKey": "Resend API Key"
   }
 }
 ```
-บน Render ใช้ environment variables แทน: `ConnectionStrings__DefaultConnection`, `Jwt__Key`, `Resend__ApiKey`
+บน Render ใช้ environment variables แทน: `ConnectionStrings__DefaultConnection`, `Jwt__Key`
 และ (ถ้าจำเป็น) `Cors__Origins__0` สำหรับ origin เพิ่มเติม เช่น Vercel preview
 
-อีเมล: `Resend__From` (ต้องเป็นโดเมนที่ verify แล้ว ไม่งั้นส่งถึงเจ้าของบัญชี Resend เท่านั้น),
-`App__BaseUrl` (URL ของ frontend สำหรับปุ่ม "เปิดเรื่อง" ในอีเมล), `Email__Enabled=false` เพื่อปิดการส่ง —
+อีเมล: ตั้งเซิร์ฟเวอร์ SMTP ในแอป (ตั้งค่า → อีเมล), `App__BaseUrl` (URL ของ frontend สำหรับปุ่ม "เปิดเรื่อง" ในอีเมล), `Email__Enabled=false` เพื่อปิดการส่ง —
 รายละเอียดใน [docs/access-and-workflow.md](docs/access-and-workflow.md)
 
 การ deploy ครั้งแรก:

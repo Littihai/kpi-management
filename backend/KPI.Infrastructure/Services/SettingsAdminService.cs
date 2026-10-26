@@ -38,9 +38,6 @@ public class SettingsAdminService : ISettingsAdminService
             : definition.Sensitive ? _secrets.Unprotect(current.Value) ?? definition.Default : current.Value;
         if (value == effective) return ToDto(definition, current);       // nothing changed: no history line either
 
-        if (key == SettingCatalog.Keys.EmailProvider && value == "smtp")
-            await EnsureSmtpIsConfiguredAsync();
-
         var actorName = await ActorNameAsync(actorId);
         var now = _time.GetUtcNow().UtcDateTime;
         string? newStored = value == definition.Default ? null : definition.Sensitive ? _secrets.Protect(value) : value;   // back at the default needs no row
@@ -87,15 +84,6 @@ public class SettingsAdminService : ISettingsAdminService
     }
 
     private static string Mask(string value) => value.Length == 0 ? "" : "••••••••";
-
-    private async Task EnsureSmtpIsConfiguredAsync()
-    {
-        var stored = await _db.AppSettings.AsNoTracking()
-            .Where(s => s.Key == SettingCatalog.Keys.SmtpHost || s.Key == SettingCatalog.Keys.SmtpFromAddress)
-            .Select(s => s.Key).ToListAsync();
-        if (!stored.Contains(SettingCatalog.Keys.SmtpHost) || !stored.Contains(SettingCatalog.Keys.SmtpFromAddress))
-            throw new RequestValidationException("ตั้งค่าเซิร์ฟเวอร์ SMTP และที่อยู่ผู้ส่งให้ครบก่อนเลือกช่องทางนี้");
-    }
 
     private static SettingDefinition FindOrThrow(string key) =>
         SettingCatalog.Find(key) ?? throw new NotFoundException("ไม่พบการตั้งค่านี้");

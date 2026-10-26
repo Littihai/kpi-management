@@ -93,7 +93,6 @@ jobs:
           Admin__Email: admin@example.com
           Admin__Password: Smoke-Test-Pass-1
           Email__Enabled: "false"
-          Resend__ApiKey: re_ci
           ASPNETCORE_URLS: http://localhost:5290
           ASPNETCORE_ENVIRONMENT: Production
         run: |

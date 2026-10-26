@@ -38,14 +38,13 @@ public self-registration is closed (`POST /api/auth/register` needs `user.create
 
 ## E-mail notifications
 
-Sent through Resend, only when something actually happens (never as a daily repeat), and best effort: a mail
+Sent through the SMTP server set up in Settings > E-mail, only when something actually happens (never as a daily repeat), and best effort: a mail
 problem is logged and never fails or undoes the change. The person who performed the action is not e-mailed.
 Which events send which e-mail is described under "Problem reports" below.
 
-Settings (environment variables on Render): `Resend__ApiKey`; `Resend__From` – a sender on a **verified domain**
-(the default `onboarding@resend.dev` can only deliver to the Resend account owner); `App__BaseUrl` – the frontend
-URL, which adds an "open the issue" button; `Email__Enabled=false` to switch e-mail off. Messages to several people are
-spaced about half a second apart to stay under Resend's rate limit. All user-supplied text is HTML-encoded.
+Server, port, encryption, login and sender are set in the app (Settings > E-mail), which also has a test send. Environment
+variables: `App__BaseUrl` – the frontend URL, which adds an "open the issue" button; `Email__Enabled=false` to switch
+e-mail off. Messages to several people are spaced about half a second apart to stay under a mail server's rate limit. All user-supplied text is HTML-encoded.
 
 ## Real-time updates (SignalR)
 

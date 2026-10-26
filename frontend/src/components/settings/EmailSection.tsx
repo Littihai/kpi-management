@@ -10,7 +10,6 @@ import { apiError } from '../../utils/errors'
 
 const KEYS = {
   enabled: 'email.enabled',
-  provider: 'email.provider',
   host: 'smtp.host',
   port: 'smtp.port',
   security: 'smtp.security',
@@ -21,10 +20,7 @@ const KEYS = {
   timeout: 'smtp.timeoutSeconds',
 }
 
-/** Which of the settings are saved first, so that choosing SMTP comes after the server it needs has been saved. */
-const SAVE_LAST = [KEYS.provider]
-
-/** How the system sends e-mail: Resend (set up on the server) or any SMTP server (set up here), plus a test send. */
+/** How the system sends e-mail: through an SMTP server set up here, plus a test send. */
 export default function EmailSection() {
   const canManage = useCan('settings.manage')
   const myEmail = useAuthStore((s) => s.user?.email ?? '')
@@ -75,10 +71,9 @@ export default function EmailSection() {
     setSaving(true)
     setError('')
     setNotice('')
-    const ordered = [...changedKeys.filter((k) => !SAVE_LAST.includes(k)), ...changedKeys.filter((k) => SAVE_LAST.includes(k))]
     const failures: string[] = []
     let saved = 0
-    for (const key of ordered) {
+    for (const key of changedKeys) {
       try {
         const updated = await settingsService.update(key, draft[key])
         setRows((r) => (r ? { ...r, [key]: updated } : r))
@@ -119,7 +114,6 @@ export default function EmailSection() {
     }
   }
 
-  const provider = value(KEYS.provider)
   const passwordSet = !rows[KEYS.password].isDefault
   const unsaved = changedKeys.length > 0
 
@@ -130,20 +124,15 @@ export default function EmailSection() {
       {!canManage && <Alert tone="info">คุณดูการตั้งค่าได้อย่างเดียว การแก้ไขต้องมีสิทธิ์ "แก้ไขการตั้งค่าระบบ"</Alert>}
 
       <Card>
-        <CardHeader eyebrow="การส่ง" title="ช่องทางส่งอีเมล" />
+        <CardHeader eyebrow="การส่ง" title="การส่งอีเมล" />
         <div className="space-y-4 px-5 pb-5 pt-4">
           <SwitchLine title="ส่งอีเมลแจ้งเตือน" desc={rows[KEYS.enabled].description} disabled={!canManage || saving}
             checked={value(KEYS.enabled) === 'true'} onChange={(on) => set(KEYS.enabled, on ? 'true' : 'false')} />
-          <SelectInput label="ช่องทางที่ใช้ส่ง" options={optionsOf(KEYS.provider)} hint={rows[KEYS.provider].description} {...field(KEYS.provider)} />
-          {provider === 'resend' && (
-            <Alert tone="info">Resend ใช้คีย์และที่อยู่ผู้ส่งที่ตั้งไว้ที่เซิร์ฟเวอร์ (Resend__ApiKey, Resend__From) แก้ไขจากหน้านี้ไม่ได้ ถ้าต้องการใช้เซิร์ฟเวอร์อีเมลขององค์กร ให้กรอก SMTP ด้านล่างแล้วเลือกช่องทาง SMTP</Alert>
-          )}
         </div>
       </Card>
 
       <Card>
-        <CardHeader eyebrow="SMTP" title="เซิร์ฟเวอร์อีเมล (SMTP)"
-          action={provider === 'smtp' ? <span className="rounded-full bg-green-soft px-2.5 py-0.5 text-[11.5px] font-semibold text-green-ink">กำลังใช้งาน</span> : undefined} />
+        <CardHeader eyebrow="SMTP" title="เซิร์ฟเวอร์อีเมล (SMTP)" />
         <div className="space-y-4 px-5 pb-5 pt-4">
           <div className="grid gap-4 sm:grid-cols-[1fr_140px]">
             <TextInput label="เซิร์ฟเวอร์ SMTP" placeholder="smtp.example.com" autoComplete="off" hint={rows[KEYS.host].description} {...field(KEYS.host)} />
@@ -183,7 +172,7 @@ export default function EmailSection() {
         <Card>
           <CardHeader eyebrow="ตรวจสอบ" title="ส่งอีเมลทดสอบ" />
           <div className="space-y-3 px-5 pb-5 pt-4">
-            <p className="text-[13px] text-ink-3">ส่งผ่านช่องทางที่บันทึกไว้แล้วเท่านั้น {unsaved ? '— บันทึกการแก้ไขก่อนจึงจะทดสอบได้' : ''}</p>
+            <p className="text-[13px] text-ink-3">ส่งด้วยค่า SMTP ที่บันทึกไว้แล้วเท่านั้น {unsaved ? '— บันทึกการแก้ไขก่อนจึงจะทดสอบได้' : ''}</p>
             <div className="flex flex-wrap items-end gap-3">
               <TextInput label="ส่งไปที่" type="email" value={to} onChange={(e) => { setTo(e.target.value); setTestResult(null) }} wrapperClassName="w-full sm:w-80" />
               <Button icon="send" loading={testing} disabled={unsaved || !to.trim()} onClick={sendTest}>ส่งอีเมลทดสอบ</Button>

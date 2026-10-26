@@ -300,8 +300,7 @@ $settings = [ordered]@{
     Jwt               = [ordered]@{ Key = $signingKey; Issuer = 'Helpdesk'; Audience = 'Helpdesk' }
     App               = [ordered]@{ BaseUrl = $PublicUrl; CompanyName = $CompanyName }
     Cors              = [ordered]@{ Origins = @($PublicUrl) }
-    # E-mail is set up in the app (Settings > E-mail). This key only keeps the unused Resend option quiet.
-    Resend            = [ordered]@{ ApiKey = 'not-configured' }
+    # E-mail is set up in the app (Settings > E-mail).
     # Where the setup page saves the database it is told about (and where the program looks first at start-up).
     Setup             = [ordered]@{ ConfigFile = $databaseFile }
 }

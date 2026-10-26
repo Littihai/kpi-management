@@ -78,7 +78,6 @@ public class EmailSettingValidationTests
 
     [Theory]
     [InlineData(SettingCatalog.Keys.SmtpSecurity, "tls")]
-    [InlineData(SettingCatalog.Keys.EmailProvider, "sendgrid")]
     [InlineData(SettingCatalog.Keys.SmtpPort, "0")]
     [InlineData(SettingCatalog.Keys.SmtpPort, "70000")]
     [InlineData(SettingCatalog.Keys.SmtpTimeoutSeconds, "1")]
@@ -86,11 +85,8 @@ public class EmailSettingValidationTests
         Assert.Throws<RequestValidationException>(() => Normalize(key, value));
 
     [Fact]
-    public void Only_the_password_is_sensitive_and_the_default_provider_is_the_one_in_use_today()
-    {
+    public void Only_the_password_is_sensitive() =>
         Assert.Equal([SettingCatalog.Keys.SmtpPassword], SettingCatalog.All.Where(d => d.Sensitive).Select(d => d.Key));
-        Assert.Equal("resend", SettingCatalog.Find(SettingCatalog.Keys.EmailProvider)!.Default);
-    }
 }
 
 public class EmailSecretsAdminTests
@@ -200,73 +196,42 @@ public class EmailSecretsAdminTests
 
         Assert.Equal("", await f.Settings.GetAsync(SettingCatalog.Keys.SmtpPassword));
     }
-
-    [Fact]
-    public async Task Smtp_cannot_be_chosen_until_the_server_and_sender_are_saved()
-    {
-        await using var f = await Fixture.CreateAsync();
-        using var scope = f.Scope();
-        var admin = scope.ServiceProvider.GetRequiredService<ISettingsAdminService>();
-
-        await Assert.ThrowsAsync<RequestValidationException>(() =>
-            admin.UpdateAsync(f.AdminId, SettingCatalog.Keys.EmailProvider, new SaveSettingRequest("smtp")));
-        await admin.UpdateAsync(f.AdminId, SettingCatalog.Keys.SmtpHost, new SaveSettingRequest("mail.example.com"));
-        await Assert.ThrowsAsync<RequestValidationException>(() =>
-            admin.UpdateAsync(f.AdminId, SettingCatalog.Keys.EmailProvider, new SaveSettingRequest("smtp")));
-        await admin.UpdateAsync(f.AdminId, SettingCatalog.Keys.SmtpFromAddress, new SaveSettingRequest("noreply@example.com"));
-
-        var chosen = await admin.UpdateAsync(f.AdminId, SettingCatalog.Keys.EmailProvider, new SaveSettingRequest("smtp"));
-        Assert.Equal("smtp", chosen.Value);
-        // and going back to Resend is always allowed
-        await admin.UpdateAsync(f.AdminId, SettingCatalog.Keys.EmailProvider, new SaveSettingRequest("resend"));
-    }
 }
 
-public class EmailServiceRoutingTests
+public class EmailServiceTests
 {
-    private sealed class FakeTransport(string name) : IMailTransport
+    private sealed class FakeTransport : IMailTransport
     {
-        public string Name { get; } = name;
+        public string Name => "smtp";
         public List<OutgoingMail> Sent { get; } = [];
         public Task SendAsync(OutgoingMail mail, CancellationToken cancellationToken) { Sent.Add(mail); return Task.CompletedTask; }
-    }
-
-    private static (EmailService Service, FakeTransport Resend, FakeTransport Smtp, DefaultSettings Settings) Create()
-    {
-        var resend = new FakeTransport("resend");
-        var smtp = new FakeTransport("smtp");
-        var settings = new DefaultSettings();
-        return (new EmailService([resend, smtp], settings, new ConfigurationBuilder().Build()), resend, smtp, settings);
     }
 
     private static IssueEmailMessage Message() =>
         new(IssueEmailKind.Received, "user@example.com", "User", Guid.NewGuid(), "ISS-2569-0001", "เครื่องพิมพ์เสีย", null, null, DateTime.UtcNow.AddHours(2));
 
     [Fact]
-    public async Task Issue_mail_goes_through_resend_by_default_and_through_smtp_when_chosen()
+    public async Task Issue_mail_goes_out_through_the_transport()
     {
-        var (service, resend, smtp, settings) = Create();
+        var transport = new FakeTransport();
+        var service = new EmailService(transport, new DefaultSettings(), new ConfigurationBuilder().Build());
 
         await service.SendIssueAsync(Message());
-        settings.Set(SettingCatalog.Keys.EmailProvider, "smtp");
-        await service.SendIssueAsync(Message());
 
-        Assert.Single(resend.Sent);
-        Assert.Single(smtp.Sent);
-        Assert.Equal("user@example.com", smtp.Sent[0].ToEmail);
-        Assert.Contains("ISS-2569-0001", smtp.Sent[0].Subject);
+        var sent = Assert.Single(transport.Sent);
+        Assert.Equal("user@example.com", sent.ToEmail);
+        Assert.Contains("ISS-2569-0001", sent.Subject);
     }
 
     [Fact]
-    public async Task The_test_message_uses_the_provider_that_is_selected()
+    public async Task The_test_message_goes_out_through_the_transport()
     {
-        var (service, resend, smtp, settings) = Create();
-        settings.Set(SettingCatalog.Keys.EmailProvider, "smtp");
+        var transport = new FakeTransport();
+        var service = new EmailService(transport, new DefaultSettings(), new ConfigurationBuilder().Build());
 
         await service.SendTestAsync("admin@example.com");
 
-        Assert.Empty(resend.Sent);
-        var sent = Assert.Single(smtp.Sent);
+        var sent = Assert.Single(transport.Sent);
         Assert.Equal("admin@example.com", sent.ToEmail);
         Assert.Contains("ทดสอบ", sent.Subject);
     }
@@ -416,15 +381,5 @@ public class EmailSettingsApiTests : IClassFixture<ApiFactory>, IAsyncLifetime
         Assert.Equal(HttpStatusCode.Forbidden, (await staff.PostAsJsonAsync("/api/settings/email/test", new { to = "a@b.com" })).StatusCode);
         Assert.Equal(HttpStatusCode.BadRequest, (await admin.PostAsJsonAsync("/api/settings/email/test", new { to = "not-an-address" })).StatusCode);
         Assert.Equal(HttpStatusCode.BadRequest, (await admin.PostAsJsonAsync("/api/settings/email/test", new { to = "" })).StatusCode);
-    }
-
-    [Fact]
-    public async Task Smtp_cannot_be_selected_through_the_api_before_it_is_set_up()
-    {
-        var admin = await _factory.ClientAsync("admin");
-
-        var response = await admin.PutAsJsonAsync("/api/settings/email.provider", new { value = "smtp" });
-
-        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
     }
 }

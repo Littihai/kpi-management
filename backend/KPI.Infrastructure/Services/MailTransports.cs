@@ -5,42 +5,16 @@ using MailKit.Net.Smtp;
 using MailKit.Security;
 using Microsoft.Extensions.Configuration;
 using MimeKit;
-using Resend;
 
 namespace KPI.Infrastructure.Services;
 
 public sealed record OutgoingMail(string ToEmail, string Subject, string HtmlBody);
 
-/// <summary>One way of getting a message out of the building. EmailService picks one by the "email.provider" setting.</summary>
+/// <summary>A way of getting a message out of the building. SMTP is the only one today.</summary>
 public interface IMailTransport
 {
     string Name { get; }
     Task SendAsync(OutgoingMail mail, CancellationToken cancellationToken);
-}
-
-/// <summary>Resend's HTTP API. The key and sender are configured on the server (Resend__ApiKey, Resend__From).</summary>
-public sealed class ResendTransport : IMailTransport
-{
-    // Resend only delivers from this address to the account owner. Set Resend__From to an address on a
-    // verified domain (e.g. "Helpdesk <noreply@yourcompany.com>") to e-mail everyone else.
-    private const string DefaultFrom = "Helpdesk <onboarding@resend.dev>";
-
-    private readonly IResend _resend;
-    private readonly string _from;
-
-    public ResendTransport(IResend resend, IConfiguration config)
-    {
-        _resend = resend;
-        _from = config["Resend:From"] is { Length: > 0 } from ? from : DefaultFrom;
-    }
-
-    public string Name => "resend";
-
-    public async Task SendAsync(OutgoingMail mail, CancellationToken cancellationToken)
-    {
-        var email = new EmailMessage { From = _from, To = { mail.ToEmail }, Subject = mail.Subject, HtmlBody = mail.HtmlBody };
-        await _resend.EmailSendAsync(email, cancellationToken);
-    }
 }
 
 /// <summary>Any SMTP server, set up in the settings screen (host, port, encryption, login, sender).</summary>

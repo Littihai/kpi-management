@@ -68,7 +68,7 @@ export const SETTINGS_ITEMS: SettingsItem[] = [
   { section: 'security', label: 'นโยบายรหัสผ่าน', keywords: 'ความยาวรหัสผ่าน หมดอายุ ประวัติรหัสผ่าน' },
   { section: 'security', label: 'การล็อกบัญชี', keywords: 'lock ล็อก ใส่รหัสผิด' },
   { section: 'security', label: 'บันทึกการเข้าสู่ระบบ', keywords: 'sign-in log ล็อกอิน ประวัติเข้าใช้' },
-  { section: 'email', label: 'เซิร์ฟเวอร์ SMTP', keywords: 'smtp mail อีเมล ส่งเมล พอร์ต ทดสอบส่ง resend' },
+  { section: 'email', label: 'เซิร์ฟเวอร์ SMTP', keywords: 'smtp mail อีเมล ส่งเมล พอร์ต ทดสอบส่ง' },
   { section: 'database', label: 'ตรวจฐานข้อมูล', keywords: 'database sql server ตาราง ซ่อม สร้างที่ขาด เชื่อมต่อ' },
   { section: 'users', label: 'เพิ่มผู้ใช้', keywords: 'user พนักงาน ปิดใช้งาน ปลดล็อก ตั้งรหัสผ่านใหม่' },
   { section: 'roles', label: 'บทบาทและสิทธิ์', keywords: 'role permission สิทธิ์ ตารางเทียบสิทธิ์ ใครทำอะไรได้' },

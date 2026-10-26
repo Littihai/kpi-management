@@ -7,13 +7,13 @@ namespace KPI.Infrastructure.Services;
 
 public class EmailService : IEmailService
 {
-    private readonly IReadOnlyList<IMailTransport> _transports;
+    private readonly IMailTransport _transport;
     private readonly ISystemSettings _settings;
     private readonly string? _appBaseUrl;
 
-    public EmailService(IEnumerable<IMailTransport> transports, ISystemSettings settings, IConfiguration config)
+    public EmailService(IMailTransport transport, ISystemSettings settings, IConfiguration config)
     {
-        _transports = transports.ToList();
+        _transport = transport;
         _settings = settings;
         _appBaseUrl = config["App:BaseUrl"];
     }
@@ -32,11 +32,6 @@ public class EmailService : IEmailService
             $"<p>นี่คืออีเมลทดสอบจากระบบ {System.Net.WebUtility.HtmlEncode(system)}</p><p>ถ้าคุณเห็นข้อความนี้ แสดงว่าการตั้งค่าอีเมลใช้งานได้</p>"), cancellationToken);
     }
 
-    private async Task SendAsync(OutgoingMail mail, CancellationToken cancellationToken)
-    {
-        var provider = await _settings.GetAsync(SettingCatalog.Keys.EmailProvider);
-        var transport = _transports.FirstOrDefault(t => t.Name == provider)
-            ?? throw new InvalidOperationException($"No e-mail transport named '{provider}'");
-        await transport.SendAsync(mail, cancellationToken);
-    }
+    private Task SendAsync(OutgoingMail mail, CancellationToken cancellationToken) =>
+        _transport.SendAsync(mail, cancellationToken);
 }

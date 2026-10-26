@@ -30,8 +30,7 @@ public class ApiFactory : WebApplicationFactory<Program>
         builder.UseSetting("Jwt:Key", "integration-test-signing-key-0123456789-abcdef");
         builder.UseSetting("Jwt:Issuer", "kpi-test");
         builder.UseSetting("Jwt:Audience", "kpi-test");
-        builder.UseSetting("Resend:ApiKey", "re_test");
-        builder.UseSetting("Email:Enabled", "false"); // never call the real mail provider from tests
+        builder.UseSetting("Email:Enabled", "false"); // never call a real mail server from tests
         builder.UseSetting("Audit:FlushMs", "50");     // save request logs almost immediately
         builder.UseSetting("PublicIssues:MaxPerWindow", "3");
         builder.UseSetting("ConnectionStrings:DefaultConnection", "Host=unused");
