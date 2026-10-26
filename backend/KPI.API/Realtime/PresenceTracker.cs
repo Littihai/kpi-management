@@ -3,7 +3,7 @@ using KPI.Application.Admin;
 
 namespace KPI.API.Realtime;
 
-/// <summary>Who has a live connection right now (in this process). Feeds the "online now" list for SuperAdmin.</summary>
+/// <summary>Who has a real-time connection right now (in this process). Feeds the "online now" list for SuperAdmin.</summary>
 public sealed class PresenceTracker : IPresenceTracker
 {
     private sealed record Entry(Guid UserId, string Name, string Role, string? Ip, DateTime Since);

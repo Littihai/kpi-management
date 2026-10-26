@@ -90,7 +90,7 @@ export default function LoginPage() {
             {[
               ['ticket', 'แจ้งเรื่องง่าย ๆ แนบรูปได้ ไม่ต้องรู้ว่าควรบอกใคร'],
               ['list-check', 'ติดตามสถานะและดูวิธีแก้ไขได้ทุกขั้นตอน'],
-              ['bell-ringing', 'อัปเดตแบบสด ไม่ต้องรีเฟรชหน้า'],
+              ['bell-ringing', 'อัปเดตแบบเรียลไทม์ ไม่ต้องรีเฟรชหน้า'],
             ].map(([icon, text]) => (
               <li key={icon} className="flex items-start gap-3">
                 <i className={`ti ti-${icon} mt-0.5 text-xl text-accent`} aria-hidden="true" />{text}

@@ -80,7 +80,7 @@ export default function IssuesPage() {
   useEffect(() => { load() }, [load])
   useEffect(() => { if (isIt) issueService.assignees().then(setAssignees).catch(() => {}) }, [isIt])
 
-  // Live: a new report or a reply shows up without refreshing. Bursts are collapsed into one reload.
+  // Real-time: a new report or a reply shows up without refreshing. Bursts are collapsed into one reload.
   const timer = useRef<number | undefined>(undefined)
   useIssueEvents(() => {
     window.clearTimeout(timer.current)
@@ -181,7 +181,7 @@ export default function IssuesPage() {
           <EmptyState icon={filtered ? 'search-off' : 'mood-smile'}
             title={filtered ? 'ไม่พบเรื่องที่ตรงกับตัวกรอง' : tab === 'open' ? 'ไม่มีเรื่องค้างอยู่' : 'ยังไม่มีเรื่อง'}
             action={!filtered && !isIt ? <Link to="/issues/new" state={{ from: '/issues' }}><Button variant="primary" icon="plus">แจ้งปัญหา</Button></Link> : undefined}>
-            {filtered ? 'ลองเปลี่ยนหรือล้างตัวกรอง' : isIt ? 'เมื่อมีคนแจ้งปัญหา เรื่องจะขึ้นที่นี่ทันที' : 'เมื่อพบปัญหาการใช้งาน กดปุ่มแจ้งปัญหาได้ตลอดเวลา'}
+            {filtered ? 'ลองเปลี่ยนหรือล้างตัวกรอง' : isIt ? 'เมื่อมีคนแจ้งปัญหา เรื่องจะแสดงที่นี่แบบเรียลไทม์' : 'เมื่อพบปัญหาการใช้งาน กดปุ่มแจ้งปัญหาได้ตลอดเวลา'}
           </EmptyState>
         ) : (
           <>

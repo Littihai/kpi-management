@@ -144,7 +144,7 @@ public class OverviewService : IOverviewService
             days, now, users, requestStats, issueOverview,
             topIps.Select(i => new CountByLabel(i.Ip, i.Count)).ToList(),
             security, activity, trend,
-            Online: []); // filled in by the controller from the live connection list
+            Online: []); // filled in by the controller from the real-time connection list
     }
 
     public async Task<PagedResult<RequestLogDto>> RequestLogsAsync(RequestLogQuery query)

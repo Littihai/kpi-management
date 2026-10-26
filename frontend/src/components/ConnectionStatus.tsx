@@ -7,7 +7,7 @@ const statusText = {
   offline: { label: 'ไม่ได้เชื่อมต่อ', dot: 'bg-ink-4' },
 } as const
 
-/** Whether live updates are flowing, as a single dot. The words are only for screen readers and the hover hint. */
+/** Whether real-time updates are flowing, as a single dot. The words are only for screen readers and the hover hint. */
 export default function ConnectionStatus({ className = '' }: { className?: string }) {
   const connection = statusText[useRealtimeStatus()]
   return (
