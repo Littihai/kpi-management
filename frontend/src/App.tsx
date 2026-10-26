@@ -10,7 +10,7 @@ import SetupGate from './components/SetupGate'
 import SettingsWindow from './components/settings/SettingsWindow'
 import { isSettingsPath, RealLocationContext, type SettingsLocationState } from './components/settings/settingsNav'
 import LoginPage from './pages/LoginPage'
-import LoadingIndicator from './components/ui/LoadingIndicator'
+import LoadingProgress from './components/ui/LoadingProgress'
 import ChooseServerPage from './pages/ChooseServerPage'
 import { hasServer } from './lib/server'
 import { useAuthStore } from './stores/authStore'
@@ -49,7 +49,7 @@ function AppRoutes() {
 
   return (
     <RealLocationContext.Provider value={location}>
-      <Suspense fallback={<Page><LoadingIndicator width={72} className="mx-auto mb-5" /><PageSkeleton /></Page>}>
+      <Suspense fallback={<Page><LoadingProgress width={180} className="mx-auto mb-6" /><PageSkeleton /></Page>}>
         <Routes location={routesLocation}>
           <Route path="/login" element={<LoginPage />} />
           {/* Works without an account, for people who cannot sign in */}

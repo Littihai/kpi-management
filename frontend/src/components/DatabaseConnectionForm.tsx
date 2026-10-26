@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import Button from './ui/Button'
 import { SelectInput, TextInput } from './ui/Field'
 import { Alert } from './ui/Layout'
-import { LoadingState } from './ui/LoadingIndicator'
+import LoadingProgress from './ui/LoadingProgress'
 import { ConnectionProblem, DatabaseChecklist } from './settings/DatabaseChecklist'
 import { stepLabel } from './settings/databaseText'
 import type { DatabaseReport } from '../services/database.service'
@@ -174,7 +174,7 @@ export default function DatabaseConnectionForm({ status, onBusyChange, prefill }
     return (
       <div className="space-y-3 py-6 text-center" role="status">
         {phase === 'starting'
-          ? <LoadingState title="บันทึกแล้ว กำลังเริ่มระบบ" hint="รอสักครู่ เมื่อพร้อมแล้วจะพาไปหน้าเข้าสู่ระบบเอง" />
+          ? <LoadingProgress title="บันทึกแล้ว กำลังเริ่มระบบ" hint="รอสักครู่ เมื่อพร้อมแล้วจะพาไปหน้าเข้าสู่ระบบเอง" />
           : <>
               <i className="ti ti-clock-exclamation text-3xl text-amber-ink" aria-hidden="true" />
               <p className="text-base font-medium text-ink">บันทึกแล้ว แต่ระบบยังไม่ตอบ</p>

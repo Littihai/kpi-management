@@ -127,8 +127,12 @@ export const issueService = {
   },
 
   /** Images need the sign-in token, so they are fetched as blobs rather than used as plain <img src>. */
-  async attachmentBlob(issueId: string, attachmentId: string): Promise<Blob> {
-    const res = await api.get(`/api/issues/${issueId}/attachments/${attachmentId}`, { responseType: 'blob' })
+  /** Downloads one attached picture; `onProgress` gets 0..100 while the size is known. */
+  async attachmentBlob(issueId: string, attachmentId: string, onProgress?: (percent: number) => void): Promise<Blob> {
+    const res = await api.get(`/api/issues/${issueId}/attachments/${attachmentId}`, {
+      responseType: 'blob',
+      onDownloadProgress: onProgress ? (e) => { if (e.total) onProgress((e.loaded / e.total) * 100) } : undefined,
+    })
     return res.data as Blob
   },
 }

@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { issueService } from '../../services/issue.service'
 import type { IssueAttachment } from '../../types/issue'
-import LoadingIndicator from '../ui/LoadingIndicator'
+import LoadingProgress from '../ui/LoadingProgress'
 import Modal from '../ui/Modal'
 import { formatBytes } from '../../utils/format'
 
@@ -9,12 +9,13 @@ import { formatBytes } from '../../utils/format'
 export default function AttachmentImage({ issueId, attachment }: { issueId: string; attachment: IssueAttachment }) {
   const [url, setUrl] = useState<string | null>(null)
   const [failed, setFailed] = useState(false)
+  const [percent, setPercent] = useState<number | undefined>(undefined)
   const [open, setOpen] = useState(false)
 
   useEffect(() => {
     let objectUrl: string | null = null
     let cancelled = false
-    issueService.attachmentBlob(issueId, attachment.id)
+    issueService.attachmentBlob(issueId, attachment.id, (p) => { if (!cancelled) setPercent(p) })
       .then((blob) => {
         if (cancelled) return
         objectUrl = URL.createObjectURL(blob)
@@ -42,7 +43,7 @@ export default function AttachmentImage({ issueId, attachment }: { issueId: stri
         className="group relative h-28 w-28 overflow-hidden rounded-control border border-line bg-surface-2">
         {url
           ? <img src={url} alt={attachment.fileName} className="h-full w-full object-cover transition-transform group-hover:scale-105" />
-          : <span className="flex h-full items-center justify-center"><LoadingIndicator width={56} label="กำลังโหลดรูป" /></span>}
+          : <span className="flex h-full items-center justify-center"><LoadingProgress width={64} title={null} percent={percent} /></span>}
       </button>
       <Modal open={open} onClose={() => setOpen(false)} title={attachment.fileName} width="lg"
         footer={<span className="mr-auto text-xs text-ink-3">{formatBytes(attachment.sizeBytes)}</span>}>

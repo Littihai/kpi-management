@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import BrandName from '../components/BrandName'
 import ServerAddressDialog from '../components/ServerAddressDialog'
 import Button from '../components/ui/Button'
-import { LoadingState } from '../components/ui/LoadingIndicator'
+import LoadingProgress from '../components/ui/LoadingProgress'
 import { Alert } from '../components/ui/Layout'
 
 type Phase = 'starting' | 'choose'
@@ -54,7 +54,7 @@ export default function ChooseServerPage() {
         </div>
 
         {phase === 'starting' ? (
-          <LoadingState className="mt-8" title="กำลังเตรียมเซิร์ฟเวอร์ในแอป" hint="สักครู่ แล้วจะเปิดหน้าเชื่อมต่อ SQL Server" />
+          <LoadingProgress className="mt-8" title="กำลังเตรียมเซิร์ฟเวอร์ในแอป" hint="สักครู่ แล้วจะเปิดหน้าเชื่อมต่อ SQL Server" />
         ) : (
           <div className="mt-8 space-y-4">
             <h1 className="text-center text-2xl font-semibold text-ink">เชื่อมต่อกับระบบของบริษัท</h1>
