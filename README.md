@@ -366,4 +366,4 @@ GET  /api/audit                         # Audit log (SuperAdmin)
 
 ## License
 
-MIT License — ใช้และแก้ไขได้อย่างอิสระ
+MIT License — ใช้และแก้ไขได้อย่างอิสระ ดูข้อความเต็มที่ [LICENSE](LICENSE) (Copyright (c) 2026 Lttichai Yorach)
