@@ -106,7 +106,8 @@ public class AppDbContext : DbContext
         audit.Property(a => a.DepartmentName).HasMaxLength(200);
 
         var request = modelBuilder.Entity<RequestLog>();
-        request.HasIndex(r => r.CreatedAt);
+        // covers the overview's aggregates over a time window without touching the wide rows
+        Cover(request.HasIndex(r => r.CreatedAt), r => new { r.Method, r.StatusCode, r.IpAddress, r.Path });
         request.HasIndex(r => new { r.UserId, r.CreatedAt });
         request.HasIndex(r => new { r.IpAddress, r.CreatedAt });
         request.HasIndex(r => new { r.StatusCode, r.CreatedAt });
@@ -186,7 +187,11 @@ public class AppDbContext : DbContext
         }
 
         issue.HasIndex(i => new { i.NumberYear, i.Number }).IsUnique();
-        issue.HasIndex(i => i.Status);
+        // covers the summary counts (open, overdue, mine) so they never read the wide rows
+        Cover(issue.HasIndex(i => i.Status), i => new { i.ResponseDueAt, i.ResolveDueAt, i.FirstResponseAt, i.ReporterUserId, i.AssigneeId });
+        issue.HasIndex(i => i.ResolvedAt);
+        // search by title / reporter name scans this narrow index instead of the table
+        Cover(issue.HasIndex(i => i.Title), i => new { i.ReporterName, i.CreatedAt });
         issue.HasIndex(i => i.CreatedAt);
         issue.HasIndex(i => new { i.Status, i.ResolveDueAt });
         issue.HasIndex(i => new { i.DepartmentId, i.Status });
@@ -201,5 +206,12 @@ public class AppDbContext : DbContext
         var attachment = modelBuilder.Entity<IssueAttachment>();
         attachment.Property(a => a.FileName).HasMaxLength(255);
         attachment.Property(a => a.ContentType).HasMaxLength(100);
+    }
+
+    /// <summary>An index that also stores the given columns, so a query that needs only those never reads the table row (both providers).</summary>
+    private static void Cover<T>(Microsoft.EntityFrameworkCore.Metadata.Builders.IndexBuilder<T> index, System.Linq.Expressions.Expression<Func<T, object?>> include)
+    {
+        SqlServerIndexBuilderExtensions.IncludeProperties(index, include);
+        NpgsqlIndexBuilderExtensions.IncludeProperties(index, include);
     }
 }

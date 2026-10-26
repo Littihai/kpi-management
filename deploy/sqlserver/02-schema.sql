@@ -545,3 +545,64 @@ END;
 COMMIT;
 GO
 
+BEGIN TRANSACTION;
+IF NOT EXISTS (
+    SELECT * FROM [__EFMigrationsHistory]
+    WHERE [MigrationId] = N'20261026023812_AddSearchAndSummaryIndexes'
+)
+BEGIN
+    DROP INDEX [IX_RequestLogs_CreatedAt] ON [RequestLogs];
+END;
+
+IF NOT EXISTS (
+    SELECT * FROM [__EFMigrationsHistory]
+    WHERE [MigrationId] = N'20261026023812_AddSearchAndSummaryIndexes'
+)
+BEGIN
+    DROP INDEX [IX_Issues_Status] ON [Issues];
+END;
+
+IF NOT EXISTS (
+    SELECT * FROM [__EFMigrationsHistory]
+    WHERE [MigrationId] = N'20261026023812_AddSearchAndSummaryIndexes'
+)
+BEGIN
+    CREATE INDEX [IX_RequestLogs_CreatedAt] ON [RequestLogs] ([CreatedAt]) INCLUDE ([Method], [StatusCode], [IpAddress], [Path]);
+END;
+
+IF NOT EXISTS (
+    SELECT * FROM [__EFMigrationsHistory]
+    WHERE [MigrationId] = N'20261026023812_AddSearchAndSummaryIndexes'
+)
+BEGIN
+    CREATE INDEX [IX_Issues_ResolvedAt] ON [Issues] ([ResolvedAt]);
+END;
+
+IF NOT EXISTS (
+    SELECT * FROM [__EFMigrationsHistory]
+    WHERE [MigrationId] = N'20261026023812_AddSearchAndSummaryIndexes'
+)
+BEGIN
+    CREATE INDEX [IX_Issues_Status] ON [Issues] ([Status]) INCLUDE ([ResponseDueAt], [ResolveDueAt], [FirstResponseAt], [ReporterUserId], [AssigneeId]);
+END;
+
+IF NOT EXISTS (
+    SELECT * FROM [__EFMigrationsHistory]
+    WHERE [MigrationId] = N'20261026023812_AddSearchAndSummaryIndexes'
+)
+BEGIN
+    CREATE INDEX [IX_Issues_Title] ON [Issues] ([Title]) INCLUDE ([ReporterName], [CreatedAt]);
+END;
+
+IF NOT EXISTS (
+    SELECT * FROM [__EFMigrationsHistory]
+    WHERE [MigrationId] = N'20261026023812_AddSearchAndSummaryIndexes'
+)
+BEGIN
+    INSERT INTO [__EFMigrationsHistory] ([MigrationId], [ProductVersion])
+    VALUES (N'20261026023812_AddSearchAndSummaryIndexes', N'10.0.8');
+END;
+
+COMMIT;
+GO
+

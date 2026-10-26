@@ -136,6 +136,8 @@ export interface Assignee {
 
 export interface IssueQuery {
   search?: string
+  /** Also look inside the description (slower on a large system). */
+  inDescription?: boolean
   status?: number
   openOnly?: boolean
   priority?: number

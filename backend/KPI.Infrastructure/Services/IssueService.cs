@@ -198,9 +198,11 @@ public class IssueService : IIssueService
         if (query.To is { } to) rows = rows.Where(i => i.CreatedAt < to);
         if (query.Overdue == true) rows = rows.Where(IssueFilters.Overdue(now));
 
-        if (!string.IsNullOrWhiteSpace(query.Search))
+        var searching = !string.IsNullOrWhiteSpace(query.Search);
+        if (searching)
         {
-            var term = query.Search.Trim().ToLower();
+            var term = query.Search!.Trim().ToLower();
+            var inDescription = query.InDescription == true;
             var match = NumberPattern.Match(term);
             if (match.Success)
             {
@@ -209,10 +211,16 @@ public class IssueService : IIssueService
                 rows = rows.Where(i => (i.NumberYear == year && i.Number == number)
                                        || i.Title.ToLower().Contains(term));
             }
+            else if (inDescription)
+            {
+                // Reading every description is slow on a big table; the reporter asks for it (and can narrow the dates).
+                rows = rows.Where(i => i.Title.ToLower().Contains(term)
+                                       || i.Description.ToLower().Contains(term)
+                                       || i.ReporterName.ToLower().Contains(term));
+            }
             else
             {
                 rows = rows.Where(i => i.Title.ToLower().Contains(term)
-                                       || i.Description.ToLower().Contains(term)
                                        || i.ReporterName.ToLower().Contains(term));
             }
         }
@@ -226,7 +234,10 @@ public class IssueService : IIssueService
             _ => rows.OrderByDescending(i => i.CreatedAt),
         };
 
-        var total = await ordered.CountAsync();
+        // A search only counts up to a cap: an exact total of a common word means reading every match, and nobody pages that far.
+        var total = searching
+            ? await rows.Take(MaxCountedMatches + 1).CountAsync()
+            : await ordered.CountAsync();
         var pageRows = await ordered
             .Skip((page - 1) * size)
             .Take(size)
@@ -781,6 +792,8 @@ public class IssueService : IIssueService
     }
 
     /// <summary>What the role allows: their own issues, their department's as well, or all of them.</summary>
+    private const int MaxCountedMatches = 1000;
+
     private static IQueryable<Issue> Scope(IQueryable<Issue> issues, User actor)
     {
         if (actor.Role.IssueVisibility == IssueVisibility.All) return issues;

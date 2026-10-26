@@ -31,6 +31,7 @@ public class ApiFactory : WebApplicationFactory<Program>
         builder.UseSetting("Jwt:Issuer", "kpi-test");
         builder.UseSetting("Jwt:Audience", "kpi-test");
         builder.UseSetting("Email:Enabled", "false"); // never call a real mail server from tests
+        builder.UseSetting("Overview:CacheSeconds", "0"); // tests read their own changes back
         builder.UseSetting("Audit:FlushMs", "50");     // save request logs almost immediately
         builder.UseSetting("PublicIssues:MaxPerWindow", "3");
         builder.UseSetting("ConnectionStrings:DefaultConnection", "Host=unused");

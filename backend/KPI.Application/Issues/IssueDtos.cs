@@ -99,7 +99,8 @@ public record IssueQuery(
     DateTime? To = null,
     string? Sort = null,
     int Page = 1,
-    int PageSize = 20);
+    int PageSize = 20,
+    bool? InDescription = null);
 
 public record IssueSummaryDto(
     int Open,
