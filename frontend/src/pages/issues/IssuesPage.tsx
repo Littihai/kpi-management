@@ -24,6 +24,7 @@ export default function IssuesPage() {
 
   const tab = (params.get('tab') as Tab) || 'open'
   const search = params.get('q') ?? ''
+  const inDescription = params.get('desc') === '1'
   const status = params.get('status') ?? ''
   const priority = params.get('priority') ?? ''
   const assignee = params.get('assignee') ?? ''
@@ -59,6 +60,7 @@ export default function IssuesPage() {
     const current = () => mine === latestLoad.current
     issueService.list({
       search: search || undefined,
+      inDescription: search && inDescription ? true : undefined,
       openOnly: tab === 'open' ? true : tab === 'done' ? false : undefined,
       status: status ? Number(status) : undefined,
       priority: priority ? Number(priority) : undefined,
@@ -73,7 +75,7 @@ export default function IssuesPage() {
       .catch((err) => { if (current()) setError(apiError(err, 'โหลดรายการไม่สำเร็จ')) })
       .finally(() => { if (current()) setLoading(false) })
     issueService.summary().then(setSummary).catch(() => {})
-  }, [search, tab, status, priority, assignee, overdue, sort, page, pageSize])
+  }, [search, inDescription, tab, status, priority, assignee, overdue, sort, page, pageSize])
 
   useEffect(() => { load() }, [load])
   useEffect(() => { if (isIt) issueService.assignees().then(setAssignees).catch(() => {}) }, [isIt])
@@ -128,6 +130,10 @@ export default function IssuesPage() {
             <input type="search" value={searchText} onChange={(e) => setSearchText(e.target.value)}
               placeholder="ค้นหาเลขที่ หัวข้อ หรือชื่อผู้แจ้ง" aria-label="ค้นหาเรื่อง"
               className="h-9 w-full rounded-control border border-line bg-card pl-9 pr-3 text-[13px] focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/20" />
+            <label className="mt-1 flex items-center gap-1.5 text-xs text-ink-3">
+              <input type="checkbox" checked={inDescription} onChange={(e) => update({ desc: e.target.checked ? '1' : null })} />
+              ค้นหาในรายละเอียดด้วย (ช้ากว่า)
+            </label>
           </div>
         </div>
 
@@ -158,7 +164,7 @@ export default function IssuesPage() {
           </CompactSelect>
           {(overdue || filtered) && (
             <Button size="sm" variant="ghost" icon="x"
-              onClick={() => { setSearchText(''); update({ q: null, status: null, priority: null, assignee: null, overdue: null }) }}>
+              onClick={() => { setSearchText(''); update({ q: null, desc: null, status: null, priority: null, assignee: null, overdue: null }) }}>
               ล้างตัวกรอง
             </Button>
           )}

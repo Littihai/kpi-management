@@ -33,6 +33,7 @@ public static class ServiceRegistration
     public static IServiceCollection AddCoreServices(this IServiceCollection services, IConfiguration config)
     {
         services.AddSignalR();
+        services.AddMemoryCache();
         services.AddSingleton<IRealtimeNotifier, SignalRNotifier>();
 
         services.AddScoped<IMailTransport, SmtpTransport>();

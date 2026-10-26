@@ -4,6 +4,8 @@ using KPI.Application.Common;
 using KPI.Domain.Issues;
 using KPI.Infrastructure.Data;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Caching.Memory;
+using Microsoft.Extensions.Configuration;
 
 namespace KPI.Infrastructure.Services;
 
@@ -12,17 +14,32 @@ public class OverviewService : IOverviewService
     private readonly AppDbContext _db;
     private readonly IAuditService _audit;
     private readonly TimeProvider _time;
+    private readonly IMemoryCache _cache;
+    private readonly TimeSpan _cacheFor;
 
-    public OverviewService(AppDbContext db, IAuditService audit, TimeProvider time)
+    public OverviewService(AppDbContext db, IAuditService audit, TimeProvider time, IMemoryCache cache, IConfiguration config)
     {
         _db = db;
         _audit = audit;
         _time = time;
+        _cache = cache;
+        // The overview reads whole time windows of the request log; one computation serves every admin for this long (0 = off).
+        _cacheFor = TimeSpan.FromSeconds(int.TryParse(config["Overview:CacheSeconds"], out var seconds) ? Math.Max(0, seconds) : 60);
     }
 
     public async Task<OverviewDto> GetAsync(int days)
     {
         days = Math.Clamp(days, 1, 90);
+        if (_cacheFor == TimeSpan.Zero) return await ComputeAsync(days);
+        return (await _cache.GetOrCreateAsync($"overview:{days}", entry =>
+        {
+            entry.AbsoluteExpirationRelativeToNow = _cacheFor;
+            return ComputeAsync(days);
+        }))!;
+    }
+
+    private async Task<OverviewDto> ComputeAsync(int days)
+    {
         var now = _time.GetUtcNow().UtcDateTime;
         var since = now.AddDays(-days);
 
@@ -96,10 +113,16 @@ public class OverviewService : IOverviewService
             ? null
             : Math.Round(resolvedPairs.Average(p => (p.ResolvedAt - p.CreatedAt).TotalHours), 1);
 
-        var byDepartment = await issues
-            .GroupBy(i => i.Department != null ? i.Department.Name : "ไม่ระบุแผนก")
-            .Select(g => new { Label = g.Key, Count = g.Count() })
+        // Group on the indexed id first and look the names up afterwards: grouping on the joined name made the database join every row.
+        var departmentCounts = await issues.GroupBy(i => i.DepartmentId)
+            .Select(g => new { DepartmentId = g.Key, Count = g.Count() })
             .OrderByDescending(g => g.Count).Take(8).ToListAsync();
+        var departmentIds = departmentCounts.Where(d => d.DepartmentId != null).Select(d => d.DepartmentId!.Value).ToList();
+        var departmentNames = await _db.Departments.AsNoTracking().Where(d => departmentIds.Contains(d.Id))
+            .ToDictionaryAsync(d => d.Id, d => d.Name);
+        var byDepartment = departmentCounts
+            .Select(d => new { Label = d.DepartmentId is { } id && departmentNames.TryGetValue(id, out var name) ? name : "ไม่ระบุแผนก", d.Count })
+            .ToList();
         var byModule = await issues.GroupBy(i => i.Module)
             .Select(g => new { Module = g.Key, Count = g.Count() })
             .OrderByDescending(g => g.Count).ToListAsync();

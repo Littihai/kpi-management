@@ -380,7 +380,17 @@ namespace KPI.Infrastructure.Data.Migrations
 
                     b.HasIndex("CreatedAt");
 
-                    b.HasIndex("Status");
+                    b.HasIndex("ResolvedAt");
+
+                    b.HasIndex("Status")
+                        .HasAnnotation("SqlServer:Include", new[] { "ResponseDueAt", "ResolveDueAt", "FirstResponseAt", "ReporterUserId", "AssigneeId" });
+
+                    NpgsqlIndexBuilderExtensions.IncludeProperties(b.HasIndex("Status"), new[] { "ResponseDueAt", "ResolveDueAt", "FirstResponseAt", "ReporterUserId", "AssigneeId" });
+
+                    b.HasIndex("Title")
+                        .HasAnnotation("SqlServer:Include", new[] { "ReporterName", "CreatedAt" });
+
+                    NpgsqlIndexBuilderExtensions.IncludeProperties(b.HasIndex("Title"), new[] { "ReporterName", "CreatedAt" });
 
                     b.HasIndex("AssigneeId", "Status");
 
@@ -572,7 +582,10 @@ namespace KPI.Infrastructure.Data.Migrations
 
                     b.HasKey("Id");
 
-                    b.HasIndex("CreatedAt");
+                    b.HasIndex("CreatedAt")
+                        .HasAnnotation("SqlServer:Include", new[] { "Method", "StatusCode", "IpAddress", "Path" });
+
+                    NpgsqlIndexBuilderExtensions.IncludeProperties(b.HasIndex("CreatedAt"), new[] { "Method", "StatusCode", "IpAddress", "Path" });
 
                     b.HasIndex("IpAddress", "CreatedAt");
 
