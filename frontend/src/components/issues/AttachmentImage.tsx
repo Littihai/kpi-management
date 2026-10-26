@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { issueService } from '../../services/issue.service'
 import type { IssueAttachment } from '../../types/issue'
+import LoadingBar from '../ui/LoadingBar'
 import Modal from '../ui/Modal'
 import { formatBytes } from '../../utils/format'
 
@@ -41,7 +42,7 @@ export default function AttachmentImage({ issueId, attachment }: { issueId: stri
         className="group relative h-28 w-28 overflow-hidden rounded-control border border-line bg-surface-2">
         {url
           ? <img src={url} alt={attachment.fileName} className="h-full w-full object-cover transition-transform group-hover:scale-105" />
-          : <span className="flex h-full items-center justify-center text-ink-3"><i className="ti ti-loader-2 animate-spin" aria-hidden="true" /></span>}
+          : <span className="flex h-full items-center justify-center"><LoadingBar width={64} label="กำลังโหลดรูป" /></span>}
       </button>
       <Modal open={open} onClose={() => setOpen(false)} title={attachment.fileName} width="lg"
         footer={<span className="mr-auto text-xs text-ink-3">{formatBytes(attachment.sizeBytes)}</span>}>
