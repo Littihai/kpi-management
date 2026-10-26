@@ -32,7 +32,7 @@ function BarButtons() {
   )
 }
 
-/** Signed-in area: menu (sidebar, icon rail or top bar; a drawer on phones), live updates, settings, and the "report a problem" button. */
+/** Signed-in area: menu (sidebar, icon rail or top bar; a drawer on phones), real-time updates, settings, and the "report a problem" button. */
 export default function AppShell() {
   const updateUser = useAuthStore((s) => s.updateUser)
   const canReport = useAuthStore((s) => s.user?.permissions?.includes('issue.create') ?? false)
@@ -107,7 +107,7 @@ export default function AppShell() {
         )}
 
         <div className="flex min-w-0 flex-1 flex-col">
-          {/* Desktop top bar (as in Lotline): live-update status on the left, switches and the account menu on the right */}
+          {/* Desktop top bar (as in Lotline): real-time update status on the left, switches and the account menu on the right */}
           <header className="sticky top-[var(--toolbar-h)] z-30 hidden h-14 flex-none items-center justify-between gap-4 border-b border-line bg-card px-6 lg:flex">
             <div className="flex min-w-0 items-center gap-4">
               {!sideLayout && (

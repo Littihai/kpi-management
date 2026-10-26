@@ -29,7 +29,7 @@ namespace KPI.API.Startup;
 /// <summary>Service registration, grouped by topic so Program.cs reads as the outline of the app.</summary>
 public static class ServiceRegistration
 {
-    /// <summary>Sign-in, e-mail, audit and the live-update hub.</summary>
+    /// <summary>Sign-in, e-mail, audit and the real-time update hub.</summary>
     public static IServiceCollection AddCoreServices(this IServiceCollection services, IConfiguration config)
     {
         services.AddSignalR();

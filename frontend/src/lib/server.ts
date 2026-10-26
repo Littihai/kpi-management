@@ -74,7 +74,7 @@ export function serverChoiceAllowed(): boolean {
 
 /**
  * Uses another server from now on (null = go back to the built-in one, if there is one). The sign-in belongs to the old server, so it is
- * dropped, and the page is reloaded because the API client and the live connection read the address once, when they start.
+ * dropped, and the page is reloaded because the API client and the real-time connection read the address once, when they start.
  */
 export function switchServer(url: string | null): void {
   try {

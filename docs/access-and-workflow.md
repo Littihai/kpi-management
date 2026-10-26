@@ -143,7 +143,7 @@ content, not file name), the conversation (IT can add internal notes the reporte
 resolution: root cause, how it was fixed, how to prevent it, link to the change, time spent. Browser details
 (page, device, IP, failed request id) are captured automatically for IT.
 
-**Notifications:** live toasts (SignalR) and e-mail to the right people: IT when a report arrives, the reporter
+**Notifications:** real-time toasts (SignalR) and e-mail to the right people: IT when a report arrives, the reporter
 when it is received, needs information, is answered, resolved or rejected, the assignee when assigned,
 replied to or reopened. E-mail follows the settings in "E-mail notifications" above.
 
@@ -157,7 +157,7 @@ replied to or reopened. E-mail follows the settings in "E-mail notifications" ab
   (`Audit:RequestLogRetentionDays`), audit rows are kept.
 - **System overview** (`/admin/overview`): who is online (with IP), request volume, failed sign-ins, top IPs,
   recent security events, issue statistics (open, overdue, average time to fix, by status/department/module),
-  user counts, and a live activity feed.
+  user counts, and a real-time activity feed.
 
 ## Performance notes
 

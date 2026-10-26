@@ -431,7 +431,7 @@ public class IssueApiTests : IClassFixture<IssueApiFactory>, IAsyncLifetime
         connection.On<JsonElement>("Notification", n => { lock (received) received.Add(n); });
         await connection.StartAsync();
 
-        await (await As("staff-a")).PostAsync("/api/issues", ReportForm("ถึงทีม IT แบบสด ๆ"));
+        await (await As("staff-a")).PostAsync("/api/issues", ReportForm("ถึงทีม IT แบบเรียลไทม์"));
 
         await WaitUntilAsync(() => { lock (received) return received.Count >= 1; });
         lock (received)
