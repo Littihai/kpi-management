@@ -39,6 +39,11 @@ public class IssuesController : ControllerBase
     public async Task<IActionResult> Summary()
         => Ok(await _issues.SummaryAsync(UserId));
 
+    [HttpGet("attention")]
+    [Authorize(Policy = Permissions.Issue.View)]
+    public async Task<IActionResult> Attention()
+        => Ok(await _issues.AttentionAsync(UserId));
+
     [HttpGet("assignees")]
     [Authorize(Policy = Permissions.Issue.Manage)]
     public async Task<IActionResult> Assignees()

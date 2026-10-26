@@ -3,6 +3,8 @@ using KPI.Application.Notifications;
 using KPI.Application.Settings;
 using KPI.Domain.Exceptions;
 using KPI.Domain.Constants;
+using KPI.Domain.Settings;
+using KPI.Infrastructure.Services;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
@@ -14,13 +16,19 @@ namespace KPI.API.Controllers;
 public class SettingsController : ControllerBase
 {
     private readonly ISettingsAdminService _settings;
+    private readonly ISystemSettings _systemSettings;
     private readonly IEmailService _email;
+    private readonly IEmailDiagnostics _diagnostics;
     private readonly ILogger<SettingsController> _logger;
 
-    public SettingsController(ISettingsAdminService settings, IEmailService email, ILogger<SettingsController> logger)
+    public SettingsController(
+        ISettingsAdminService settings, ISystemSettings systemSettings, IEmailService email, IEmailDiagnostics diagnostics,
+        ILogger<SettingsController> logger)
     {
         _settings = settings;
+        _systemSettings = systemSettings;
         _email = email;
+        _diagnostics = diagnostics;
         _logger = logger;
     }
 
@@ -57,9 +65,24 @@ public class SettingsController : ControllerBase
         catch (Exception ex) when (ex is not OperationCanceledException)
         {
             _logger.LogWarning(ex, "Test e-mail to {To} failed", to);
-            // The reason from the mail server is what the administrator needs to fix the settings.
-            throw new RequestValidationException("ส่งอีเมลทดสอบไม่สำเร็จ: " + (ex.Message.Length > 300 ? ex.Message[..300] : ex.Message));
+            // What to fix, in words, with the mail server's own reason in brackets for whoever has to dig further.
+            throw new RequestValidationException("ส่งอีเมลทดสอบไม่สำเร็จ: " + await DescribeFailureAsync(ex));
         }
         return Ok(new { message = "ส่งอีเมลทดสอบแล้ว ตรวจสอบกล่องจดหมายของผู้รับ" });
     }
+
+    /// <summary>
+    /// Checks the saved e-mail settings step by step (name lookup, port, greeting, encryption) and says where it stops
+    /// working. It never signs in and never sends anything, so it is safe to run at any time.
+    /// </summary>
+    [HttpPost("email/diagnose")]
+    [Authorize(Policy = Permissions.Settings.Manage)]
+    public async Task<IActionResult> DiagnoseEmail(CancellationToken cancellationToken)
+        => Ok(await _diagnostics.DiagnoseAsync(cancellationToken));
+
+    private async Task<string> DescribeFailureAsync(Exception exception) => EmailErrors.Describe(
+        exception,
+        await _systemSettings.GetAsync(SettingCatalog.Keys.SmtpHost),
+        (int)await _systemSettings.GetNumberAsync(SettingCatalog.Keys.SmtpPort),
+        await _systemSettings.GetAsync(SettingCatalog.Keys.SmtpSecurity));
 }

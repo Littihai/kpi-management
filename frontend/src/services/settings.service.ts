@@ -27,6 +27,23 @@ export interface SettingRow extends Omit<RawSetting, 'type'> {
   kind: SettingKind
 }
 
+/** One thing the connection check tried (name resolution, opening the port, the server's greeting, encryption). */
+export interface EmailDiagnosisStep {
+  name: string
+  ok: boolean
+  detail: string
+}
+
+/** What the connection check found; advice is in plain Thai, ready to show. */
+export interface EmailDiagnosis {
+  ok: boolean
+  host: string
+  port: number
+  security: string
+  steps: EmailDiagnosisStep[]
+  advice: string[]
+}
+
 export interface SettingHistoryRow {
   key: string
   oldValue: string | null
@@ -49,6 +66,10 @@ export const settingsService = {
   },
   async sendTestEmail(to: string): Promise<string> {
     return (await api.post<{ message: string }>('/api/settings/email/test', { to })).data.message
+  },
+  /** Checks the saved SMTP settings without logging in or sending anything. */
+  async diagnoseEmail(): Promise<EmailDiagnosis> {
+    return (await api.post<EmailDiagnosis>('/api/settings/email/diagnose')).data
   },
   async history(key: string): Promise<SettingHistoryRow[]> {
     return (await api.get<SettingHistoryRow[]>(`/api/settings/${encodeURIComponent(key)}/history`)).data

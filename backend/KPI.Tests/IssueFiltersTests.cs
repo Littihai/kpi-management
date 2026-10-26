@@ -1,6 +1,8 @@
 using KPI.Domain.Entities;
 using KPI.Domain.Issues;
+using System.Text.RegularExpressions;
 using KPI.Infrastructure.Data;
+using KPI.Infrastructure.Services;
 using Microsoft.EntityFrameworkCore;
 
 namespace KPI.Tests;
@@ -78,5 +80,75 @@ public class IssueFiltersTests
         Assert.Contains("\"ResponseDueAt\"", overdue);
         Assert.Contains("\"Status\"", open);
         Assert.Contains("\"Status\"", finished);
+    }
+
+    private static string Who(Guid? id, Guid me) => id is null ? "nobody" : id == me ? "me" : "someone else";
+
+    [Fact]
+    public void The_attention_flags_agree_with_the_state_machine_for_every_combination()
+    {
+        var me = Guid.NewGuid();
+        var someoneElse = Guid.NewGuid();
+
+        foreach (var queueWorker in new[] { true, false })
+        {
+            var attention = IssueFilters.Attention(me, queueWorker, Now).Compile();
+            var overdue = IssueFilters.Overdue(Now).Compile();
+
+            foreach (var issue in Combinations())
+            foreach (Guid? assignee in new Guid?[] { null, me, someoneElse })
+            foreach (Guid? reporter in new Guid?[] { null, me, someoneElse })
+            {
+                issue.AssigneeId = assignee;
+                issue.ReporterUserId = reporter;
+                var flags = attention(issue);
+                var what = $"{Describe(issue)}, assignee {Who(assignee, me)}, reporter {Who(reporter, me)}, queue worker {queueWorker}";
+
+                var late = IssueStateMachine.IsResponseOverdue(issue.Status, issue.FirstResponseAt, issue.ResponseDueAt, Now)
+                           || IssueStateMachine.IsResolveOverdue(issue.Status, issue.ResolveDueAt, Now);
+                Assert.True(flags.Overdue == (queueWorker && late), $"overdue (state machine): {what}");
+                Assert.True(flags.Overdue == (queueWorker && overdue(issue)), $"overdue (filter): {what}");
+
+                Assert.True(flags.NewInQueue == (queueWorker && issue.Status == IssueStatus.New && assignee is null), $"new in queue: {what}");
+                // The assignee has the next move exactly when they could resolve the issue.
+                Assert.True(flags.AssignedToMe == (assignee == me && IssueStateMachine.CanApply(issue.Status, IssueAction.Resolve)), $"assigned to me: {what}");
+                Assert.True(flags.WaitingForMe == (reporter == me && issue.Status == IssueStatus.WaitingForReporter), $"waiting for me: {what}");
+                Assert.True(flags.ToConfirm == (reporter == me && IssueStateMachine.CanApply(issue.Status, IssueAction.Confirm)), $"to confirm: {what}");
+
+                // The attention query leaves these out before working out the flags, so they must never have any.
+                if (issue.Status is IssueStatus.Closed or IssueStatus.Rejected)
+                    Assert.False(flags.NewInQueue || flags.AssignedToMe || flags.Overdue || flags.WaitingForMe || flags.ToConfirm, $"finished for good: {what}");
+            }
+        }
+    }
+
+    // As above: the in-memory database accepts anything, so check that both real engines can translate the attention counts,
+    // and that they stay one query over one table.
+    [Fact]
+    public void The_attention_counts_translate_to_a_single_query_on_both_database_engines()
+    {
+        AppContext.SetSwitch("Npgsql.EnableLegacyTimestampBehavior", true);
+        var engines = new[]
+        {
+            new DbContextOptionsBuilder<AppDbContext>().UseNpgsql("Host=localhost;Database=never-opened;Username=x;Password=x").Options,
+            new DbContextOptionsBuilder<AppDbContext>().UseSqlServer("Server=unused;Database=unused;TrustServerCertificate=True").Options,
+        };
+
+        foreach (var options in engines)
+        foreach (var queueWorker in new[] { true, false })
+        {
+            using var db = new AppDbContext(options);
+
+            var sql = IssueService.AttentionCounts(db.Issues, Guid.NewGuid(), queueWorker, Now).ToQueryString();
+
+            Assert.Single(Regex.Matches(sql, "FROM [\\[\"]Issues[\\]\"]"));
+            Assert.Contains("GROUP BY", sql);
+            Assert.DoesNotContain("COUNT(NULL)", sql, StringComparison.OrdinalIgnoreCase);   // a rule that cannot apply must not become this: SQL Server refuses it
+            Assert.Contains("ReporterUserId", sql);
+            Assert.Contains("AssigneeId", sql);
+            // Deadlines matter only to people who work the queue, so for everyone else they are not even read.
+            Assert.Equal(queueWorker, sql.Contains("ResolveDueAt"));
+            Assert.Equal(queueWorker, sql.Contains("ResponseDueAt"));
+        }
     }
 }

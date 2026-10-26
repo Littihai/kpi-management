@@ -38,6 +38,7 @@ public static class ServiceRegistration
 
         services.AddScoped<IMailTransport, SmtpTransport>();
         services.AddScoped<IEmailService, EmailService>();
+        services.AddScoped<IEmailDiagnostics, SmtpDiagnostics>();
         services.AddSingleton<ISecretProtector>(_ => new SecretProtector(config["Jwt:Key"]!));
         services.AddScoped<IAuditService, AuditService>();
 

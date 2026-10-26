@@ -303,6 +303,39 @@ public class IssueService : IIssueService
             overdue, resolved, mine);
     }
 
+    public async Task<IssueAttentionDto> AttentionAsync(Guid userId)
+    {
+        var actor = await GetActorAsync(userId);
+        RequirePermission(actor, Permissions.Issue.View);
+
+        var attention = await AttentionCounts(Scope(_db.Issues.AsNoTracking(), actor), actor.Id, IsStaff(actor), Now)
+            .FirstOrDefaultAsync();
+
+        return attention ?? new IssueAttentionDto(0, 0, 0, 0, 0, 0);
+    }
+
+    /// <summary>
+    /// The attention numbers as one query over <paramref name="issues"/> (already limited to what the person may see):
+    /// each issue is turned into its flags, only issues that meet a rule are kept (so the total counts each once), and
+    /// the rest are counted. Closed and rejected issues wait for nobody; saying so up front lets the Status index narrow
+    /// the scan before the flags are worked out. Returns no row when nothing is waiting. The counts are sums of 0 or 1
+    /// because a rule that cannot apply (the queue rules for a requester) becomes a constant, and SQL Server refuses
+    /// COUNT(NULL) where it accepts SUM(0).
+    /// </summary>
+    public static IQueryable<IssueAttentionDto> AttentionCounts(IQueryable<Issue> issues, Guid userId, bool queueWorker, DateTime now) =>
+        issues
+            .Where(i => i.Status != IssueStatus.Closed && i.Status != IssueStatus.Rejected)
+            .Select(IssueFilters.Attention(userId, queueWorker, now))
+            .Where(f => f.NewInQueue || f.AssignedToMe || f.Overdue || f.WaitingForMe || f.ToConfirm)
+            .GroupBy(_ => 1)
+            .Select(g => new IssueAttentionDto(
+                g.Count(),
+                g.Sum(f => f.NewInQueue ? 1 : 0),
+                g.Sum(f => f.AssignedToMe ? 1 : 0),
+                g.Sum(f => f.Overdue ? 1 : 0),
+                g.Sum(f => f.WaitingForMe ? 1 : 0),
+                g.Sum(f => f.ToConfirm ? 1 : 0)));
+
     public async Task<IssueDetailDto> GetAsync(Guid id, Guid userId)
     {
         var actor = await GetActorAsync(userId);

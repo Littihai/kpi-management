@@ -15,6 +15,11 @@ const CH_CRED_GET = 'desktop:credentials:get'
 const CH_CRED_SAVE = 'desktop:credentials:save'
 const CH_CRED_UPDATE = 'desktop:credentials:update-password'
 const CH_CRED_FORGET = 'desktop:credentials:forget'
+const CH_SET_STATUS = 'desktop:set-status'
+const CH_NOTIFY = 'desktop:notify'
+const CH_OPEN_ISSUE = 'desktop:open-issue'
+const CH_PREFS_GET = 'desktop:prefs:get'
+const CH_PREFS_SET = 'desktop:prefs:set'
 
 const arg = process.argv.find((a) => a.startsWith('--desktop-version='))
 const version = arg ? arg.slice('--desktop-version='.length) : '0.0.0'
@@ -49,6 +54,21 @@ contextBridge.exposeInMainWorld('desktop', {
     updatePassword: (server, email, password) => ipcRenderer.invoke(CH_CRED_UPDATE, server, email, password),
     forget: (server) => ipcRenderer.invoke(CH_CRED_FORGET, server),
   },
+  /** A Windows notification for something that concerns the person. The app decides whether to show it (only when it is not in front, and the person has not turned it off). */
+  notify: (notification) => ipcRenderer.send(CH_NOTIFY, notification),
+  /** What the system tray icon, the taskbar overlay and their tooltip show: { state: 'ok'|'attention'|'connecting'|'offline', count, tooltip? }. */
+  setStatus: (status) => ipcRenderer.send(CH_SET_STATUS, status),
+  /** Calls cb(issueId) when the person clicks a notification about an issue; returns an unsubscribe function. */
+  onOpenIssue: (cb) => {
+    if (typeof cb !== 'function') return () => {}
+    const listener = (_event, issueId) => cb(issueId)
+    ipcRenderer.on(CH_OPEN_ISSUE, listener)
+    return () => ipcRenderer.removeListener(CH_OPEN_ISSUE, listener)
+  },
+  /** { notifications, closeToTray, startWithWindows }: the person's choices for this app, kept on this computer. */
+  getPrefs: () => ipcRenderer.invoke(CH_PREFS_GET),
+  /** Changes some of them (only those given) and returns all of them. */
+  setPrefs: (partial) => ipcRenderer.invoke(CH_PREFS_SET, partial),
   /** Calls cb with the current state now and on every change; returns an unsubscribe function. */
   onUpdateState: (cb) => {
     if (typeof cb !== 'function') return () => {}

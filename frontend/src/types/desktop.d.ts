@@ -38,6 +38,23 @@ interface DesktopLocalServer {
   url(): string
 }
 
+/** What the person chose for the app on this computer; kept in a file in the app's data folder. */
+interface DesktopPrefs {
+  /** show a Windows notification when something concerns the signed-in person and the window is not in front */
+  notifications: boolean
+  /** closing the window keeps the app running in the system tray */
+  closeToTray: boolean
+  startWithWindows: boolean
+}
+
+/** The state shown by the tray icon, the taskbar overlay and the tooltip: green check, red number, amber or grey. */
+interface DesktopStatus {
+  state: 'ok' | 'attention' | 'connecting' | 'offline'
+  /** the number on the red state */
+  count: number
+  tooltip?: string
+}
+
 interface DesktopApi {
   version: string
   isDesktop: true
@@ -50,6 +67,13 @@ interface DesktopApi {
   /** Absent in a desktop build older than this feature. */
   localServer?: DesktopLocalServer
   onUpdateState(cb: (state: DesktopUpdateState) => void): () => void
+  /** Offered for every realtime notification; the app shows a Windows notification only when the window is not in front and the person left them on. */
+  notify(notification: { title: string; message: string; issueId: string | null }): void
+  setStatus(status: DesktopStatus): void
+  /** Calls cb when the person clicks a notification that belongs to an issue; returns an unsubscribe function. */
+  onOpenIssue(cb: (issueId: string) => void): () => void
+  getPrefs(): Promise<DesktopPrefs>
+  setPrefs(prefs: Partial<DesktopPrefs>): Promise<DesktopPrefs>
 }
 
 interface Window {
