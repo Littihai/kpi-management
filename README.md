@@ -6,6 +6,8 @@
 ![SQL Server](https://img.shields.io/badge/SQL_Server-2017+-CC2927?style=for-the-badge&logo=microsoftsqlserver&logoColor=white)
 ![PostgreSQL](https://img.shields.io/badge/PostgreSQL-15+-4169E1?style=for-the-badge&logo=postgresql&logoColor=white)
 ![License](https://img.shields.io/badge/License-MIT-yellow?style=for-the-badge)
+<br />
+<a href="https://trendshift.io/repositories/116361?utm_source=repository-badge&amp;utm_medium=badge&amp;utm_campaign=badge-repository-116361" target="_blank" rel="noopener noreferrer"><img src="https://trendshift.io/api/badge/repositories/116361" alt="xerj-org%2Fxerj | Trendshift" width="250" height="55"/></a>
 
 ระบบ Helpdesk สำหรับองค์กร ให้พนักงานแจ้งปัญหา (IT, อาคารสถานที่ หรืออะไรก็ได้ที่ต้องมีคนรับเรื่อง) ทีมช่วยเหลือรับเรื่อง
 แก้ไข บันทึกวิธีแก้ และติดตามด้วย SLA โดยทุกคนเห็นความคืบหน้าแบบเรียลไทม์ และได้รับอีเมลแจ้งเตือนเป็นภาษาไทย
