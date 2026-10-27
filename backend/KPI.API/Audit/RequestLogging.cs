@@ -29,17 +29,20 @@ public sealed class RequestLogMiddleware
 
     private readonly RequestDelegate _next;
     private readonly RequestLogQueue _queue;
+    private readonly AnonymousRequestLogGate _anonymous;
     private readonly ILogger<RequestLogMiddleware> _logger;
     private readonly string? _ipHeader;
 
     public RequestLogMiddleware(
         RequestDelegate next,
         RequestLogQueue queue,
+        AnonymousRequestLogGate anonymous,
         IOptions<LoginThrottleOptions> options,
         ILogger<RequestLogMiddleware> logger)
     {
         _next = next;
         _queue = queue;
+        _anonymous = anonymous;
         _logger = logger;
         _ipHeader = options.Value.ClientIpHeader;
     }
@@ -84,6 +87,14 @@ public sealed class RequestLogMiddleware
         if (isRead && !isExport && status < 400) return;
 
         var user = context.User;
+        var ip = LoginThrottle.ClientIp(context, _ipHeader);
+
+        // Someone who is not signed in: paths that do not exist are only scanner noise, and the rest is rationed so a
+        // flood cannot push real entries out of the queue or fill the table.
+        if (user.Identity?.IsAuthenticated != true
+            && (status is StatusCodes.Status404NotFound or StatusCodes.Status405MethodNotAllowed || !_anonymous.Allow(ip)))
+            return;
+
         var attemptedEmail = context.Items["audit.email"] as string;
 
         _queue.Enqueue(new RequestLog
@@ -96,7 +107,7 @@ public sealed class RequestLogMiddleware
             Path = Truncate(path, 300)!,
             StatusCode = status,
             DurationMs = durationMs,
-            IpAddress = Truncate(LoginThrottle.ClientIp(context, _ipHeader), 64),
+            IpAddress = Truncate(ip, 64),
             UserAgent = Truncate(context.Request.Headers.UserAgent.ToString(), 400),
             RequestId = Truncate(context.TraceIdentifier, 64),
         });

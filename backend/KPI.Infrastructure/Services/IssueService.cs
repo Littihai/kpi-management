@@ -114,8 +114,9 @@ public class IssueService : IIssueService
         await _events.PublishAsync(issue, "created", name, null,
             Toast(issue, "แจ้งปัญหาใหม่ (ผู้ใช้ที่ยังไม่ได้เข้าสู่ระบบ)", issue.Title), ToIt,
             IssueEmailKind.NewForIt);
-        await _events.PublishAsync(issue, "received", null, null, email: IssueEmailKind.Received);
 
+        // No "received" e-mail: the address is unverified and the title is the caller's own text, so it would let
+        // anyone send mail from the company's domain to any address. The receipt shown on screen carries the number.
         return new PublicIssueReceipt(issue.DisplayNumber, issue.CreatedAt, issue.ResponseDueAt);
     }
 
