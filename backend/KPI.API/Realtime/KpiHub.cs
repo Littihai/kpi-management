@@ -16,14 +16,16 @@ namespace KPI.API.Realtime;
 [Authorize]
 public class KpiHub : Hub
 {
-    private readonly AppDbContext _context;
+    private readonly HubAccessSync _access;
     private readonly PresenceTracker _presence;
+    private readonly HubConnectionRegistry _registry;
     private readonly string? _ipHeader;
 
-    public KpiHub(AppDbContext context, PresenceTracker presence, IOptions<LoginThrottleOptions> options)
+    public KpiHub(HubAccessSync access, PresenceTracker presence, HubConnectionRegistry registry, IOptions<LoginThrottleOptions> options)
     {
-        _context = context;
+        _access = access;
         _presence = presence;
+        _registry = registry;
         _ipHeader = options.Value.ClientIpHeader;
     }
 
@@ -38,29 +40,15 @@ public class KpiHub : Hub
         var idClaim = Context.User?.FindFirstValue(ClaimTypes.NameIdentifier);
         if (Guid.TryParse(idClaim, out var userId))
         {
-            var user = await _context.Users
-                .Include(u => u.Role)
-                .AsNoTracking()
-                .FirstOrDefaultAsync(u => u.Id == userId && u.IsActive);
+            // Registered before the groups are decided, so an access change from now on finds this connection. The groups
+            // are then read and applied in the same one-at-a-time turn as such a change (see HubAccessSync), so a change
+            // saved while this connection opens is not missed. A person who is deactivated still gets a (groupless)
+            // connection, which is moved into place if they are reactivated while it stays open.
+            _registry.Add(Context.ConnectionId, userId, Context);
+            var user = await _access.AttachAsync(Context.ConnectionId);
 
             if (user is not null)
             {
-                await Groups.AddToGroupAsync(Context.ConnectionId, UserGroup(user.Id));
-
-                if (user.Role.SeesAllDepartments)
-                    await Groups.AddToGroupAsync(Context.ConnectionId, AllDepartmentsGroup);
-
-                // The issue queue: whoever may work the issues (IT Support, SuperAdmin, or a custom role with that right).
-                if (await _context.RolePermissions.AnyAsync(rp => rp.RoleId == user.RoleId && rp.Permission.Name == Permissions.Issue.Manage))
-                    await Groups.AddToGroupAsync(Context.ConnectionId, ItSupportGroup);
-
-                if (user.DepartmentId is { } departmentId)
-                {
-                    await Groups.AddToGroupAsync(Context.ConnectionId, DepartmentGroup(departmentId));
-                    if (user.Role.IssueVisibility == IssueVisibility.Department)
-                        await Groups.AddToGroupAsync(Context.ConnectionId, DepartmentManagersGroup(departmentId));
-                }
-
                 var http = Context.GetHttpContext();
                 _presence.Connected(Context.ConnectionId, user.Id, user.FullName,
                     user.Role.Name, http is null ? null : LoginThrottle.ClientIp(http, _ipHeader));
@@ -73,6 +61,7 @@ public class KpiHub : Hub
     public override Task OnDisconnectedAsync(Exception? exception)
     {
         _presence.Disconnected(Context.ConnectionId);
+        _registry.Remove(Context.ConnectionId);
         return base.OnDisconnectedAsync(exception);
     }
 }

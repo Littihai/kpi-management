@@ -74,6 +74,11 @@ public static class ServiceRegistration
         services.AddHttpContextAccessor();
         services.AddScoped<IAuditContext, HttpAuditContext>();
         services.AddScoped<IOverviewService, OverviewService>();
+        // Live connections follow changes to people's access: the interceptor sees the save, the listener moves the connections.
+        services.AddSingleton<HubConnectionRegistry>();
+        services.AddSingleton<HubAccessSync>();
+        services.AddSingleton<IAccessChangeListener>(sp => sp.GetRequiredService<HubAccessSync>());
+        services.AddSingleton<AccessChangeInterceptor>();
         services.AddSingleton<PresenceTracker>();
         services.AddSingleton<IPresenceTracker>(sp => sp.GetRequiredService<PresenceTracker>());
         services.AddSingleton<RequestLogQueue>();

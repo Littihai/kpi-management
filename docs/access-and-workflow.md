@@ -154,6 +154,11 @@ resolution: root cause, how it was fixed, how to prevent it, link to the change,
 when it is received (signed-in reporters only), needs information, is answered, resolved or rejected, the assignee when assigned,
 replied to or reopened. E-mail follows the settings in "E-mail notifications" above.
 
+Real-time connections follow access changes at once: when a person is deactivated, given another role or department,
+or the rights of their role change, their open connections are moved into the groups they now belong in, and a
+deactivated person's connections are closed. Nothing has to be reconnected. This works inside one server process;
+with several servers on one database, only the connections held by the server that saved the change are updated.
+
 ## Audit trail and system overview (SuperAdmin only)
 
 - **Audit log** (`/admin/audit`, `GET /api/audit`): every business change with who (name, role, department),

@@ -45,7 +45,10 @@ public class ApiFactory : WebApplicationFactory<Program>
                 .ToList())
                 services.Remove(descriptor);
 
-            services.AddDbContext<AppDbContext>(o => o.UseInMemoryDatabase(_dbName));
+            // The interceptor is part of the real setup (it moves live hub connections when access changes), so the tests have it too.
+            services.AddDbContext<AppDbContext>((sp, o) => o
+                .UseInMemoryDatabase(_dbName)
+                .AddInterceptors(sp.GetRequiredService<AccessChangeInterceptor>()));
         });
     }
 
