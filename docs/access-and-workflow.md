@@ -76,7 +76,10 @@ shared between instances, so bcrypt's cost remains the backstop against a distri
 
 The API needs the client's real address. Behind Render's proxy the socket address is the proxy's, so set
 `LoginThrottle__ClientIpHeader=CF-Connecting-IP` (Cloudflare overwrites that header on every request). Do not set it
-where a caller can reach the API directly, because the header could then be forged. After deploying, a blocked sign-in
+where a caller can reach the API directly, because the header could then be forged. If the header is a list such as
+`X-Forwarded-For`, the **last** entry is used (the one the nearest proxy appended); the entries in front are the caller's
+and can be forged, so this is right for one proxy only. Behind several, use a single-value header set by the outermost
+one. After deploying, a blocked sign-in
 logs `Sign-in blocked for <ip>`; check that the address is a client's and not a proxy's. Tune with
 `LoginThrottle__MaxFailuresPerAccount`, `LoginThrottle__MaxFailuresPerIp`, `LoginThrottle__WindowMinutes`
 (a limit of `0` switches that check off).
@@ -110,7 +113,11 @@ are shown as 17/10/2569 (Buddhist year, Thai time).
 A Manager also sees their department's reports. **IT Support** (new role `ITSupport`) works the queue
 (`issue.manage`) and, with Director and SuperAdmin, sees every report. People who cannot sign in use
 `/report` (no account; name plus e-mail or phone; limited to 5 reports per 15 minutes per address; a hidden
-honeypot field catches bots).
+honeypot field catches bots). Everyone together may also send at most `PublicIssues:MaxPerDay` reports (300) and
+`PublicIssues:MaxUploadMbPerDay` MB of pictures (300) per rolling 24 hours; when the day is full the form answers
+429 with a Retry-After until the oldest report ages out (`0` switches a limit off). The reporter is not e-mailed
+on receipt, because the address is unverified; the receipt number is shown on screen. IT's replies, requests for
+information and resolution are still e-mailed.
 
 **Status flow**
 
@@ -144,7 +151,7 @@ resolution: root cause, how it was fixed, how to prevent it, link to the change,
 (page, device, IP, failed request id) are captured automatically for IT.
 
 **Notifications:** real-time toasts (SignalR) and e-mail to the right people: IT when a report arrives, the reporter
-when it is received, needs information, is answered, resolved or rejected, the assignee when assigned,
+when it is received (signed-in reporters only), needs information, is answered, resolved or rejected, the assignee when assigned,
 replied to or reopened. E-mail follows the settings in "E-mail notifications" above.
 
 ## Audit trail and system overview (SuperAdmin only)
@@ -153,6 +160,10 @@ replied to or reopened. E-mail follows the settings in "E-mail notifications" ab
   what (before/after), when, and the IP address and browser it came from. Stamped automatically on save.
 - **Request log** (same page, second tab): every write, every refusal (401/403/429), every error and every
   sign-in attempt (including the e-mail that was tried), with IP and duration. Successful reads are not logged.
+  Requests from people who are not signed in are rationed so a flood cannot bury real entries: 404 and 405 are
+  never recorded, and the rest are capped at `Audit:AnonymousPerAddressPerMinute` (20) per address and
+  `Audit:AnonymousPerMinute` (300) overall; failed sign-ins are also kept in the sign-in log. The failed-sign-in
+  and top-IP numbers in the overview therefore count at most that many anonymous requests per minute.
   Entries are saved in the background so requests never wait for it; they are purged after 90 days
   (`Audit:RequestLogRetentionDays`), audit rows are kept.
 - **System overview** (`/admin/overview`): who is online (with IP), request volume, failed sign-ins, top IPs,

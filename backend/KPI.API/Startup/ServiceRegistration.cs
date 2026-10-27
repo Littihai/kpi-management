@@ -63,6 +63,8 @@ public static class ServiceRegistration
         services.AddScoped<ISettingsAdminService, SettingsAdminService>();
         services.Configure<PublicSubmitOptions>(config.GetSection("PublicIssues"));
         services.AddSingleton<PublicSubmitThrottle>();
+        services.AddSingleton<PublicIntakeLedger>();
+        services.AddScoped<PublicIntakeBudget>();
         return services;
     }
 
@@ -75,6 +77,7 @@ public static class ServiceRegistration
         services.AddSingleton<PresenceTracker>();
         services.AddSingleton<IPresenceTracker>(sp => sp.GetRequiredService<PresenceTracker>());
         services.AddSingleton<RequestLogQueue>();
+        services.AddSingleton(sp => AnonymousRequestLogGate.From(sp.GetRequiredService<IConfiguration>(), sp.GetRequiredService<TimeProvider>()));
         services.AddHostedService<RequestLogWriter>();
         return services;
     }

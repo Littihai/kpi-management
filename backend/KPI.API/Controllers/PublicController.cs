@@ -21,6 +21,7 @@ public class PublicController : ControllerBase
     private readonly IIssueService _issues;
     private readonly AppDbContext _db;
     private readonly PublicSubmitThrottle _throttle;
+    private readonly PublicIntakeBudget _budget;
     private readonly ISystemSettings _settings;
     private readonly string? _ipHeader;
 
@@ -28,6 +29,7 @@ public class PublicController : ControllerBase
         IIssueService issues,
         AppDbContext db,
         PublicSubmitThrottle throttle,
+        PublicIntakeBudget budget,
         ISystemSettings settings,
         IOptions<LoginThrottleOptions> options)
     {
@@ -35,6 +37,7 @@ public class PublicController : ControllerBase
         _settings = settings;
         _db = db;
         _throttle = throttle;
+        _budget = budget;
         _ipHeader = options.Value.ClientIpHeader;
     }
 
@@ -62,8 +65,11 @@ public class PublicController : ControllerBase
             form.Title, form.Description, form.Category, form.Module, form.Impact,
             Request.Headers.UserAgent.ToString(), form.ClientInfo);
 
-        var receipt = await _issues.CreatePublicAsync(
-            request, await UploadReader.ReadAsync(form.Files, _settings), ip);
+        var uploads = await UploadReader.ReadAsync(form.Files, _settings);
+        // The room is held until the report is saved, so reports arriving together cannot all slip under the ceiling.
+        using var room = await _budget.ReserveAsync(uploads.Sum(u => (long)u.Data.Length));
+
+        var receipt = await _issues.CreatePublicAsync(request, uploads, ip);
         return Ok(receipt);
     }
 

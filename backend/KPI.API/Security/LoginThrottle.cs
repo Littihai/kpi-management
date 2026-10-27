@@ -18,6 +18,8 @@ public class LoginThrottleOptions
     /// Header that carries the real client address when the API sits behind a proxy, e.g. "CF-Connecting-IP"
     /// on Render. Empty means "use the socket address". Only set it when every request really passes through
     /// a proxy that overwrites the header; otherwise a caller could forge it and dodge the throttle.
+    /// For a list such as X-Forwarded-For the last entry is read, which is right for exactly one proxy that appends
+    /// to the list. Behind several proxies, use a single-value header that the outermost one sets.
     /// </summary>
     public string? ClientIpHeader { get; set; }
 }
@@ -122,12 +124,14 @@ public sealed class LoginThrottle
     /// <summary>
     /// The caller's address: the configured proxy header when present and valid, otherwise the socket address.
     /// A header that is missing or not an IP address is ignored, so junk cannot create unbounded keys.
+    /// When the header holds a list (X-Forwarded-For), the LAST address is used: the proxy appends the address it
+    /// saw to the end, while everything before it was written by the caller and can be forged.
     /// </summary>
     public static string ClientIp(HttpContext context, string? headerName)
     {
         if (!string.IsNullOrWhiteSpace(headerName)
             && context.Request.Headers.TryGetValue(headerName, out var values)
-            && values.FirstOrDefault()?.Split(',')[0].Trim() is { Length: > 0 } candidate
+            && values.LastOrDefault()?.Split(',')[^1].Trim() is { Length: > 0 } candidate
             && IPAddress.TryParse(candidate, out var parsed))
         {
             return parsed.ToString();

@@ -159,10 +159,39 @@ public class LoginThrottleTests
     }
 
     [Fact]
-    public void Only_the_first_address_of_a_list_is_read()
+    public void Only_the_last_address_of_a_list_is_read_because_the_proxy_appends_it()
     {
-        var context = ContextFrom("10.1.1.1", "X-Real-IP", "203.0.113.9, 10.9.9.9");
-        Assert.Equal("203.0.113.9", LoginThrottle.ClientIp(context, "X-Real-IP"));
+        // The proxy saw 10.9.9.9 and added it at the end; whatever stands before it was written by the caller.
+        var context = ContextFrom("10.1.1.1", "X-Forwarded-For", "203.0.113.9, 10.9.9.9");
+        Assert.Equal("10.9.9.9", LoginThrottle.ClientIp(context, "X-Forwarded-For"));
+    }
+
+    [Fact]
+    public void Entries_a_caller_puts_in_front_cannot_change_the_address()
+    {
+        var real = ContextFrom("10.1.1.1", "X-Forwarded-For", "198.51.100.40");
+        var forged = ContextFrom("10.1.1.1", "X-Forwarded-For", "1.2.3.4, 5.6.7.8, 198.51.100.40");
+
+        Assert.Equal("198.51.100.40", LoginThrottle.ClientIp(real, "X-Forwarded-For"));
+        Assert.Equal("198.51.100.40", LoginThrottle.ClientIp(forged, "X-Forwarded-For"));
+    }
+
+    [Fact]
+    public void When_the_header_comes_as_several_lines_the_last_line_counts()
+    {
+        var context = ContextFrom("10.1.1.1");
+        context.Request.Headers.Append("X-Forwarded-For", "1.2.3.4");
+        context.Request.Headers.Append("X-Forwarded-For", "198.51.100.40");
+
+        Assert.Equal("198.51.100.40", LoginThrottle.ClientIp(context, "X-Forwarded-For"));
+    }
+
+    [Fact]
+    public void A_list_whose_last_entry_is_not_an_address_falls_back_to_the_socket()
+    {
+        // Trailing junk must not let a valid-looking forged entry earlier in the list through.
+        var context = ContextFrom("10.1.1.1", "X-Forwarded-For", "203.0.113.9, <script>");
+        Assert.Equal("10.1.1.1", LoginThrottle.ClientIp(context, "X-Forwarded-For"));
     }
 
     [Theory]
@@ -241,6 +270,16 @@ public class LoginThrottleApiTests : IClassFixture<ThrottledApiFactory>, IAsyncL
         // ... but the real owner of that account, on another address, signs in normally.
         Assert.Equal(HttpStatusCode.OK,
             (await LoginAsync("198.51.100.11", "manager-a", ApiFactory.Password)).StatusCode);
+    }
+
+    [Fact]
+    public async Task Forging_the_start_of_a_forwarded_list_does_not_dodge_the_limit()
+    {
+        // The proxy appended the real address (198.51.100.40); the caller invented a new one in front each time.
+        for (var i = 1; i <= 5; i++)
+            Assert.Equal(HttpStatusCode.BadRequest, (await LoginAsync($"203.0.113.{i}, 198.51.100.40", "forged-a", "wrong")).StatusCode);
+
+        Assert.Equal(HttpStatusCode.TooManyRequests, (await LoginAsync("203.0.113.99, 198.51.100.40", "forged-a", "wrong")).StatusCode);
     }
 
     [Fact]

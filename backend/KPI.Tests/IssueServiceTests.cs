@@ -706,7 +706,7 @@ public class IssueServiceTests
             IssueCategory.Bug, IssueModule.Login, IssueImpact.Blocking);
 
     [Fact]
-    public async Task Someone_who_cannot_sign_in_can_still_report_and_gets_a_receipt_and_an_e_mail()
+    public async Task Someone_who_cannot_sign_in_can_still_report_and_gets_a_receipt_on_screen_but_no_e_mail()
     {
         var w = await TestWorld.CreateAsync();
 
@@ -721,7 +721,9 @@ public class IssueServiceTests
         Assert.Equal("203.0.113.9", stored.ReporterIp);
         Assert.Equal(w.DeptA.Id, stored.DepartmentId);
 
-        Assert.Equal(["somying@example.com"], w.Email.To(IssueEmailKind.Received));
+        // The address is unverified and the title is the caller's own text: nothing is mailed to it until staff reply.
+        Assert.Empty(w.Email.To(IssueEmailKind.Received));
+        Assert.DoesNotContain("somying@example.com", w.Email.IssueSent.Select(m => m.ToEmail));
         Assert.Equivalent(new[] { w.ItA.Email, w.ItB.Email }, w.Email.To(IssueEmailKind.NewForIt).ToArray());
         var audit = await w.Db.AuditLogs.SingleAsync(a => a.Action == "Create");
         Assert.Equal("somying@example.com", audit.UserEmail);
@@ -744,7 +746,22 @@ public class IssueServiceTests
 
         var withPhoneOnly = await w.Issues.CreatePublicAsync(PublicReport(email: null, phone: "081-234-5678"), NoFiles, null);
         Assert.NotNull(withPhoneOnly.Number);
-        Assert.Empty(w.Email.To(IssueEmailKind.Received)); // nobody to e-mail
+        Assert.Empty(w.Email.To(IssueEmailKind.Received));
+    }
+
+    [Fact]
+    public async Task Staff_can_still_write_back_to_a_public_reporter_by_e_mail()
+    {
+        var w = await TestWorld.CreateAsync();
+        var receipt = await w.Issues.CreatePublicAsync(PublicReport(), NoFiles, null);
+        var issueId = (await w.Db.Issues.SingleAsync()).Id;
+        Assert.Equal("ISS-2569-0001", receipt.Number);
+
+        await w.Issues.AssignAsync(issueId, w.ItA.Id, w.ItA.Id);
+        await w.Issues.StartAsync(issueId, w.ItA.Id);
+        await w.Issues.RequestInfoAsync(issueId, "ขอรูปหน้าจอที่ขึ้นข้อความด้วยครับ", w.ItA.Id);
+
+        Assert.Equal(["somying@example.com"], w.Email.To(IssueEmailKind.NeedsInfo));
     }
 
     [Fact]

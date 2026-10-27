@@ -7,6 +7,12 @@ public class PublicSubmitOptions
     /// <summary>Reports one client address may send without signing in, per window.</summary>
     public int MaxPerWindow { get; set; } = 5;
     public int WindowMinutes { get; set; } = 15;
+
+    /// <summary>Reports the public form accepts per rolling 24 hours from everyone together. 0 switches the limit off.</summary>
+    public int MaxPerDay { get; set; } = 300;
+
+    /// <summary>Attachment megabytes the public form accepts per rolling 24 hours from everyone together. 0 switches the limit off.</summary>
+    public int MaxUploadMbPerDay { get; set; } = 300;
 }
 
 /// <summary>
