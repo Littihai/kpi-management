@@ -85,6 +85,12 @@ jobs:
       - name: Migrations and queries on SQL Server
         run: dotnet test KPI.Tests --configuration Release --no-build --filter "FullyQualifiedName~SqlServerLiveTests|FullyQualifiedName~DatabaseProviderTests"
 
+      # The application does not create a missing database when it starts (only the setup page does), so make the empty one it is told to use.
+      # sqlcmd is not on the runner, but it is in the SQL Server container (the health check above uses it too).
+      - name: Create the database
+        run: |
+          docker exec "$(docker ps --quiet --filter ancestor=mcr.microsoft.com/mssql/server:2022-latest)" /opt/mssql-tools18/bin/sqlcmd -C -b -S localhost -U sa -P Helpdesk-CI-Passw0rd -Q "CREATE DATABASE helpdesk_ci COLLATE Thai_CI_AS"
+
       - name: Start the API on SQL Server
         env:
           Database__Provider: SqlServer
@@ -95,6 +101,9 @@ jobs:
           Email__Enabled: "false"
           ASPNETCORE_URLS: http://localhost:5290
           ASPNETCORE_ENVIRONMENT: Production
+          # The step runs in backend/, and the content root defaults to the working directory: without this the app does not find its
+          # appsettings.json (Jwt:Issuer, Jwt:Audience), signs tokens with no audience and then rejects them all with 401.
+          ASPNETCORE_CONTENTROOT: ${{ github.workspace }}/backend/KPI.API/bin/Release/net10.0
         run: |
           nohup dotnet KPI.API/bin/Release/net10.0/KPI.API.dll > api.log 2>&1 &
           for i in $(seq 1 40); do

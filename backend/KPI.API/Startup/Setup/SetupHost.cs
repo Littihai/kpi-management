@@ -15,7 +15,11 @@ namespace KPI.API.Startup.Setup;
 /// <summary>Why the application is waiting to be set up instead of running.</summary>
 public enum SetupReason { NotConfigured, Unreachable, StartupFailed }
 
-public sealed record SetupNeed(SetupReason Reason, string? Problem = null, string? Message = null);
+public sealed record SetupNeed(SetupReason Reason, string? Problem = null, string? Message = null)
+{
+    /// <summary>For the log: the reason, and what exactly is wrong when that is known ("Unreachable" alone does not say whether the server is down, the login is refused or the database is missing).</summary>
+    public string Describe() => Problem is null ? Reason.ToString() : $"{Reason}, {Problem}" + (Message is null ? "" : $": {Message}");
+}
 
 /// <summary>The mutable facts the setup page and its endpoints share.</summary>
 public sealed class SetupState
@@ -138,10 +142,10 @@ public static class SetupHost
         SetupEndpoints.Map(app, state);
         app.UseFrontend();
 
-        if (key is null) log.LogWarning("SETUP: the database is not ready ({Reason}). Open the site on this server and connect it to SQL Server", need.Reason);
-        else if (key.FromConfiguration) log.LogWarning("SETUP: the database is not ready ({Reason}). Open the site and enter the setup key (Setup:Key in the configuration)", need.Reason);
-        else if (key.File is not null) log.LogWarning("SETUP: the database is not ready ({Reason}). Open the site and enter the setup key from {File}", need.Reason, key.File);
-        else log.LogWarning("SETUP: the database is not ready ({Reason}). The setup key for this run is {Key}", need.Reason, key.Reveal());
+        if (key is null) log.LogWarning("SETUP: the database is not ready ({Why}). Open the site on this server and connect it to SQL Server", need.Describe());
+        else if (key.FromConfiguration) log.LogWarning("SETUP: the database is not ready ({Why}). Open the site and enter the setup key (Setup:Key in the configuration)", need.Describe());
+        else if (key.File is not null) log.LogWarning("SETUP: the database is not ready ({Why}). Open the site and enter the setup key from {File}", need.Describe(), key.File);
+        else log.LogWarning("SETUP: the database is not ready ({Why}). The setup key for this run is {Key}", need.Describe(), key.Reveal());
         if (!state.CanWriteConfig) log.LogError("SETUP: the settings file {File} cannot be written; give the service account write access to its folder", configFile);
 
         await app.StartAsync(stopping);

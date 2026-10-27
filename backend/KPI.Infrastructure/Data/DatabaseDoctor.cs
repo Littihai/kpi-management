@@ -1,6 +1,7 @@
 using System.Data.Common;
 using KPI.Application.Database;
 using KPI.Domain.Constants;
+using Microsoft.Data.SqlClient;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
@@ -93,10 +94,20 @@ public static class DatabaseDoctor
     /// <summary>Turns a failure to connect into something an administrator can act on.</summary>
     public static (string Problem, string Message) ClassifyConnectionFailure(Exception exception)
     {
-        var root = exception;
-        while (root.InnerException is not null) root = root.InnerException;
-        var message = root.Message;
-        var number = root.GetType().Name == "SqlException" ? (int?)root.GetType().GetProperty("Number")?.GetValue(root) : null;
+        // The innermost exception is the real cause, so it is asked first. It does not always say anything: on Linux SqlClient raises
+        // a SqlException ("A network-related or instance-specific error occurred ...") around a SocketException whose own message is
+        // just "Success", so when the innermost one is not recognised the ones around it are asked in turn.
+        var chain = new List<Exception>();
+        for (var e = exception; e is not null; e = e.InnerException) chain.Add(e);
+        for (var i = chain.Count - 1; i >= 0; i--)
+            if (Recognise(chain[i]) is { } known) return known;
+        return ("other", chain[^1].Message);
+    }
+
+    private static (string Problem, string Message)? Recognise(Exception exception)
+    {
+        var message = exception.Message;
+        var number = (exception as SqlException)?.Number;
         var text = message.ToLowerInvariant();
 
         if (number is 4060 || text.Contains("cannot open database") || text.Contains("does not exist") && text.Contains("database"))
@@ -107,7 +118,7 @@ public static class DatabaseDoctor
                 || text.Contains("connection refused") || text.Contains("actively refused") || text.Contains("no connection could be made")
                 || text.Contains("connection attempt failed") || text.Contains("unreachable") || text.Contains("unable to connect"))
             return ("unreachable", "Cannot reach the server: check its name or address, the port, that it is running, and the firewall.");
-        return ("other", message);
+        return null;
     }
 
     private static async Task<string?> ScalarAsync(DbConnection connection, string sql, CancellationToken cancellationToken)

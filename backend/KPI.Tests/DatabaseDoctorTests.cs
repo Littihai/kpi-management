@@ -39,6 +39,33 @@ public class DatabaseDoctorBasicTests
         var other = DatabaseDoctor.ClassifyConnectionFailure(new Exception("something unusual"));
         Assert.Equal(("other", "something unusual"), other);
     }
+
+    [Fact]
+    public void A_refused_connection_is_unreachable_even_when_the_inner_exception_has_lost_its_message()
+    {
+        // What SqlClient raises on Linux for a port nobody listens on: the socket's own error is gone ("Success") and only the SqlException around it says what happened.
+        var onLinux = new Exception(
+            "A network-related or instance-specific error occurred while establishing a connection to SQL Server. The server was not found or was not accessible. (provider: TCP Provider, error: 35 - An internal exception was caught)",
+            new Exception("Success"));
+
+        Assert.Equal("unreachable", DatabaseDoctor.ClassifyConnectionFailure(onLinux).Problem);
+    }
+
+    [Fact]
+    public void The_innermost_exception_decides_when_it_is_recognised()
+    {
+        var wrapped = new Exception("A network-related or instance-specific error occurred", new Exception("Login failed for user 'sa'."));
+
+        Assert.Equal("login-failed", DatabaseDoctor.ClassifyConnectionFailure(wrapped).Problem);
+    }
+
+    [Fact]
+    public void A_failure_nothing_recognises_keeps_the_message_of_the_innermost_exception()
+    {
+        var other = DatabaseDoctor.ClassifyConnectionFailure(new Exception("outer", new Exception("something unusual")));
+
+        Assert.Equal(("other", "something unusual"), other);
+    }
 }
 
 /// <summary>Against a real SQL Server (TEST_SQLSERVER, see SqlServerLiveTests); without it these do nothing.</summary>
