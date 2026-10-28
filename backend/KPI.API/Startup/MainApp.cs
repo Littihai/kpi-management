@@ -29,7 +29,11 @@ public static class MainApp
         builder.Services.AddProblemDetails();
         builder.Services.AddExceptionHandler<ApiExceptionHandler>();
 
-        builder.Services.AddDbContext<AppDbContext>(options => DatabaseProvider.Configure(options, config));
+        builder.Services.AddDbContext<AppDbContext>((services, options) =>
+        {
+            DatabaseProvider.Configure(options, config);
+            options.AddInterceptors(services.GetRequiredService<AccessChangeInterceptor>());
+        });
 
         builder.Services.AddCoreServices(config);
         builder.Services.AddIssueTracking(config);

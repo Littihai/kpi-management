@@ -38,7 +38,11 @@ public class UserRepository : IUserRepository
 
     public async Task UpdateAsync(User user)
     {
-        _context.Users.Update(user);
+        // A user loaded through this context is already tracked, and saving writes just the columns that changed. Calling
+        // Update() on it would rewrite every column from this copy, which can be seconds old (a login waits on the password
+        // check): an administrator's deactivation or role change made in between would be silently undone.
+        if (_context.Entry(user).State == EntityState.Detached)
+            _context.Users.Update(user);
         await _context.SaveChangesAsync();
     }
 
