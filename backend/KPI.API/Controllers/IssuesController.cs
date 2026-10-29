@@ -123,6 +123,21 @@ public class IssuesController : ControllerBase
     public async Task<IActionResult> SetPriority(Guid id, PriorityRequest request)
         => Ok(await _issues.SetPriorityAsync(id, request.Priority, UserId));
 
+    [HttpPost("{id:guid}/feedback")]
+    [Authorize(Policy = Permissions.Issue.View)]
+    public async Task<IActionResult> Feedback(Guid id, FeedbackRequest request)
+        => Ok(await _issues.FeedbackAsync(id, request.Rating, request.Note, UserId));
+
+    [HttpGet("feedback/mine")]
+    [Authorize(Policy = Permissions.Issue.View)]
+    public async Task<IActionResult> MyFeedback()
+        => Ok(await _issues.MyFeedbackAsync(UserId));
+
+    [HttpGet("feedback")]
+    [Authorize(Policy = Permissions.Issue.Manage)]
+    public async Task<IActionResult> FeedbackReport([FromQuery] FeedbackReportQuery query)
+        => Ok(await _issues.FeedbackReportAsync(query, UserId));
+
     [HttpPost("{id:guid}/attachments")]
     [Authorize(Policy = Permissions.Issue.View)]
     [RequestSizeLimit(MaxRequestBytes)]
@@ -159,4 +174,5 @@ public class IssuesController : ControllerBase
     public record ReasonRequest(string Reason);
     public record RejectRequest(string Reason, Guid? DuplicateOfId = null);
     public record PriorityRequest(IssuePriority Priority);
+    public record FeedbackRequest(int Rating, string? Note = null);
 }

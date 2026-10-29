@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import AttachmentImage from '../../components/issues/AttachmentImage'
+import FeedbackCard from '../../components/issues/FeedbackCard'
 import { DueLabel, PriorityBadge, StatusBadge } from '../../components/issues/IssueBadges'
 import { HoldDialog, RejectDialog, ReopenDialog, RequestInfoDialog, ResolveDialog, ResumeDialog } from '../../components/issues/IssueDialogs'
 import { useIssueEvents } from '../../components/realtimeContext'
@@ -151,6 +152,10 @@ export default function IssueDetailPage() {
         </div>
       )}
 
+      {can('feedback') && !issue.feedback && (
+        <div className="mb-4"><Alert tone="info">ช่วยให้คะแนนความพึงพอใจกับการแก้ไขครั้งนี้ที่ด้านล่าง ใช้เวลาไม่ถึงนาที</Alert></div>
+      )}
+
       <div className="grid gap-6 lg:grid-cols-[1fr_21rem]">
         {/* ─── Main column ─── */}
         <div className="min-w-0 space-y-6">
@@ -229,6 +234,9 @@ export default function IssueDetailPage() {
               </div>
             </Card>
           )}
+
+          <FeedbackCard canRate={can('feedback')} feedback={issue.feedback} isReporter={!isIt} busy={busy}
+            onSubmit={(rating, note) => run(() => issueService.feedback(issue.id, rating, note))} />
 
           <Card>
             <CardHeader eyebrow="การสนทนา" title={`ข้อความ (${issue.comments.length})`} />

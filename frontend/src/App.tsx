@@ -23,6 +23,7 @@ const OverviewPage = lazy(() => import('./pages/admin/OverviewPage'))
 const IssuesPage = lazy(() => import('./pages/issues/IssuesPage'))
 const IssueNewPage = lazy(() => import('./pages/issues/IssueNewPage'))
 const IssueDetailPage = lazy(() => import('./pages/issues/IssueDetailPage'))
+const FeedbackPage = lazy(() => import('./pages/issues/FeedbackPage'))
 const PublicReportPage = lazy(() => import('./pages/issues/PublicReportPage'))
 const NotificationsPage = lazy(() => import('./pages/NotificationsPage'))
 
@@ -61,6 +62,7 @@ function AppRoutes() {
             <Route path="/notifications" element={<RequirePermission permission="issue.view"><NotificationsPage /></RequirePermission>} />
             <Route path="/issues" element={<RequirePermission permission="issue.view"><IssuesPage /></RequirePermission>} />
             <Route path="/issues/new" element={<RequirePermission permission="issue.create"><IssueNewPage /></RequirePermission>} />
+            <Route path="/issues/feedback" element={<RequirePermission permission="issue.view"><FeedbackPage /></RequirePermission>} />
             <Route path="/issues/:id" element={<RequirePermission permission="issue.view"><IssueDetailPage /></RequirePermission>} />
 
             <Route path="/admin/overview" element={<RequirePermission permission="overview.view"><OverviewPage /></RequirePermission>} />

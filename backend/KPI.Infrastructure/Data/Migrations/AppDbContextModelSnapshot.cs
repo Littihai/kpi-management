@@ -483,6 +483,40 @@ namespace KPI.Infrastructure.Data.Migrations
                     b.ToTable("IssueComments");
                 });
 
+            modelBuilder.Entity("KPI.Domain.Entities.IssueFeedback", b =>
+                {
+                    b.Property<Guid>("IssueId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid?>("AssigneeId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("Note")
+                        .HasMaxLength(1000)
+                        .HasColumnType("character varying(1000)");
+
+                    b.Property<DateTime>("RatedAt")
+                        .HasColumnType("timestamp without time zone");
+
+                    b.Property<Guid>("RaterUserId")
+                        .HasColumnType("uuid");
+
+                    b.Property<int>("Rating")
+                        .HasColumnType("integer");
+
+                    b.HasKey("IssueId");
+
+                    b.HasIndex("RatedAt")
+                        .HasAnnotation("SqlServer:Include", new[] { "Rating", "AssigneeId" });
+
+                    NpgsqlIndexBuilderExtensions.IncludeProperties(b.HasIndex("RatedAt"), new[] { "Rating", "AssigneeId" });
+
+                    b.ToTable("IssueFeedbacks", t =>
+                        {
+                            t.HasCheckConstraint("CK_IssueFeedbacks_Rating", "\"Rating\" BETWEEN 1 AND 5");
+                        });
+                });
+
             modelBuilder.Entity("KPI.Domain.Entities.Notification", b =>
                 {
                     b.Property<Guid>("Id")
@@ -810,6 +844,17 @@ namespace KPI.Infrastructure.Data.Migrations
                     b.Navigation("Issue");
                 });
 
+            modelBuilder.Entity("KPI.Domain.Entities.IssueFeedback", b =>
+                {
+                    b.HasOne("KPI.Domain.Entities.Issue", "Issue")
+                        .WithOne("Feedback")
+                        .HasForeignKey("KPI.Domain.Entities.IssueFeedback", "IssueId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Issue");
+                });
+
             modelBuilder.Entity("KPI.Domain.Entities.Notification", b =>
                 {
                     b.HasOne("KPI.Domain.Entities.User", "User")
@@ -879,6 +924,8 @@ namespace KPI.Infrastructure.Data.Migrations
                     b.Navigation("Attachments");
 
                     b.Navigation("Comments");
+
+                    b.Navigation("Feedback");
                 });
 
             modelBuilder.Entity("KPI.Domain.Entities.Permission", b =>

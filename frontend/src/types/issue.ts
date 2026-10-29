@@ -28,7 +28,7 @@ export type Tone = 'orange' | 'blue' | 'green' | 'amber' | 'red' | 'gray'
 
 export type IssueActionName =
   | 'assign' | 'start' | 'requestInfo' | 'resolve' | 'confirm' | 'reopen' | 'reject' | 'hold' | 'resume'
-  | 'setPriority' | 'comment' | 'internalNote' | 'attach'
+  | 'setPriority' | 'comment' | 'internalNote' | 'attach' | 'feedback'
 
 export interface IssueListItem {
   id: string
@@ -108,6 +108,46 @@ export interface IssueDetail extends Omit<IssueListItem, 'commentCount' | 'attac
   attachments: IssueAttachment[]
   timeline: IssueEvent[]
   allowedActions: IssueActionName[]
+  /** The reporter's rating; only the reporter and IT receive it. */
+  feedback: IssueFeedback | null
+}
+
+export interface IssueFeedback {
+  rating: number
+  note: string | null
+  ratedAt: string
+}
+
+/** One of my finished issues: already rated, or still waiting for a rating. */
+export interface MyFeedbackItem {
+  issueId: string
+  number: string
+  title: string
+  status: IssueStatusValue
+  resolvedAt: string | null
+  rating: number | null
+  note: string | null
+  ratedAt: string | null
+  canRate: boolean
+}
+
+export interface FeedbackReport {
+  count: number
+  /** null when nothing was rated */
+  average: number | null
+  /** how many gave 1, 2, 3, 4 and 5 */
+  distribution: number[]
+  byAssignee: { assigneeId: string | null; assigneeName: string; count: number; average: number }[]
+  items: Paged<{
+    issueId: string
+    number: string
+    title: string
+    rating: number
+    note: string | null
+    ratedAt: string
+    reporterName: string
+    assigneeName: string | null
+  }>
 }
 
 export interface Paged<T> {

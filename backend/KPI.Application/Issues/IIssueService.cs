@@ -39,6 +39,15 @@ public interface IIssueService
     Task<IssueDetailDto> RejectAsync(Guid id, string reason, Guid? duplicateOfId, Guid userId);
     Task<IssueDetailDto> SetPriorityAsync(Guid id, IssuePriority priority, Guid userId);
 
+    /// <summary>The reporter rates the fix (1 to 5, with an optional note). Only on a resolved or closed issue, within 30 days.</summary>
+    Task<IssueDetailDto> FeedbackAsync(Guid id, int rating, string? note, Guid userId);
+
+    /// <summary>The caller's own finished issues that were rated or can still be rated, newest first.</summary>
+    Task<IReadOnlyList<MyFeedbackItemDto>> MyFeedbackAsync(Guid userId);
+
+    /// <summary>Ratings for IT: totals, the spread, a figure per assignee and the latest ratings, inside what the person may see.</summary>
+    Task<FeedbackReportDto> FeedbackReportAsync(FeedbackReportQuery query, Guid userId);
+
     Task<IssueDetailDto> AddAttachmentsAsync(Guid id, IReadOnlyList<IssueUpload> files, Guid userId);
     Task<IssueAttachmentContent> GetAttachmentAsync(Guid id, Guid attachmentId, Guid userId);
 

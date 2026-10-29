@@ -43,6 +43,8 @@ export function isItemActive(item: Pick<NavItem, 'to'>, pathname: string, search
   const actual = new URLSearchParams(search)
   if (wanted.has('view')) return pathname === path && actual.get('view') === wanted.get('view')
   if (pathname === path) return !(path === '/issues' && issueViews.some((v) => v.key === actual.get('view')))
+  // The satisfaction page lives under /issues but has its own entry.
+  if (path === '/issues' && pathname === '/issues/feedback') return false
   return pathname.startsWith(`${path}/`)
 }
 
@@ -95,6 +97,7 @@ export function useNavGroups(): { groups: NavGroup[]; overdue: number } {
           badge: { pending: counts.pending, assigned: counts.assigned, near: counts.nearSla }[view.key],
           hot: view.key === 'near',
         })),
+        { to: '/issues/feedback', icon: 'mood-smile', label: isIt ? 'ความพึงพอใจ' : 'ความพึงพอใจของฉัน', permission: 'issue.view' },
       ],
     },
     {

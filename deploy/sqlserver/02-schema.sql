@@ -671,3 +671,42 @@ END;
 COMMIT;
 GO
 
+BEGIN TRANSACTION;
+IF NOT EXISTS (
+    SELECT * FROM [__EFMigrationsHistory]
+    WHERE [MigrationId] = N'20261029093413_AddIssueFeedback'
+)
+BEGIN
+    CREATE TABLE [IssueFeedbacks] (
+        [IssueId] uniqueidentifier NOT NULL,
+        [Rating] int NOT NULL,
+        [Note] nvarchar(1000) NULL,
+        [RaterUserId] uniqueidentifier NOT NULL,
+        [AssigneeId] uniqueidentifier NULL,
+        [RatedAt] datetime2 NOT NULL,
+        CONSTRAINT [PK_IssueFeedbacks] PRIMARY KEY ([IssueId]),
+        CONSTRAINT [CK_IssueFeedbacks_Rating] CHECK ([Rating] BETWEEN 1 AND 5),
+        CONSTRAINT [FK_IssueFeedbacks_Issues_IssueId] FOREIGN KEY ([IssueId]) REFERENCES [Issues] ([Id]) ON DELETE CASCADE
+    );
+END;
+
+IF NOT EXISTS (
+    SELECT * FROM [__EFMigrationsHistory]
+    WHERE [MigrationId] = N'20261029093413_AddIssueFeedback'
+)
+BEGIN
+    CREATE INDEX [IX_IssueFeedbacks_RatedAt] ON [IssueFeedbacks] ([RatedAt]) INCLUDE ([Rating], [AssigneeId]);
+END;
+
+IF NOT EXISTS (
+    SELECT * FROM [__EFMigrationsHistory]
+    WHERE [MigrationId] = N'20261029093413_AddIssueFeedback'
+)
+BEGIN
+    INSERT INTO [__EFMigrationsHistory] ([MigrationId], [ProductVersion])
+    VALUES (N'20261029093413_AddIssueFeedback', N'10.0.8');
+END;
+
+COMMIT;
+GO
+

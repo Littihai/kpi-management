@@ -257,6 +257,51 @@ public class IssueApiTests : IClassFixture<IssueApiFactory>, IAsyncLifetime
         Assert.Equal(HttpStatusCode.Unauthorized, (await _factory.CreateClient().GetAsync("/api/issues")).StatusCode);
     }
 
+    [Fact]
+    public async Task Ratings_are_given_by_the_reporter_and_read_by_IT_over_HTTP()
+    {
+        var staff = await As("staff-a");
+        var it = await As("it-a");
+        var id = (await Json(await staff.PostAsync("/api/issues", ReportForm("พิมพ์รายงานไม่ออก")))).GetProperty("id").GetGuid();
+
+        // not fixed yet
+        Assert.Equal(HttpStatusCode.Conflict, (await staff.PostAsJsonAsync($"/api/issues/{id}/feedback", new { rating = 5 })).StatusCode);
+
+        Assert.Equal(HttpStatusCode.OK, (await it.PostAsync($"/api/issues/{id}/start", null)).StatusCode);
+        Assert.Equal(HttpStatusCode.OK, (await it.PostAsJsonAsync($"/api/issues/{id}/resolve",
+            new { resolution = "ปรับค่าเครื่องพิมพ์ใหม่แล้ว", rootCause = "Configuration" })).StatusCode);
+
+        // IT is not the reporter; the rating must be 1-5
+        Assert.Equal(HttpStatusCode.Forbidden, (await it.PostAsJsonAsync($"/api/issues/{id}/feedback", new { rating = 5 })).StatusCode);
+        Assert.Equal(HttpStatusCode.BadRequest, (await staff.PostAsJsonAsync($"/api/issues/{id}/feedback", new { rating = 9 })).StatusCode);
+
+        var rated = await Json(await staff.PostAsJsonAsync($"/api/issues/{id}/feedback", new { rating = 4, note = "เรียบร้อย" }));
+        Assert.Equal(4, rated.GetProperty("feedback").GetProperty("rating").GetInt32());
+        Assert.Equal(HttpStatusCode.Conflict, (await staff.PostAsJsonAsync($"/api/issues/{id}/feedback", new { rating = 5 })).StatusCode);
+
+        var mine = await Json(await staff.GetAsync("/api/issues/feedback/mine"));
+        Assert.Contains(mine.EnumerateArray(), m => m.GetProperty("issueId").GetGuid() == id && m.GetProperty("rating").GetInt32() == 4);
+
+        var report = await Json(await it.GetAsync("/api/issues/feedback"));
+        Assert.True(report.GetProperty("count").GetInt32() >= 1);
+        Assert.Contains(report.GetProperty("items").GetProperty("items").EnumerateArray(), i => i.GetProperty("issueId").GetGuid() == id);
+    }
+
+    [Fact]
+    public async Task The_rating_endpoints_need_a_sign_in_and_the_report_needs_the_IT_right()
+    {
+        var anonymous = _factory.CreateClient();
+        Assert.Equal(HttpStatusCode.Unauthorized, (await anonymous.GetAsync("/api/issues/feedback")).StatusCode);
+        Assert.Equal(HttpStatusCode.Unauthorized, (await anonymous.GetAsync("/api/issues/feedback/mine")).StatusCode);
+        Assert.Equal(HttpStatusCode.Unauthorized,
+            (await anonymous.PostAsJsonAsync($"/api/issues/{Guid.NewGuid()}/feedback", new { rating = 5 })).StatusCode);
+
+        var staff = await As("staff-a");
+        Assert.Equal(HttpStatusCode.Forbidden, (await staff.GetAsync("/api/issues/feedback")).StatusCode);
+        Assert.Equal(HttpStatusCode.OK, (await staff.GetAsync("/api/issues/feedback/mine")).StatusCode);
+        Assert.Equal(HttpStatusCode.OK, (await (await As("it-a")).GetAsync("/api/issues/feedback")).StatusCode);
+    }
+
     // ───────────── The audit trail: who, from where ─────────────
 
     [Fact]

@@ -1,3 +1,4 @@
+using KPI.Application.Common;
 using KPI.Domain.Issues;
 
 namespace KPI.Application.Issues;
@@ -83,7 +84,8 @@ public record IssueDetailDto(
     IReadOnlyList<IssueCommentDto> Comments,
     IReadOnlyList<IssueAttachmentDto> Attachments,
     IReadOnlyList<IssueEventDto> Timeline,
-    IReadOnlyList<string> AllowedActions);
+    IReadOnlyList<string> AllowedActions,
+    IssueFeedbackDto? Feedback = null);
 
 public record IssueQuery(
     string? Search = null,
@@ -125,6 +127,27 @@ public record IssueAttentionDto(
     int Overdue,
     int WaitingForMe,
     int ToConfirm);
+
+/// <summary>The reporter's rating of the fix; shown to the reporter and to IT, never to anyone else who can open the issue.</summary>
+public record IssueFeedbackDto(int Rating, string? Note, DateTime RatedAt);
+
+/// <summary>One of the caller's own finished issues: rated already, or still waiting for a rating.</summary>
+public record MyFeedbackItemDto(
+    Guid IssueId, string Number, string Title, IssueStatus Status, DateTime? ResolvedAt,
+    int? Rating, string? Note, DateTime? RatedAt, bool CanRate);
+
+public record FeedbackReportQuery(DateTime? From = null, DateTime? To = null, int Page = 1, int PageSize = 20);
+
+public record FeedbackByAssigneeDto(Guid? AssigneeId, string AssigneeName, int Count, double Average);
+
+public record FeedbackItemDto(
+    Guid IssueId, string Number, string Title, int Rating, string? Note, DateTime RatedAt,
+    string ReporterName, string? AssigneeName);
+
+/// <summary><see cref="Distribution"/> has five entries: how many gave 1, 2, 3, 4 and 5. <see cref="Average"/> is null when nothing was rated.</summary>
+public record FeedbackReportDto(
+    int Count, double? Average, IReadOnlyList<int> Distribution,
+    IReadOnlyList<FeedbackByAssigneeDto> ByAssignee, PagedResult<FeedbackItemDto> Items);
 
 /// <summary>One line of the Ctrl+K result list: enough to recognise the issue and open it.</summary>
 public record IssueHitDto(Guid Id, string Number, string Title, IssueStatus Status, string Tone, string ReporterName);
@@ -185,4 +208,5 @@ public static class IssueActionNames
     public const string Comment = "comment";
     public const string InternalNote = "internalNote";
     public const string Attach = "attach";
+    public const string Feedback = "feedback";
 }

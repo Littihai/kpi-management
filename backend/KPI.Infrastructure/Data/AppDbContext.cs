@@ -31,6 +31,7 @@ public class AppDbContext : DbContext
     public DbSet<IssueComment> IssueComments => Set<IssueComment>();
     public DbSet<IssueAttachment> IssueAttachments => Set<IssueAttachment>();
     public DbSet<Notification> Notifications => Set<Notification>();
+    public DbSet<IssueFeedback> IssueFeedbacks => Set<IssueFeedback>();
 
     public override int SaveChanges(bool acceptAllChangesOnSuccess)
     {
@@ -207,6 +208,16 @@ public class AppDbContext : DbContext
         var attachment = modelBuilder.Entity<IssueAttachment>();
         attachment.Property(a => a.FileName).HasMaxLength(255);
         attachment.Property(a => a.ContentType).HasMaxLength(100);
+
+        // ── Satisfaction rating ──
+        var feedback = modelBuilder.Entity<IssueFeedback>();
+        feedback.HasKey(f => f.IssueId);
+        feedback.HasOne(f => f.Issue).WithOne(i => i.Feedback).HasForeignKey<IssueFeedback>(f => f.IssueId).OnDelete(DeleteBehavior.Cascade);
+        feedback.Property(f => f.Note).HasMaxLength(1000);
+        // RaterUserId and AssigneeId have no foreign key on purpose (see the entity).
+        feedback.ToTable(t => t.HasCheckConstraint("CK_IssueFeedbacks_Rating", Database.IsNpgsql() ? "\"Rating\" BETWEEN 1 AND 5" : "[Rating] BETWEEN 1 AND 5"));
+        // the report reads the date range and the two columns it averages from this index alone
+        Cover(feedback.HasIndex(f => f.RatedAt), f => new { f.Rating, f.AssigneeId });
 
         // ── Notification centre ──
         var notification = modelBuilder.Entity<Notification>();
