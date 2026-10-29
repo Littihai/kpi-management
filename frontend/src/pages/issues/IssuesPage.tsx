@@ -94,11 +94,20 @@ export default function IssuesPage() {
   useEffect(() => () => window.clearTimeout(timer.current), [])
 
   // Typing in the search box updates the list after a short pause.
+  // `typed` is the last search this box put into the URL, so a change that came from elsewhere (a menu link to a
+  // ready-made view drops ?q=) can be told apart and copied back into the box instead of being re-applied.
+  const typed = useRef(search)
   useEffect(() => {
     if (searchText === search) return
-    const id = window.setTimeout(() => update({ q: searchText.trim() }), 350)
+    const id = window.setTimeout(() => {
+      typed.current = searchText.trim()
+      update({ q: typed.current })
+    }, 350)
     return () => window.clearTimeout(id)
   }, [searchText, search, update])
+  useEffect(() => {
+    if (search !== typed.current) { typed.current = search; setSearchText(search) }
+  }, [search])
 
   const items = data?.items ?? []
   const filtered = Boolean(search || status || priority || assignee || overdue)
