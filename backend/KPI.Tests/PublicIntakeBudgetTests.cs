@@ -2,6 +2,7 @@ using KPI.API.Security;
 using KPI.Application.Issues;
 using KPI.Domain.Exceptions;
 using KPI.Domain.Issues;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Options;
 
 namespace KPI.Tests;
@@ -20,14 +21,19 @@ public class PublicIntakeBudgetTests
         return new IssueUpload("screen.png", "image/png", data);
     }
 
-    private static PublicIntakeBudget BudgetFor(TestWorld w, int perDay = 300, int megabytesPerDay = 300, PublicIntakeLedger? ledger = null) =>
+    private static PublicIntakeBudget BudgetFor(TestWorld w, int perDay = 300, int megabytesPerDay = 300, PublicIntakeLedger? ledger = null,
+        int perAddressPerDay = 0, int megabytesPerAddressPerDay = 0) =>
         new(w.Db, ledger ?? new PublicIntakeLedger(),
-            Options.Create(new PublicSubmitOptions { MaxPerDay = perDay, MaxUploadMbPerDay = megabytesPerDay }), w.Clock);
+            Options.Create(new PublicSubmitOptions
+            {
+                MaxPerDay = perDay, MaxUploadMbPerDay = megabytesPerDay,
+                MaxPerAddressPerDay = perAddressPerDay, MaxUploadMbPerAddressPerDay = megabytesPerAddressPerDay,
+            }), w.Clock);
 
     /// <summary>Asks for room and gives it straight back, like a report that was saved in between.</summary>
-    private static async Task EnsureRoomAsync(PublicIntakeBudget budget, long bytes)
+    private static async Task EnsureRoomAsync(PublicIntakeBudget budget, long bytes, string? address = null)
     {
-        using var _ = await budget.ReserveAsync(bytes);
+        using var _ = await budget.ReserveAsync(bytes, address);
     }
 
     [Fact]
@@ -125,8 +131,85 @@ public class PublicIntakeBudgetTests
 
         var w = await TestWorld.CreateAsync();
         var budget = new PublicIntakeBudget(w.Db, new PublicIntakeLedger(), Options.Create(defaults), w.Clock);
-        await Assert.ThrowsAsync<TooManyRequestsException>(() => EnsureRoomAsync(budget, 301L * 1024 * 1024));
+        await Assert.ThrowsAsync<RequestValidationException>(() => EnsureRoomAsync(budget, 301L * 1024 * 1024));
         await EnsureRoomAsync(budget, 300L * 1024 * 1024);
+    }
+
+    [Fact]
+    public async Task A_report_that_can_never_fit_is_refused_outright_not_told_to_retry()
+    {
+        var w = await TestWorld.CreateAsync();
+        var ex = await Assert.ThrowsAsync<RequestValidationException>(() => EnsureRoomAsync(BudgetFor(w, megabytesPerDay: 1), 2 * 1024 * 1024));
+        Assert.Contains("1 MB", ex.Message);
+    }
+
+    [Fact]
+    public async Task When_the_size_cap_is_full_the_wait_is_until_enough_old_attachments_age_out()
+    {
+        var w = await TestWorld.CreateAsync();
+        var budget = BudgetFor(w, megabytesPerDay: 2);
+        await w.Issues.CreatePublicAsync(PublicReport(), [Picture(900)], null);   // oldest
+        w.Clock.Advance(TimeSpan.FromHours(10));
+        await w.Issues.CreatePublicAsync(PublicReport(), [Picture(900)], null);   // 10 hours later: 1.8 MB stored
+
+        // Attachments are stamped with the real clock, not the test's: line them up with their reports.
+        foreach (var a in w.Db.IssueAttachments.Include(a => a.Issue)) a.CreatedAt = a.Issue.CreatedAt;
+        await w.Db.SaveChangesAsync();
+
+        // 0.5 MB more needs the oldest one gone (0.3 MB would fit only after it ages out): 14 hours from now.
+        var full = await Assert.ThrowsAsync<TooManyRequestsException>(() => EnsureRoomAsync(budget, 500 * 1024));
+        Assert.InRange(full.RetryAfter, TimeSpan.FromHours(13.9), TimeSpan.FromHours(14.1));
+
+        // 1.5 MB needs both gone: 24 hours from the newer one,.
+        var fuller = await Assert.ThrowsAsync<TooManyRequestsException>(() => EnsureRoomAsync(budget, 1500 * 1024));
+        Assert.InRange(fuller.RetryAfter, TimeSpan.FromHours(23.9), TimeSpan.FromHours(24.1));
+    }
+
+    [Fact]
+    public async Task One_address_cannot_use_up_the_day_for_everybody_else()
+    {
+        var w = await TestWorld.CreateAsync();
+        var ledger = new PublicIntakeLedger();
+        var budget = BudgetFor(w, ledger: ledger, perAddressPerDay: 2);
+
+        using var a = await budget.ReserveAsync(0, "203.0.113.1");
+        using var b = await budget.ReserveAsync(0, "203.0.113.1");
+        var full = await Assert.ThrowsAsync<TooManyRequestsException>(() => budget.ReserveAsync(0, "203.0.113.1"));
+        Assert.InRange(full.RetryAfter, TimeSpan.FromHours(23.9), TimeSpan.FromHours(24));
+
+        using var other = await budget.ReserveAsync(0, "203.0.113.2"); // somebody else still gets in
+    }
+
+    [Fact]
+    public async Task One_address_has_its_own_size_share_and_gets_room_back_after_a_day()
+    {
+        var w = await TestWorld.CreateAsync();
+        var budget = BudgetFor(w, megabytesPerAddressPerDay: 1);
+
+        await EnsureRoomAsync(budget, 700 * 1024, "203.0.113.1");
+        await Assert.ThrowsAsync<TooManyRequestsException>(() => EnsureRoomAsync(budget, 700 * 1024, "203.0.113.1"));
+        await EnsureRoomAsync(budget, 700 * 1024, "203.0.113.2");
+
+        w.Clock.Advance(TimeSpan.FromHours(25));
+        await EnsureRoomAsync(budget, 700 * 1024, "203.0.113.1");
+    }
+
+    [Fact]
+    public async Task Reports_saved_since_the_last_look_at_the_database_still_count()
+    {
+        // The totals are read at most every few seconds; a report that was just saved is added to them when it is done.
+        var w = await TestWorld.CreateAsync();
+        var ledger = new PublicIntakeLedger();
+        var budget = BudgetFor(w, perDay: 2, ledger: ledger);
+
+        for (var i = 0; i < 2; i++)
+        {
+            using var room = await budget.ReserveAsync(0);
+            await w.Issues.CreatePublicAsync(PublicReport(), [], null);
+            room.MarkSaved();
+        }
+
+        await Assert.ThrowsAsync<TooManyRequestsException>(() => EnsureRoomAsync(budget, 0));
     }
 
     // ───────────── reports arriving together ─────────────

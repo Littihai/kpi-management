@@ -65,12 +65,24 @@ public class PublicController : ControllerBase
             form.Title, form.Description, form.Category, form.Module, form.Impact,
             Request.Headers.UserAgent.ToString(), form.ClientInfo);
 
-        var uploads = await UploadReader.ReadAsync(form.Files, _settings);
-        // The room is held until the report is saved, so reports arriving together cannot all slip under the ceiling.
-        using var room = await _budget.ReserveAsync(uploads.Sum(u => (long)u.Data.Length));
+        // Ask for room before reading the files into memory, using the size the browser declared (a little more than the files
+        // themselves); a chunked upload declares none, so it is counted by what was actually read.
+        var declared = form.Files is { Count: > 0 } ? Request.ContentLength : null;
+        var room = declared is { } d ? await _budget.ReserveAsync(d, ip) : null;
+        try
+        {
+            var uploads = await UploadReader.ReadAsync(form.Files, _settings);
+            // The room is held until the report is saved, so reports arriving together cannot all slip under the ceiling.
+            room ??= await _budget.ReserveAsync(uploads.Sum(u => (long)u.Data.Length), ip);
 
-        var receipt = await _issues.CreatePublicAsync(request, uploads, ip);
-        return Ok(receipt);
+            var receipt = await _issues.CreatePublicAsync(request, uploads, ip);
+            room.MarkSaved();
+            return Ok(receipt);
+        }
+        finally
+        {
+            room?.Dispose();
+        }
     }
 
     public class PublicIssueForm
