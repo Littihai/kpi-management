@@ -100,7 +100,9 @@ public record IssueQuery(
     string? Sort = null,
     int Page = 1,
     int PageSize = 20,
-    bool? InDescription = null);
+    bool? InDescription = null,
+    IssueAttentionRule? Attention = null,
+    IssueSlaState? Sla = null);
 
 public record IssueSummaryDto(
     int Open,
@@ -109,7 +111,8 @@ public record IssueSummaryDto(
     int WaitingForReporter,
     int Overdue,
     int ResolvedLast7Days,
-    int Mine);
+    int Mine,
+    int NearSla = 0);
 
 /// <summary>
 /// The work waiting for one person. <see cref="Total"/> counts each issue once, so it can be less than the sum of the

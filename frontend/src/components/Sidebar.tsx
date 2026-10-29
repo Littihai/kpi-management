@@ -1,10 +1,10 @@
-import { NavLink, useNavigate } from 'react-router-dom'
+import { Link, useLocation, useNavigate } from 'react-router-dom'
 import { useAuthStore } from '../stores/authStore'
 import BrandName from './BrandName'
 import ConnectionStatus from './ConnectionStatus'
 import { Avatar } from './ui/Layout'
 import { roleLabel } from '../utils/labels'
-import { useNavGroups } from './useNavGroups'
+import { isItemActive, useNavGroups } from './useNavGroups'
 
 /**
  * Lotline-style menu: a 56px brand row that lines up with the top bar, a soft tinted selected item with an accent bar
@@ -18,7 +18,8 @@ export default function Sidebar({ onNavigate, showAccount = false, rail = false 
 }) {
   const navigate = useNavigate()
   const { user, logout } = useAuthStore()
-  const { groups, overdue } = useNavGroups()
+  const { groups } = useNavGroups()
+  const { pathname, search } = useLocation()
 
   return (
     <div className="flex h-full flex-col border-r border-line bg-card">
@@ -36,33 +37,29 @@ export default function Sidebar({ onNavigate, showAccount = false, rail = false 
             {rail && <div className="mx-2 mb-1 border-t border-line first:hidden" aria-hidden="true" />}
             <ul className="space-y-0.5">
               {group.items.map((item) => {
-                const hot = overdue > 0 && item.to === '/issues'
+                const isActive = isItemActive(item, pathname, search)
                 return (
                   <li key={item.to}>
-                    <NavLink to={item.to} onClick={onNavigate} title={rail ? item.label : undefined} aria-label={rail ? item.label : undefined}
-                      className={({ isActive }) =>
-                        `group relative flex items-center rounded-control py-2 text-sm font-medium transition-colors
+                    <Link to={item.to} onClick={onNavigate} title={rail ? item.label : undefined} aria-label={rail ? item.label : undefined}
+                      aria-current={isActive ? 'page' : undefined}
+                      className={`group relative flex items-center rounded-control py-2 text-sm font-medium transition-colors
                         ${rail ? 'justify-center px-0' : 'gap-2.5 px-2.5'}
                         ${isActive ? 'bg-accent-soft text-accent-deep' : 'text-ink hover:bg-surface'}`}>
-                      {({ isActive }) => (
-                        <>
-                          {isActive && <span className={`absolute bottom-2 top-2 w-[3px] rounded-r bg-accent ${rail ? '-left-2' : '-left-2.5'}`} aria-hidden="true" />}
-                          <i className={`ti ti-${item.icon} text-lg ${isActive ? 'text-accent' : 'text-ink-3'}`} aria-hidden="true" />
-                          {!rail && <span className="min-w-0 flex-1 truncate">{item.label}</span>}
-                          {item.badge ? (
-                            rail ? (
-                              <span className={`absolute right-1.5 top-1 h-2 w-2 rounded-full ${hot ? 'bg-red-dot' : 'bg-accent'}`} aria-hidden="true" />
-                            ) : (
-                              <span className={`tabular rounded-full px-1.5 text-[10.5px] font-bold leading-[1.6]
-                                ${hot ? 'bg-red-dot text-white' : isActive ? 'bg-accent text-on-accent' : 'bg-surface-2 text-ink-2'}`}
-                                aria-label={`${item.badge} เรื่อง${hot ? ` เกินกำหนด ${overdue}` : ''}`}>
-                                {item.badge}
-                              </span>
-                            )
-                          ) : null}
-                        </>
-                      )}
-                    </NavLink>
+                      {isActive && <span className={`absolute bottom-2 top-2 w-[3px] rounded-r bg-accent ${rail ? '-left-2' : '-left-2.5'}`} aria-hidden="true" />}
+                      <i className={`ti ti-${item.icon} text-lg ${isActive ? 'text-accent' : 'text-ink-3'}`} aria-hidden="true" />
+                      {!rail && <span className="min-w-0 flex-1 truncate">{item.label}</span>}
+                      {item.badge ? (
+                        rail ? (
+                          <span className={`absolute right-1.5 top-1 h-2 w-2 rounded-full ${item.hot ? 'bg-red-dot' : 'bg-accent'}`} aria-hidden="true" />
+                        ) : (
+                          <span className={`tabular rounded-full px-1.5 text-[10.5px] font-bold leading-[1.6]
+                            ${item.hot ? 'bg-red-dot text-white' : isActive ? 'bg-accent text-on-accent' : 'bg-surface-2 text-ink-2'}`}
+                            aria-label={`${item.badge} เรื่อง${item.hot ? ' มีเกินกำหนดหรือใกล้ถึงกำหนด' : ''}`}>
+                            {item.badge}
+                          </span>
+                        )
+                      ) : null}
+                    </Link>
                   </li>
                 )
               })}

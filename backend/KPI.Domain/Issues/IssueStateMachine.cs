@@ -41,6 +41,13 @@ public static class IssueStateMachine
     public static bool IsResolveOverdue(IssueStatus status, DateTime resolveDueAt, DateTime now) =>
         ClockRuns(status) && now > resolveDueAt;
 
+    /// <summary>Overdue, or inside the warning window before it (<see cref="IssueSlaPolicy.NearResponse"/>, <see cref="IssueSlaPolicy.NearResolve"/>).</summary>
+    public static bool IsNearOrOverdue(IssueStatus status, DateTime? firstResponseAt, DateTime responseDueAt, DateTime resolveDueAt, DateTime now) =>
+        IsResponseOverdue(status, firstResponseAt, responseDueAt, now)
+        || IsResolveOverdue(status, resolveDueAt, now)
+        || (firstResponseAt is null && now + IssueSlaPolicy.NearResponse > responseDueAt && (status is IssueStatus.New or IssueStatus.Assigned))
+        || (ClockRuns(status) && now + IssueSlaPolicy.NearResolve > resolveDueAt);
+
     public static bool CanApply(IssueStatus status, IssueAction action) => action switch
     {
         IssueAction.Assign => IsOpen(status),

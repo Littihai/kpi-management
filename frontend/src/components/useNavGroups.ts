@@ -1,13 +1,32 @@
 import { useCallback, useEffect, useState } from 'react'
+import { issueViews } from '../lib/issueViews'
+import { useAttentionCountsStore } from '../stores/attentionCountsStore'
 import { useAuthStore } from '../stores/authStore'
 import { issueService } from '../services/issue.service'
 import { useIssueEvents } from './realtimeContext'
 
 export interface NavItem {
+  /** A path, optionally with a query (`/issues?view=near`): the query is part of what makes the item the current one. */
   to: string
   icon: string
   label: string
   badge?: number
+  /** Something here is late: the badge turns red. */
+  hot?: boolean
+}
+
+/**
+ * Whether `item` is the page on screen. A router link only compares paths, so two entries for the same list with
+ * different `?view=` would both light up (and the plain list would light up on a view); this also compares the query,
+ * and keeps the plain list lit on an issue's own page, as a link would.
+ */
+export function isItemActive(item: Pick<NavItem, 'to'>, pathname: string, search: string): boolean {
+  const [path, query = ''] = item.to.split('?')
+  const wanted = new URLSearchParams(query)
+  const actual = new URLSearchParams(search)
+  if (wanted.has('view')) return pathname === path && actual.get('view') === wanted.get('view')
+  if (pathname === path) return !(path === '/issues' && issueViews.some((v) => v.key === actual.get('view')))
+  return pathname.startsWith(`${path}/`)
 }
 
 export interface NavGroup {
@@ -24,6 +43,7 @@ export function useNavGroups(): { groups: NavGroup[]; overdue: number } {
   const [openIssues, setOpenIssues] = useState(0)
   const [overdue, setOverdue] = useState(0)
   const isIt = permissions.includes('issue.manage')
+  const counts = useAttentionCountsStore()
 
   const refreshCounts = useCallback(() => {
     issueService.summary()
@@ -47,7 +67,15 @@ export function useNavGroups(): { groups: NavGroup[]; overdue: number } {
     {
       title: 'ขอความช่วยเหลือ',
       items: [
-        { to: '/issues', icon: 'lifebuoy', label: isIt ? 'งานแจ้งปัญหา' : 'เรื่องที่ฉันแจ้ง', permission: 'issue.view', badge: openIssues },
+        { to: '/issues', icon: 'lifebuoy', label: isIt ? 'งานแจ้งปัญหา' : 'เรื่องที่ฉันแจ้ง', permission: 'issue.view', badge: openIssues, hot: overdue > 0 },
+        ...issueViews.map((view) => ({
+          to: view.to,
+          icon: view.icon,
+          label: view.label,
+          permission: view.itOnly ? 'issue.manage' : 'issue.view',
+          badge: { pending: counts.pending, assigned: counts.assigned, near: counts.nearSla }[view.key],
+          hot: view.key === 'near',
+        })),
       ],
     },
     {

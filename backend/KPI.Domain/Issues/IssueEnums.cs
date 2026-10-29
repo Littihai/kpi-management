@@ -16,6 +16,28 @@ public enum IssueStatus
     // Reserved (append-only numbers, stored as ints): Merged = 9, PendingApproval = 10.
 }
 
+/// <summary>
+/// One of the "waiting for you" rules (see <c>IssueFilters.Attention</c>) as a list filter. <see cref="Any"/> is every issue
+/// that meets at least one, i.e. the number behind the badge.
+/// </summary>
+public enum IssueAttentionRule
+{
+    Any = 0,
+    NewInQueue = 1,
+    AssignedToMe = 2,
+    Overdue = 3,
+    WaitingForMe = 4,
+    ToConfirm = 5,
+}
+
+/// <summary>Where an issue stands against its deadlines, as a list filter.</summary>
+public enum IssueSlaState
+{
+    /// <summary>Late, or close enough to its deadline that it is about to be (see <c>IssueSlaPolicy.NearResponse</c>).</summary>
+    Near = 0,
+    Overdue = 1,
+}
+
 public enum IssuePriority
 {
     Low = 0,

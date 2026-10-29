@@ -198,6 +198,9 @@ public class IssueService : IIssueService
         if (query.From is { } from) rows = rows.Where(i => i.CreatedAt >= from);
         if (query.To is { } to) rows = rows.Where(i => i.CreatedAt < to);
         if (query.Overdue == true) rows = rows.Where(IssueFilters.Overdue(now));
+        if (query.Attention is { } rule) rows = rows.Where(IssueFilters.AttentionMatches(rule, actor.Id, IsStaff(actor), now));
+        if (query.Sla == IssueSlaState.Near) rows = rows.Where(IssueFilters.NearOrOverdue(now));
+        if (query.Sla == IssueSlaState.Overdue) rows = rows.Where(IssueFilters.Overdue(now));
 
         var searching = !string.IsNullOrWhiteSpace(query.Search);
         if (searching)
@@ -289,6 +292,7 @@ public class IssueService : IIssueService
         int Count(params IssueStatus[] statuses) => byStatus.Where(s => statuses.Contains(s.Status)).Sum(s => s.Count);
 
         var overdue = await rows.CountAsync(IssueFilters.Overdue(now));
+        var nearSla = await rows.CountAsync(IssueFilters.NearOrOverdue(now));
         var resolved = await rows.CountAsync(i => i.ResolvedAt != null && i.ResolvedAt >= weekAgo);
         var actorId = actor.Id;
         var mine = await rows.Where(IssueFilters.Open)
@@ -301,7 +305,7 @@ public class IssueService : IIssueService
             Count(IssueStatus.New),
             Count(IssueStatus.Assigned, IssueStatus.InProgress, IssueStatus.Reopened),
             Count(IssueStatus.WaitingForReporter),
-            overdue, resolved, mine);
+            overdue, resolved, mine, nearSla);
     }
 
     public async Task<IssueAttentionDto> AttentionAsync(Guid userId)

@@ -125,6 +125,8 @@ export interface IssueSummary {
   overdue: number
   resolvedLast7Days: number
   mine: number
+  /** late, or inside the warning window before a deadline */
+  nearSla: number
 }
 
 /** What is waiting for the signed-in person. The numbers can overlap; `total` counts each issue once. */
@@ -159,6 +161,9 @@ export interface IssueQuery {
   assigneeId?: string
   mine?: boolean
   overdue?: boolean
+  /** One of the "waiting for you" rules; `Any` is everything the badge counts. */
+  attention?: 'Any' | 'NewInQueue' | 'AssignedToMe' | 'Overdue' | 'WaitingForMe' | 'ToConfirm'
+  sla?: 'Near' | 'Overdue'
   from?: string
   to?: string
   sort?: string
