@@ -1,3 +1,4 @@
+using KPI.Application.Audit;
 using KPI.Application.Issues;
 using KPI.Application.Notifications;
 using KPI.Domain.Entities;
@@ -413,6 +414,74 @@ public class IssueServiceTests
         Assert.Contains(forIt.Comments, c => c.IsInternal);
         Assert.Contains(forIt.Timeline, t => t.Action == "InternalNote");
         Assert.DoesNotContain(w.Email.To(IssueEmailKind.StaffReplied), e => e != w.StaffA.Email);
+    }
+
+    [Fact]
+    public async Task The_list_comment_count_leaves_out_internal_notes_for_anyone_who_cannot_read_them()
+    {
+        var w = await TestWorld.CreateAsync();
+        var issue = await ReportAsync(w, w.StaffA);
+        await w.Issues.CommentAsync(issue.Id, "บันทึกภายใน", true, w.ItA.Id);
+        await w.Issues.CommentAsync(issue.Id, "รับเรื่องแล้วครับ", false, w.ItA.Id);
+
+        var forReporter = (await w.Issues.ListAsync(new IssueQuery(), w.StaffA.Id)).Items.Single(i => i.Id == issue.Id);
+        var forIt = (await w.Issues.ListAsync(new IssueQuery(), w.ItA.Id)).Items.Single(i => i.Id == issue.Id);
+
+        Assert.Equal(1, forReporter.CommentCount);
+        Assert.Equal(2, forIt.CommentCount);
+    }
+
+    [Fact]
+    public async Task An_internal_note_leaves_no_words_in_the_audit_log_or_its_search()
+    {
+        var w = await TestWorld.CreateAsync();
+        var issue = await ReportAsync(w, w.StaffA);
+
+        await w.Issues.CommentAsync(issue.Id, "ลับสุดยอดห้ามบอกผู้ใช้", true, w.ItA.Id);
+
+        var row = await w.Db.AuditLogs.SingleAsync(a => a.Action == "InternalNote");
+        Assert.Null(row.NewValues);
+        Assert.DoesNotContain(await w.Db.AuditLogs.ToListAsync(), a => a.NewValues != null && a.NewValues.Contains("ลับสุดยอด"));
+
+        var found = await new AuditService(w.Db).SearchAsync(new AuditQuery(Search: "ลับสุดยอด"));
+        Assert.Empty(found.Items);
+    }
+
+    [Fact]
+    public async Task An_internal_note_sends_no_email_no_toast_and_a_staff_only_event()
+    {
+        var w = await TestWorld.CreateAsync();
+        var issue = await ReportAsync(w, w.StaffA);
+        var toasts = w.Notifier.Notifications.Count;
+        var emails = w.Email.IssueSent.Count;
+
+        await w.Issues.CommentAsync(issue.Id, "บันทึกภายใน", true, w.ItA.Id);
+
+        Assert.Equal(toasts, w.Notifier.Notifications.Count);
+        Assert.Equal(emails, w.Email.IssueSent.Count);
+        var evt = w.Notifier.IssueEvents.Last();
+        Assert.Equal("note", evt.Action);
+        Assert.True(evt.StaffOnly);
+    }
+
+    [Fact]
+    public async Task Only_IT_is_offered_the_internal_note_and_only_IT_sees_internal_comments()
+    {
+        var w = await TestWorld.CreateAsync();
+        var issue = await ReportAsync(w, w.StaffA);
+        await w.Issues.CommentAsync(issue.Id, "บันทึกภายใน", true, w.ItA.Id);
+
+        foreach (var viewer in new[] { w.StaffA, w.ManagerA })
+        {
+            var detail = await w.Issues.GetAsync(issue.Id, viewer.Id);
+            Assert.DoesNotContain(IssueActionNames.InternalNote, detail.AllowedActions);
+            Assert.DoesNotContain(detail.Comments, c => c.IsInternal);
+            await Assert.ThrowsAsync<ForbiddenException>(() => w.Issues.CommentAsync(issue.Id, "x", true, viewer.Id));
+        }
+
+        // The viewer's role only sees its own issues, so the issue is not even there to write a note on.
+        await Assert.ThrowsAsync<NotFoundException>(() => w.Issues.GetAsync(issue.Id, w.ViewerA.Id));
+        await Assert.ThrowsAsync<NotFoundException>(() => w.Issues.CommentAsync(issue.Id, "x", true, w.ViewerA.Id));
     }
 
     [Fact]

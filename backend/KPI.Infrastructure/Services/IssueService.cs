@@ -185,6 +185,7 @@ public class IssueService : IIssueService
         var size = PagedResult<IssueListItemDto>.ClampSize(query.PageSize);
         var now = Now;
 
+        var staff = IsStaff(actor);
         var rows = Scope(_db.Issues.AsNoTracking(), actor);
 
         if (query.Status is { } status) rows = rows.Where(i => i.Status == status);
@@ -253,7 +254,7 @@ public class IssueService : IIssueService
                 i.Assignee != null ? i.Assignee.FirstName : null,
                 i.Assignee != null ? i.Assignee.LastName : null,
                 i.CreatedAt, i.UpdatedAt, i.ResponseDueAt, i.ResolveDueAt, i.FirstResponseAt,
-                i.Comments.Count, i.Attachments.Count, i.IsPublicSubmission))
+                i.Comments.Count(c => staff || !c.IsInternal), i.Attachments.Count, i.IsPublicSubmission))
             .ToListAsync();
 
         return new PagedResult<IssueListItemDto>(pageRows.Select(r => r.ToDto(now)).ToList(), total, page, size);
@@ -381,7 +382,9 @@ public class IssueService : IIssueService
             issue.Status = IssueStatus.InProgress;
         }
 
-        StageAudit(actor, issue, audit, from, to ?? body.Truncate(200));
+        // The audit log is readable by people who may not read internal notes, and its search looks inside the values,
+        // so a note leaves a row but never its words.
+        StageAudit(actor, issue, audit, from, internalNote ? null : to ?? body.Truncate(200));
         await Touch(issue, now);
 
         if (!internalNote)

@@ -52,7 +52,6 @@ export default function IssueDetailPage() {
   const [busy, setBusy] = useState(false)
   const [dialog, setDialog] = useState<Dialog>(null)
   const [comment, setComment] = useState('')
-  const [internal, setInternal] = useState(false)
   const [showTech, setShowTech] = useState(false)
   const attachInput = useRef<HTMLInputElement>(null)
 
@@ -92,12 +91,10 @@ export default function IssueDetailPage() {
     }
   }
 
-  const sendComment = async () => {
+  // Two explicit buttons instead of a sticky checkbox: a note can no longer go out as a reply (or the reverse) by a forgotten tick.
+  const sendComment = async (internal: boolean) => {
     if (!issue || !comment.trim()) return
-    if (await run(() => issueService.comment(issue.id, comment.trim(), internal))) {
-      setComment('')
-      setInternal(false)
-    }
+    if (await run(() => issueService.comment(issue.id, comment.trim(), internal))) setComment('')
   }
 
   if (loading) return <Page><PageSkeleton /></Page>
@@ -254,19 +251,24 @@ export default function IssueDetailPage() {
                 <TextArea label={waiting && !isIt ? 'ตอบกลับทีม IT' : 'เขียนข้อความ'} rows={3} maxLength={4000}
                   value={comment} onChange={(e) => setComment(e.target.value)}
                   placeholder={waiting && !isIt ? 'ให้ข้อมูลที่ทีม IT ขอ...' : 'พิมพ์ข้อความ...'} />
-                <div className="mt-3 flex flex-wrap items-center justify-between gap-3">
-                  {isIt ? (
-                    <label className="inline-flex cursor-pointer items-center gap-2 text-[13px] text-ink-2">
-                      <input type="checkbox" checked={internal} onChange={(e) => setInternal(e.target.checked)}
-                        className="h-4 w-4 rounded border-line-strong accent-accent" />
-                      บันทึกภายใน (เห็นเฉพาะทีม IT)
-                    </label>
-                  ) : <span />}
-                  <Button variant={internal ? 'dark' : 'primary'} icon={internal ? 'lock' : 'send'}
-                    disabled={!comment.trim()} loading={busy} onClick={sendComment}>
-                    {internal ? 'บันทึกโน้ต' : 'ส่งข้อความ'}
-                  </Button>
+                <div className="mt-3 flex flex-wrap items-center justify-end gap-3">
+                  {isIt && (
+                    <Button variant="dark" icon="lock" disabled={!comment.trim()} loading={busy}
+                      onClick={() => sendComment(true)}>ความคิดเห็นภายใน</Button>
+                  )}
+                  <Button variant="primary" icon="send" disabled={!comment.trim()} loading={busy}
+                    onClick={() => sendComment(false)}>ตอบกลับ</Button>
                 </div>
+                <p className="mt-2 text-xs text-ink-3">
+                  {isIt
+                    ? 'ตอบกลับ — ผู้แจ้งเห็นและได้รับอีเมล · ความคิดเห็นภายใน — เห็นเฉพาะทีม IT ผู้แจ้งไม่เห็นและไม่ได้รับแจ้ง'
+                    : 'ข้อความนี้ทีม IT จะเห็น'}
+                </p>
+                {isIt && issue.isPublicSubmission && (
+                  <p className="mt-1 text-xs text-amber-ink">
+                    เรื่องนี้ส่งจากแบบฟอร์มสาธารณะ — การตอบกลับจะถูกส่งไปยังอีเมลที่ผู้แจ้งกรอกไว้ซึ่งยังไม่ได้ยืนยันตัวตน
+                  </p>
+                )}
               </div>
             )}
           </Card>
