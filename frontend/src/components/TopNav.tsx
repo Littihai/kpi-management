@@ -1,6 +1,6 @@
 import { Link, useLocation } from 'react-router-dom'
 import SearchButton from './SearchButton'
-import { isItemActive, unreadText, useNavGroups } from './useNavGroups'
+import { badgeText, isItemActive, useNavGroups } from './useNavGroups'
 
 /** The menu as a bar under the top bar (Lotline's default layout): one underlined tab per page. */
 export default function TopNav() {
@@ -23,8 +23,8 @@ export default function TopNav() {
                 {item.badge ? (
                   <span className={`tabular rounded-full px-1.5 text-[10.5px] font-bold leading-[1.6]
                     ${item.hot ? 'bg-red-dot text-white' : isActive ? 'bg-accent text-on-accent' : 'bg-surface-2 text-ink-2'}`}
-                    aria-label={`${unreadText(item.badge)} ${item.unit ?? 'เรื่อง'}`}>
-                    {unreadText(item.badge)}
+                    aria-label={`${badgeText(item)} ${item.unit ?? 'เรื่อง'}`}>
+                    {badgeText(item)}
                   </span>
                 ) : null}
                 {isActive && <span className="absolute inset-x-2 bottom-0 h-0.5 rounded-t bg-accent" aria-hidden="true" />}

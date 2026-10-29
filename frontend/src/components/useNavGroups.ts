@@ -24,6 +24,15 @@ export function unreadText(count: number): string {
 }
 
 /**
+ * The badge as shown. Only the notification entry (the one that names its own unit) is capped, because only its count
+ * is capped by the server; the issue counts are real numbers and must not stop at "99+".
+ */
+export function badgeText(item: Pick<NavItem, 'badge' | 'unit'>): string {
+  const count = item.badge ?? 0
+  return item.unit ? unreadText(count) : String(count)
+}
+
+/**
  * Whether `item` is the page on screen. A router link only compares paths, so two entries for the same list with
  * different `?view=` would both light up (and the plain list would light up on a view); this also compares the query,
  * and keeps the plain list lit on an issue's own page, as a link would.

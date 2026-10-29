@@ -5,7 +5,7 @@ import ConnectionStatus from './ConnectionStatus'
 import { Avatar } from './ui/Layout'
 import { roleLabel } from '../utils/labels'
 import SearchButton from './SearchButton'
-import { isItemActive, unreadText, useNavGroups } from './useNavGroups'
+import { badgeText, isItemActive, useNavGroups } from './useNavGroups'
 
 /**
  * Lotline-style menu: a 56px brand row that lines up with the top bar, a soft tinted selected item with an accent bar
@@ -59,8 +59,8 @@ export default function Sidebar({ onNavigate, showAccount = false, rail = false 
                         ) : (
                           <span className={`tabular rounded-full px-1.5 text-[10.5px] font-bold leading-[1.6]
                             ${item.hot ? 'bg-red-dot text-white' : isActive ? 'bg-accent text-on-accent' : 'bg-surface-2 text-ink-2'}`}
-                            aria-label={`${unreadText(item.badge)} ${item.unit ?? 'เรื่อง'}${item.hot ? ' มีเกินกำหนดหรือใกล้ถึงกำหนด' : ''}`}>
-                            {unreadText(item.badge)}
+                            aria-label={`${badgeText(item)} ${item.unit ?? 'เรื่อง'}${item.hot ? ' มีเกินกำหนดหรือใกล้ถึงกำหนด' : ''}`}>
+                            {badgeText(item)}
                           </span>
                         )
                       ) : null}
