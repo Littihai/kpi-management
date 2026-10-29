@@ -30,6 +30,7 @@ public class AppDbContext : DbContext
     public DbSet<Issue> Issues => Set<Issue>();
     public DbSet<IssueComment> IssueComments => Set<IssueComment>();
     public DbSet<IssueAttachment> IssueAttachments => Set<IssueAttachment>();
+    public DbSet<Notification> Notifications => Set<Notification>();
 
     public override int SaveChanges(bool acceptAllChangesOnSuccess)
     {
@@ -206,6 +207,18 @@ public class AppDbContext : DbContext
         var attachment = modelBuilder.Entity<IssueAttachment>();
         attachment.Property(a => a.FileName).HasMaxLength(255);
         attachment.Property(a => a.ContentType).HasMaxLength(100);
+
+        // ── Notification centre ──
+        var notification = modelBuilder.Entity<Notification>();
+        notification.HasOne(n => n.User).WithMany().HasForeignKey(n => n.UserId).OnDelete(DeleteBehavior.Cascade);
+        notification.Property(n => n.Kind).HasMaxLength(40);
+        notification.Property(n => n.Title).HasMaxLength(200);
+        notification.Property(n => n.Message).HasMaxLength(500);
+        notification.Property(n => n.Level).HasMaxLength(10);
+        notification.HasIndex(n => new { n.UserId, n.CreatedAt });   // the list, newest first
+        notification.HasIndex(n => new { n.UserId, n.ReadAt });      // the unread count and "mark all read"
+        notification.HasIndex(n => new { n.UserId, n.IssueId });     // "mark this issue's entries read" when its page opens
+        notification.HasIndex(n => n.CreatedAt);                     // the nightly purge
     }
 
     /// <summary>An index that also stores the given columns, so a query that needs only those never reads the table row (both providers).</summary>

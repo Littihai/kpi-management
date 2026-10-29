@@ -4,7 +4,8 @@ import BrandName from './BrandName'
 import ConnectionStatus from './ConnectionStatus'
 import { Avatar } from './ui/Layout'
 import { roleLabel } from '../utils/labels'
-import { isItemActive, useNavGroups } from './useNavGroups'
+import SearchButton from './SearchButton'
+import { isItemActive, unreadText, useNavGroups } from './useNavGroups'
 
 /**
  * Lotline-style menu: a 56px brand row that lines up with the top bar, a soft tinted selected item with an accent bar
@@ -28,6 +29,10 @@ export default function Sidebar({ onNavigate, showAccount = false, rail = false 
           <i className="ti ti-chart-donut-3 text-lg" />
         </span>
         {!rail && <BrandName className="block min-w-0 truncate text-base font-bold tracking-tight text-ink" />}
+      </div>
+
+      <div className={`flex-none pt-2.5 ${rail ? 'px-2' : 'px-2.5'}`}>
+        <SearchButton variant={rail ? 'rail' : 'full'} onClick={onNavigate} />
       </div>
 
       <nav aria-label="เมนูหลัก" className={`flex-1 overflow-y-auto py-2 ${rail ? 'px-2' : 'px-2.5'}`}>
@@ -54,8 +59,8 @@ export default function Sidebar({ onNavigate, showAccount = false, rail = false 
                         ) : (
                           <span className={`tabular rounded-full px-1.5 text-[10.5px] font-bold leading-[1.6]
                             ${item.hot ? 'bg-red-dot text-white' : isActive ? 'bg-accent text-on-accent' : 'bg-surface-2 text-ink-2'}`}
-                            aria-label={`${item.badge} เรื่อง${item.hot ? ' มีเกินกำหนดหรือใกล้ถึงกำหนด' : ''}`}>
-                            {item.badge}
+                            aria-label={`${unreadText(item.badge)} ${item.unit ?? 'เรื่อง'}${item.hot ? ' มีเกินกำหนดหรือใกล้ถึงกำหนด' : ''}`}>
+                            {unreadText(item.badge)}
                           </span>
                         )
                       ) : null}

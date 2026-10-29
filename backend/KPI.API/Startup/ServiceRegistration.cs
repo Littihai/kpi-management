@@ -57,6 +57,8 @@ public static class ServiceRegistration
     {
         services.AddScoped<IIssueService, IssueService>();
         services.AddScoped<IssueEventPublisher>();
+        services.AddScoped<INotificationService, NotificationService>();
+        services.AddScoped<IQuickSearchService, QuickSearchService>();
         services.AddScoped<IMaintenanceJob, MaintenanceJob>();
         // SLA targets, limits and retention come from the settings screen (see SettingCatalog), not from configuration.
         services.AddSingleton<ISystemSettings, SystemSettingsService>();

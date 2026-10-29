@@ -136,6 +136,12 @@ public class ControllerAuthorizationTests
     [InlineData(typeof(IssuesController), nameof(IssuesController.Confirm), Permissions.Issue.View)]
     [InlineData(typeof(IssuesController), nameof(IssuesController.Reopen), Permissions.Issue.View)]
     [InlineData(typeof(IssuesController), nameof(IssuesController.Download), Permissions.Issue.View)]
+    [InlineData(typeof(NotificationsController), nameof(NotificationsController.List), Permissions.Issue.View)]
+    [InlineData(typeof(NotificationsController), nameof(NotificationsController.UnreadCount), Permissions.Issue.View)]
+    [InlineData(typeof(NotificationsController), nameof(NotificationsController.MarkRead), Permissions.Issue.View)]
+    [InlineData(typeof(NotificationsController), nameof(NotificationsController.MarkAllRead), Permissions.Issue.View)]
+    [InlineData(typeof(NotificationsController), nameof(NotificationsController.MarkIssueRead), Permissions.Issue.View)]
+    [InlineData(typeof(SearchController), nameof(SearchController.Quick), Permissions.Issue.View)]
     public void Sensitive_endpoints_require_their_specific_permission(Type controller, string actionName, string permission)
     {
         var action = controller.GetMethod(actionName)!;

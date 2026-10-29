@@ -24,6 +24,7 @@ const IssuesPage = lazy(() => import('./pages/issues/IssuesPage'))
 const IssueNewPage = lazy(() => import('./pages/issues/IssueNewPage'))
 const IssueDetailPage = lazy(() => import('./pages/issues/IssueDetailPage'))
 const PublicReportPage = lazy(() => import('./pages/issues/PublicReportPage'))
+const NotificationsPage = lazy(() => import('./pages/NotificationsPage'))
 
 function Home() {
   const isAuthenticated = useAuthStore((s) => s.isAuthenticated)
@@ -57,6 +58,7 @@ function AppRoutes() {
 
           <Route element={<ProtectedRoute><AppShell /></ProtectedRoute>}>
             <Route path="/dashboard" element={<RequirePermission permission="issue.view"><DashboardPage /></RequirePermission>} />
+            <Route path="/notifications" element={<RequirePermission permission="issue.view"><NotificationsPage /></RequirePermission>} />
             <Route path="/issues" element={<RequirePermission permission="issue.view"><IssuesPage /></RequirePermission>} />
             <Route path="/issues/new" element={<RequirePermission permission="issue.create"><IssueNewPage /></RequirePermission>} />
             <Route path="/issues/:id" element={<RequirePermission permission="issue.view"><IssueDetailPage /></RequirePermission>} />

@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from 'react'
 import { issueViews } from '../lib/issueViews'
 import { useAttentionCountsStore } from '../stores/attentionCountsStore'
 import { useAuthStore } from '../stores/authStore'
+import { useNotificationStore } from '../stores/notificationStore'
 import { issueService } from '../services/issue.service'
 import { useIssueEvents } from './realtimeContext'
 
@@ -11,8 +12,15 @@ export interface NavItem {
   icon: string
   label: string
   badge?: number
+  /** What the badge counts, for screen readers ("5 เรื่อง"); issues unless said otherwise. */
+  unit?: string
   /** Something here is late: the badge turns red. */
   hot?: boolean
+}
+
+/** The server counts unread notifications up to 100, so the top of the scale is shown as "99+". */
+export function unreadText(count: number): string {
+  return count > 99 ? '99+' : String(count)
 }
 
 /**
@@ -44,6 +52,7 @@ export function useNavGroups(): { groups: NavGroup[]; overdue: number } {
   const [overdue, setOverdue] = useState(0)
   const isIt = permissions.includes('issue.manage')
   const counts = useAttentionCountsStore()
+  const unread = useNotificationStore((s) => s.unread)
 
   const refreshCounts = useCallback(() => {
     issueService.summary()
@@ -62,6 +71,7 @@ export function useNavGroups(): { groups: NavGroup[]; overdue: number } {
       title: 'หน้าหลัก',
       items: [
         { to: '/dashboard', icon: 'layout-dashboard', label: 'แดชบอร์ด', permission: 'issue.view' },
+        { to: '/notifications', icon: 'bell', label: 'การแจ้งเตือน', permission: 'issue.view', badge: unread, unit: 'รายการที่ยังไม่อ่าน' },
       ],
     },
     {

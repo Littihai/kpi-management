@@ -126,6 +126,9 @@ public record IssueAttentionDto(
     int WaitingForMe,
     int ToConfirm);
 
+/// <summary>One line of the Ctrl+K result list: enough to recognise the issue and open it.</summary>
+public record IssueHitDto(Guid Id, string Number, string Title, IssueStatus Status, string Tone, string ReporterName);
+
 /// <summary>Reporter details come from the profile when signed in; visitors fill them in.</summary>
 public record CreateIssueRequest(
     string Title,

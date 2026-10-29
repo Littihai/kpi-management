@@ -11,6 +11,7 @@ import { CompactSelect, TextArea } from '../../components/ui/Field'
 import { Alert, Avatar, EmptyState, Page, PageSkeleton } from '../../components/ui/Layout'
 import { issueService } from '../../services/issue.service'
 import { useAuthStore } from '../../stores/authStore'
+import { markIssueSeen } from '../../stores/notificationStore'
 import { apiError } from '../../utils/errors'
 import { formatCountdown, formatDateTime, formatRelative } from '../../utils/format'
 import { isFinished } from '../../utils/issueStatus'
@@ -67,7 +68,13 @@ export default function IssueDetailPage() {
 
   useEffect(() => { load().finally(() => setLoading(false)) }, [load])
 
-  useIssueEvents((event) => { if (event.issueId === id) load() })
+  // Looking at the issue is reading what the bell said about it. Forced for a live change: the badge has not caught up yet.
+  useEffect(() => { if (id) markIssueSeen(id) }, [id])
+  useIssueEvents((event) => {
+    if (event.issueId !== id) return
+    load()
+    markIssueSeen(id, true)
+  })
 
   const can = (action: IssueActionName) => issue?.allowedActions.includes(action) ?? false
   const isIt = can('internalNote')

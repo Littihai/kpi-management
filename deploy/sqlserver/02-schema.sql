@@ -606,3 +606,68 @@ END;
 COMMIT;
 GO
 
+BEGIN TRANSACTION;
+IF NOT EXISTS (
+    SELECT * FROM [__EFMigrationsHistory]
+    WHERE [MigrationId] = N'20261029091459_AddNotifications'
+)
+BEGIN
+    CREATE TABLE [Notifications] (
+        [Id] uniqueidentifier NOT NULL,
+        [UserId] uniqueidentifier NOT NULL,
+        [IssueId] uniqueidentifier NULL,
+        [Kind] nvarchar(40) NOT NULL,
+        [Title] nvarchar(200) NOT NULL,
+        [Message] nvarchar(500) NOT NULL,
+        [Level] nvarchar(10) NOT NULL,
+        [CreatedAt] datetime2 NOT NULL,
+        [ReadAt] datetime2 NULL,
+        CONSTRAINT [PK_Notifications] PRIMARY KEY ([Id]),
+        CONSTRAINT [FK_Notifications_Users_UserId] FOREIGN KEY ([UserId]) REFERENCES [Users] ([Id]) ON DELETE CASCADE
+    );
+END;
+
+IF NOT EXISTS (
+    SELECT * FROM [__EFMigrationsHistory]
+    WHERE [MigrationId] = N'20261029091459_AddNotifications'
+)
+BEGIN
+    CREATE INDEX [IX_Notifications_CreatedAt] ON [Notifications] ([CreatedAt]);
+END;
+
+IF NOT EXISTS (
+    SELECT * FROM [__EFMigrationsHistory]
+    WHERE [MigrationId] = N'20261029091459_AddNotifications'
+)
+BEGIN
+    CREATE INDEX [IX_Notifications_UserId_CreatedAt] ON [Notifications] ([UserId], [CreatedAt]);
+END;
+
+IF NOT EXISTS (
+    SELECT * FROM [__EFMigrationsHistory]
+    WHERE [MigrationId] = N'20261029091459_AddNotifications'
+)
+BEGIN
+    CREATE INDEX [IX_Notifications_UserId_IssueId] ON [Notifications] ([UserId], [IssueId]);
+END;
+
+IF NOT EXISTS (
+    SELECT * FROM [__EFMigrationsHistory]
+    WHERE [MigrationId] = N'20261029091459_AddNotifications'
+)
+BEGIN
+    CREATE INDEX [IX_Notifications_UserId_ReadAt] ON [Notifications] ([UserId], [ReadAt]);
+END;
+
+IF NOT EXISTS (
+    SELECT * FROM [__EFMigrationsHistory]
+    WHERE [MigrationId] = N'20261029091459_AddNotifications'
+)
+BEGIN
+    INSERT INTO [__EFMigrationsHistory] ([MigrationId], [ProductVersion])
+    VALUES (N'20261029091459_AddNotifications', N'10.0.8');
+END;
+
+COMMIT;
+GO
+

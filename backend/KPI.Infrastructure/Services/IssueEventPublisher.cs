@@ -1,3 +1,4 @@
+using KPI.Application.Common;
 using KPI.Application.Notifications;
 using KPI.Application.Settings;
 using KPI.Domain.Constants;
@@ -54,6 +55,10 @@ public class IssueEventPublisher
         string? detail = null,
         bool staffOnly = false)
     {
+        // Stored before the push, so a client that reacts to the toast by fetching its list already finds the entry.
+        if (toast != null && audience != null)
+            await StoreNotificationsAsync(issue, action, toast, audience, actorId);
+
         try
         {
             await _notifier.PublishIssueChangedAsync(new IssueChangedEvent(
@@ -70,6 +75,55 @@ public class IssueEventPublisher
 
         if (email is { } kind)
             await SendEmailsAsync(issue, kind, actorId, actorName, detail);
+    }
+
+    /// <summary>
+    /// Keeps the toast for each person it was meant for, except the person who did it (they know). Only a toast with an audience
+    /// is kept, so internal notes, quiet closes and SLA breaches never reach anyone's bell. A failure here is logged and the new
+    /// rows are dropped from the context, so the change that already succeeded is neither failed nor blocked by a later save.
+    /// </summary>
+    private async Task StoreNotificationsAsync(Issue issue, string action, RealtimeNotification toast, RealtimeAudience audience, Guid? actorId)
+    {
+        var added = new List<Notification>();
+        try
+        {
+            var recipients = new HashSet<Guid>(audience.UserIds);
+            if (recipients.Count > 0)
+            {
+                var active = await _context.Users.AsNoTracking()
+                    .Where(u => u.IsActive && recipients.Contains(u.Id)).Select(u => u.Id).ToListAsync();
+                recipients.IntersectWith(active);
+            }
+            if (audience.ItSupport)
+                recipients.UnionWith(await IssueQueue.Workers(_context).AsNoTracking().Select(u => u.Id).ToListAsync());
+            if (actorId is { } actor) recipients.Remove(actor);
+            if (recipients.Count == 0) return;
+
+            var now = DateTime.UtcNow;
+            foreach (var userId in recipients)
+            {
+                var row = new Notification
+                {
+                    UserId = userId,
+                    IssueId = toast.IssueId ?? issue.Id,
+                    Kind = action.Truncate(40)!,
+                    Title = toast.Title.Truncate(200)!,
+                    Message = toast.Message.Truncate(500)!,
+                    Level = toast.Level.Truncate(10)!,
+                    CreatedAt = now,
+                };
+                added.Add(row);
+                _context.Notifications.Add(row);
+            }
+            await _context.SaveChangesAsync();
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Could not store notifications for issue {IssueId} ({Action})", issue.Id, action);
+            foreach (var row in added)
+                if (_context.Entry(row).State != EntityState.Detached)
+                    _context.Entry(row).State = EntityState.Detached;
+        }
     }
 
     private async Task SendEmailsAsync(Issue issue, IssueEmailKind kind, Guid? actorId, string? actorName, string? detail)

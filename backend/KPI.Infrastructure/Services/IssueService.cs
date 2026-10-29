@@ -206,28 +206,7 @@ public class IssueService : IIssueService
         var searching = !string.IsNullOrWhiteSpace(query.Search);
         if (searching)
         {
-            var term = query.Search!.Trim().ToLower();
-            var inDescription = query.InDescription == true;
-            var match = NumberPattern.Match(term);
-            if (match.Success)
-            {
-                var year = int.Parse(match.Groups[1].Value) - 543;
-                var number = int.Parse(match.Groups[2].Value);
-                rows = rows.Where(i => (i.NumberYear == year && i.Number == number)
-                                       || i.Title.ToLower().Contains(term));
-            }
-            else if (inDescription)
-            {
-                // Reading every description is slow on a big table; the reporter asks for it (and can narrow the dates).
-                rows = rows.Where(i => i.Title.ToLower().Contains(term)
-                                       || i.Description.ToLower().Contains(term)
-                                       || i.ReporterName.ToLower().Contains(term));
-            }
-            else
-            {
-                rows = rows.Where(i => i.Title.ToLower().Contains(term)
-                                       || i.ReporterName.ToLower().Contains(term));
-            }
+            rows = Matching(rows, query.Search!.Trim().ToLower(), query.InDescription == true);
         }
 
         var ordered = query.Sort switch
@@ -276,6 +255,50 @@ public class IssueService : IIssueService
             IssueStateMachine.IsResponseOverdue(Status, FirstResponseAt, ResponseDueAt, now),
             IssueStateMachine.IsResolveOverdue(Status, ResolveDueAt, now),
             CommentCount, AttachmentCount, IsPublicSubmission);
+    }
+
+    /// <summary>The search box's rule, shared with the Ctrl+K box so both find the same issues. <paramref name="term"/> is trimmed and lower case.</summary>
+    internal static IQueryable<Issue> Matching(IQueryable<Issue> rows, string term, bool inDescription)
+    {
+        var match = NumberPattern.Match(term);
+        if (match.Success)
+        {
+            var year = int.Parse(match.Groups[1].Value) - 543;
+            var number = int.Parse(match.Groups[2].Value);
+            return rows.Where(i => (i.NumberYear == year && i.Number == number)
+                                   || i.Title.ToLower().Contains(term));
+        }
+
+        if (inDescription)
+        {
+            // Reading every description is slow on a big table; the reporter asks for it (and can narrow the dates).
+            return rows.Where(i => i.Title.ToLower().Contains(term)
+                                   || i.Description.ToLower().Contains(term)
+                                   || i.ReporterName.ToLower().Contains(term));
+        }
+
+        return rows.Where(i => i.Title.ToLower().Contains(term)
+                               || i.ReporterName.ToLower().Contains(term));
+    }
+
+    public async Task<IReadOnlyList<IssueHitDto>> QuickSearchAsync(string? term, Guid userId)
+    {
+        var actor = await GetActorAsync(userId);
+        RequirePermission(actor, Permissions.Issue.View);
+
+        var text = (term ?? string.Empty).Trim().ToLower();
+        if (text.Length < IQuickSearchService.MinLength) return [];
+
+        // Open issues first, then the newest: the one someone is looking for is usually still being worked on.
+        var hits = await Matching(Scope(_db.Issues.AsNoTracking(), actor), text, inDescription: false)
+            .OrderByDescending(i => i.Status != IssueStatus.Resolved && i.Status != IssueStatus.Closed && i.Status != IssueStatus.Rejected)
+            .ThenByDescending(i => i.CreatedAt)
+            .Take(QuickSearchHits)
+            .Select(i => new { i.Id, i.NumberYear, i.Number, i.Title, i.Status, i.ReporterName })
+            .ToListAsync();
+
+        return hits.Select(h => new IssueHitDto(
+            h.Id, Issue.FormatNumber(h.NumberYear, h.Number), h.Title, h.Status, IssueStateMachine.Tone(h.Status), h.ReporterName)).ToList();
     }
 
     public async Task<IssueSummaryDto> SummaryAsync(Guid userId)
@@ -834,8 +857,10 @@ public class IssueService : IIssueService
 
     /// <summary>What the role allows: their own issues, their department's as well, or all of them.</summary>
     private const int MaxCountedMatches = 1000;
+    private const int QuickSearchHits = 8;
 
-    private static IQueryable<Issue> Scope(IQueryable<Issue> issues, User actor)
+    /// <summary>Also what the notification centre filters through, so a bell entry is never visible for an issue the person could not open.</summary>
+    internal static IQueryable<Issue> Scope(IQueryable<Issue> issues, User actor)
     {
         if (actor.Role.IssueVisibility == IssueVisibility.All) return issues;
 

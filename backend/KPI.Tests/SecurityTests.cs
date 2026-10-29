@@ -434,7 +434,7 @@ public class SignInSecurityTests
             new AuthLog { Event = AuthEvents.LoginSuccess, Success = true, At = w.Clock.UtcNow.AddDays(-10) });
         await w.Db.SaveChangesAsync();
 
-        await new KPI.Infrastructure.Jobs.MaintenanceJob(w.Issues, w.Db, w.Clock, w.Settings, w.AuthLog,
+        await new KPI.Infrastructure.Jobs.MaintenanceJob(w.Issues, w.Notifications, w.Db, w.Clock, w.Settings, w.AuthLog,
             NullLogger<KPI.Infrastructure.Jobs.MaintenanceJob>.Instance).RunAsync();
 
         Assert.Single(await w.Db.AuthLogs.ToListAsync());
