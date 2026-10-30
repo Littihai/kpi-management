@@ -29,6 +29,8 @@ export default function ArticleEditPage() {
   const [errors, setErrors] = useState<Errors>({})
   const [error, setError] = useState('')
   const [stale, setStale] = useState(false)
+  // Without the article an edit page must not fall back to the blank "write" form: saving would create a duplicate.
+  const [loadFailed, setLoadFailed] = useState(false)
   const [loading, setLoading] = useState(!!id)
   const [saving, setSaving] = useState<'save' | 'publish' | null>(null)
 
@@ -39,9 +41,13 @@ export default function ArticleEditPage() {
         setArticle(loaded)
         setValues({ title: loaded.title, summary: loaded.summary, body: loaded.body, category: loaded.category })
         setStale(false)
+        setLoadFailed(false)
         setError('')
       })
-      .catch((err) => setError(apiError(err, 'โหลดบทความไม่สำเร็จ')))
+      .catch((err) => {
+        setLoadFailed(true)
+        setError(apiError(err, 'โหลดบทความไม่สำเร็จ'))
+      })
       .finally(() => setLoading(false))
   }
 
@@ -75,6 +81,17 @@ export default function ArticleEditPage() {
   }
 
   if (loading) return <Page><PageSkeleton /></Page>
+
+  if (id && !article) {
+    return (
+      <Page>
+        <PageHeader
+          back={<Link to="/knowledge" className="inline-flex items-center gap-1 text-sm text-ink-2 hover:text-ink"><i className="ti ti-arrow-left" aria-hidden="true" />กลับ</Link>}
+          title="ไม่พบบทความ" />
+        <Alert tone="error">{loadFailed && error ? error : 'โหลดบทความไม่สำเร็จ'}</Alert>
+      </Page>
+    )
+  }
 
   const published = article?.isPublished ?? false
 
