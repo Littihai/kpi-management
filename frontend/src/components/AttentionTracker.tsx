@@ -2,7 +2,9 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { attentionStatus } from '../lib/attention'
 import { restoreTabIcon, setTabIcon } from '../lib/tabIcon'
 import { issueService } from '../services/issue.service'
+import { useAttentionCountsStore } from '../stores/attentionCountsStore'
 import { useAttentionStore } from '../stores/attentionStore'
+import { useAuthStore } from '../stores/authStore'
 import { useIssueEvents, useNotificationEvents, useRealtimeStatus } from './realtimeContext'
 
 /** An event can be missed (sleeping laptop, dropped connection); that must not leave a stale number for long. */
@@ -21,13 +23,24 @@ export default function AttentionTracker() {
   const [waiting, setWaiting] = useState(0)
   const latest = useRef(0)
   const quiet = useRef(0)
+  const isIt = useAuthStore((s) => s.user?.permissions?.includes('issue.manage')) ?? false
 
   const refresh = useCallback(() => {
     const ticket = ++latest.current
     issueService.attention()
-      .then((attention) => { if (ticket === latest.current) setWaiting(attention.total) }) // an older answer must not win
+      .then((attention) => { // an older answer must not win
+        if (ticket !== latest.current) return
+        setWaiting(attention.total)
+        useAttentionCountsStore.setState({ pending: attention.total, assigned: attention.assignedToMe })
+      })
       .catch(() => { /* keep the last number; the status already says when the server cannot be reached */ })
-  }, [])
+    // The "near SLA" view is for the people who work the queue; nobody else has the entry, so nobody else asks.
+    if (isIt) {
+      issueService.summary()
+        .then((summary) => { if (ticket === latest.current) useAttentionCountsStore.setState({ nearSla: summary.nearSla }) })
+        .catch(() => { /* as above */ })
+    }
+  }, [isIt])
 
   const refreshSoon = useCallback(() => {
     window.clearTimeout(quiet.current)
@@ -63,6 +76,7 @@ export default function AttentionTracker() {
     return () => {
       window.removeEventListener('pagehide', grey)
       useAttentionStore.setState(useAttentionStore.getInitialState())
+      useAttentionCountsStore.setState(useAttentionCountsStore.getInitialState())
       restoreTabIcon()
       grey()
     }

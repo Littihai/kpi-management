@@ -63,6 +63,7 @@ public static class SettingCatalog
         public const string SmtpTimeoutSeconds = "smtp.timeoutSeconds";
         public const string RequestLogDays = "retention.requestLogDays";
         public const string AuthLogDays = "retention.authLogDays";
+        public const string NotificationDays = "retention.notificationDays";
         public const string PasswordMinLength = "security.password.minLength";
         public const string PasswordRequireUpper = "security.password.requireUpper";
         public const string PasswordRequireLower = "security.password.requireLower";
@@ -128,6 +129,8 @@ public static class SettingCatalog
             "งานดูแลระบบจะลบบันทึกการเข้าสู่ระบบที่เก่ากว่านี้", "180", 30, 1095, "วัน"),
         new(Keys.RequestLogDays, SettingType.Number, CategoryRetention, "เก็บบันทึกคำขอ (request log)",
             "งานดูแลระบบจะลบบันทึกคำขอที่เก่ากว่านี้ บันทึกการเปลี่ยนแปลงข้อมูลทางธุรกิจ (audit) ไม่ถูกลบ", "90", 7, 730, "วัน"),
+        new(Keys.NotificationDays, SettingType.Number, CategoryRetention, "เก็บการแจ้งเตือนในแอป",
+            "งานดูแลระบบจะลบการแจ้งเตือนที่อ่านแล้วและเก่ากว่านี้ ส่วนที่ยังไม่อ่านจะเก็บไว้นานกว่านั้น 3 เท่า", "60", 7, 730, "วัน"),
     ];
 
     private static readonly Dictionary<string, SettingDefinition> ByKey = All.ToDictionary(d => d.Key, StringComparer.Ordinal);

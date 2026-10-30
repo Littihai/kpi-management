@@ -115,6 +115,7 @@ public static class DbSeeder
             .Select(name => new Permission { Id = PermissionIdFor(name), Name = name, Module = name.Split('.')[0] })
             .ToList();
 
+        var addedNow = missing.Select(p => p.Name).ToHashSet();
         if (missing.Count > 0)
         {
             context.Permissions.AddRange(missing);
@@ -146,6 +147,25 @@ public static class DbSeeder
                 context.RolePermissions.Add(new RolePermission { RoleId = role.Id, PermissionId = permissionId });
         }
 
+        // A right that did not exist before is granted once to the custom roles that hold the right it grew out of, so they do not
+        // lose a screen they had. It must happen in the pass that creates the right: later passes leave custom roles alone, which
+        // is what lets an administrator take it away again.
+        foreach (var (inherited, source) in InheritedOnce.Where(i => addedNow.Contains(i.Key)))
+        {
+            var sourceId = permissionIdByName[source];
+            var inheritedId = permissionIdByName[inherited];
+            foreach (var role in roles.Where(r => !RolePermissionMap.Defaults.ContainsKey(r.Name)
+                                                  && r.RolePermissions.Any(rp => rp.PermissionId == sourceId)))
+                context.RolePermissions.Add(new RolePermission { RoleId = role.Id, PermissionId = inheritedId });
+        }
+
         await context.SaveChangesAsync();
     }
+
+    /// <summary>New right -> the right a custom role must already hold to receive it automatically (once, when the right is created).</summary>
+    private static readonly IReadOnlyDictionary<string, string> InheritedOnce = new Dictionary<string, string>
+    {
+        [Permissions.Knowledge.View] = Permissions.Issue.View,
+        [Permissions.Knowledge.Manage] = Permissions.Issue.Manage,
+    };
 }

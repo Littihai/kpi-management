@@ -28,6 +28,9 @@ public static class IssueStateMachine
     /// <summary>How long after closing the reporter may still reopen an issue.</summary>
     public static readonly TimeSpan ReporterReopenWindow = TimeSpan.FromDays(7);
 
+    /// <summary>How long after the fix the reporter may rate it.</summary>
+    public static readonly TimeSpan FeedbackWindow = TimeSpan.FromDays(30);
+
     public static bool IsOpen(IssueStatus status) =>
         status is not (IssueStatus.Resolved or IssueStatus.Closed or IssueStatus.Rejected);
 
@@ -40,6 +43,17 @@ public static class IssueStateMachine
 
     public static bool IsResolveOverdue(IssueStatus status, DateTime resolveDueAt, DateTime now) =>
         ClockRuns(status) && now > resolveDueAt;
+
+    /// <summary>Overdue, or inside the warning window before it (<see cref="IssueSlaPolicy.NearResponse"/>, <see cref="IssueSlaPolicy.NearResolve"/>).</summary>
+    public static bool IsNearOrOverdue(IssueStatus status, DateTime? firstResponseAt, DateTime responseDueAt, DateTime resolveDueAt, DateTime now) =>
+        IsResponseOverdue(status, firstResponseAt, responseDueAt, now)
+        || IsResolveOverdue(status, resolveDueAt, now)
+        || (firstResponseAt is null && now + IssueSlaPolicy.NearResponse > responseDueAt && (status is IssueStatus.New or IssueStatus.Assigned))
+        || (ClockRuns(status) && now + IssueSlaPolicy.NearResolve > resolveDueAt);
+
+    /// <summary>A fix can be rated once it is resolved (or closed after being resolved), for <see cref="FeedbackWindow"/>.</summary>
+    public static bool CanGiveFeedback(IssueStatus status, DateTime? resolvedAt, DateTime now) =>
+        status is IssueStatus.Resolved or IssueStatus.Closed && resolvedAt is { } at && now - at <= FeedbackWindow;
 
     public static bool CanApply(IssueStatus status, IssueAction action) => action switch
     {

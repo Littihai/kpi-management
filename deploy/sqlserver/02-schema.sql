@@ -606,3 +606,168 @@ END;
 COMMIT;
 GO
 
+BEGIN TRANSACTION;
+IF NOT EXISTS (
+    SELECT * FROM [__EFMigrationsHistory]
+    WHERE [MigrationId] = N'20261029091459_AddNotifications'
+)
+BEGIN
+    CREATE TABLE [Notifications] (
+        [Id] uniqueidentifier NOT NULL,
+        [UserId] uniqueidentifier NOT NULL,
+        [IssueId] uniqueidentifier NULL,
+        [Kind] nvarchar(40) NOT NULL,
+        [Title] nvarchar(200) NOT NULL,
+        [Message] nvarchar(500) NOT NULL,
+        [Level] nvarchar(10) NOT NULL,
+        [CreatedAt] datetime2 NOT NULL,
+        [ReadAt] datetime2 NULL,
+        CONSTRAINT [PK_Notifications] PRIMARY KEY ([Id]),
+        CONSTRAINT [FK_Notifications_Users_UserId] FOREIGN KEY ([UserId]) REFERENCES [Users] ([Id]) ON DELETE CASCADE
+    );
+END;
+
+IF NOT EXISTS (
+    SELECT * FROM [__EFMigrationsHistory]
+    WHERE [MigrationId] = N'20261029091459_AddNotifications'
+)
+BEGIN
+    CREATE INDEX [IX_Notifications_CreatedAt] ON [Notifications] ([CreatedAt]);
+END;
+
+IF NOT EXISTS (
+    SELECT * FROM [__EFMigrationsHistory]
+    WHERE [MigrationId] = N'20261029091459_AddNotifications'
+)
+BEGIN
+    CREATE INDEX [IX_Notifications_UserId_CreatedAt] ON [Notifications] ([UserId], [CreatedAt]);
+END;
+
+IF NOT EXISTS (
+    SELECT * FROM [__EFMigrationsHistory]
+    WHERE [MigrationId] = N'20261029091459_AddNotifications'
+)
+BEGIN
+    CREATE INDEX [IX_Notifications_UserId_IssueId] ON [Notifications] ([UserId], [IssueId]);
+END;
+
+IF NOT EXISTS (
+    SELECT * FROM [__EFMigrationsHistory]
+    WHERE [MigrationId] = N'20261029091459_AddNotifications'
+)
+BEGIN
+    CREATE INDEX [IX_Notifications_UserId_ReadAt] ON [Notifications] ([UserId], [ReadAt]);
+END;
+
+IF NOT EXISTS (
+    SELECT * FROM [__EFMigrationsHistory]
+    WHERE [MigrationId] = N'20261029091459_AddNotifications'
+)
+BEGIN
+    INSERT INTO [__EFMigrationsHistory] ([MigrationId], [ProductVersion])
+    VALUES (N'20261029091459_AddNotifications', N'10.0.8');
+END;
+
+COMMIT;
+GO
+
+BEGIN TRANSACTION;
+IF NOT EXISTS (
+    SELECT * FROM [__EFMigrationsHistory]
+    WHERE [MigrationId] = N'20261029093413_AddIssueFeedback'
+)
+BEGIN
+    CREATE TABLE [IssueFeedbacks] (
+        [IssueId] uniqueidentifier NOT NULL,
+        [Rating] int NOT NULL,
+        [Note] nvarchar(1000) NULL,
+        [RaterUserId] uniqueidentifier NOT NULL,
+        [AssigneeId] uniqueidentifier NULL,
+        [RatedAt] datetime2 NOT NULL,
+        CONSTRAINT [PK_IssueFeedbacks] PRIMARY KEY ([IssueId]),
+        CONSTRAINT [CK_IssueFeedbacks_Rating] CHECK ([Rating] BETWEEN 1 AND 5),
+        CONSTRAINT [FK_IssueFeedbacks_Issues_IssueId] FOREIGN KEY ([IssueId]) REFERENCES [Issues] ([Id]) ON DELETE CASCADE
+    );
+END;
+
+IF NOT EXISTS (
+    SELECT * FROM [__EFMigrationsHistory]
+    WHERE [MigrationId] = N'20261029093413_AddIssueFeedback'
+)
+BEGIN
+    CREATE INDEX [IX_IssueFeedbacks_RatedAt] ON [IssueFeedbacks] ([RatedAt]) INCLUDE ([Rating], [AssigneeId]);
+END;
+
+IF NOT EXISTS (
+    SELECT * FROM [__EFMigrationsHistory]
+    WHERE [MigrationId] = N'20261029093413_AddIssueFeedback'
+)
+BEGIN
+    INSERT INTO [__EFMigrationsHistory] ([MigrationId], [ProductVersion])
+    VALUES (N'20261029093413_AddIssueFeedback', N'10.0.8');
+END;
+
+COMMIT;
+GO
+
+BEGIN TRANSACTION;
+IF NOT EXISTS (
+    SELECT * FROM [__EFMigrationsHistory]
+    WHERE [MigrationId] = N'20261029094838_AddKnowledgeBase'
+)
+BEGIN
+    CREATE TABLE [KnowledgeArticles] (
+        [Id] uniqueidentifier NOT NULL,
+        [Title] nvarchar(200) NOT NULL,
+        [Summary] nvarchar(500) NOT NULL,
+        [Body] nvarchar(max) NOT NULL,
+        [Category] nvarchar(100) NOT NULL,
+        [IsPublished] bit NOT NULL,
+        [PublishedAt] datetime2 NULL,
+        [AuthorId] uniqueidentifier NULL,
+        [AuthorName] nvarchar(200) NOT NULL,
+        [Version] int NOT NULL,
+        [ViewCount] int NOT NULL,
+        [CreatedAt] datetime2 NOT NULL,
+        [UpdatedAt] datetime2 NOT NULL,
+        CONSTRAINT [PK_KnowledgeArticles] PRIMARY KEY ([Id]),
+        CONSTRAINT [FK_KnowledgeArticles_Users_AuthorId] FOREIGN KEY ([AuthorId]) REFERENCES [Users] ([Id]) ON DELETE SET NULL
+    );
+END;
+
+IF NOT EXISTS (
+    SELECT * FROM [__EFMigrationsHistory]
+    WHERE [MigrationId] = N'20261029094838_AddKnowledgeBase'
+)
+BEGIN
+    CREATE INDEX [IX_KnowledgeArticles_AuthorId] ON [KnowledgeArticles] ([AuthorId]);
+END;
+
+IF NOT EXISTS (
+    SELECT * FROM [__EFMigrationsHistory]
+    WHERE [MigrationId] = N'20261029094838_AddKnowledgeBase'
+)
+BEGIN
+    CREATE INDEX [IX_KnowledgeArticles_Category] ON [KnowledgeArticles] ([Category]);
+END;
+
+IF NOT EXISTS (
+    SELECT * FROM [__EFMigrationsHistory]
+    WHERE [MigrationId] = N'20261029094838_AddKnowledgeBase'
+)
+BEGIN
+    CREATE INDEX [IX_KnowledgeArticles_IsPublished_UpdatedAt] ON [KnowledgeArticles] ([IsPublished], [UpdatedAt]) INCLUDE ([Title], [Summary], [Category], [PublishedAt], [ViewCount]);
+END;
+
+IF NOT EXISTS (
+    SELECT * FROM [__EFMigrationsHistory]
+    WHERE [MigrationId] = N'20261029094838_AddKnowledgeBase'
+)
+BEGIN
+    INSERT INTO [__EFMigrationsHistory] ([MigrationId], [ProductVersion])
+    VALUES (N'20261029094838_AddKnowledgeBase', N'10.0.8');
+END;
+
+COMMIT;
+GO
+

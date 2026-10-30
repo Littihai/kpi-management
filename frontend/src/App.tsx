@@ -23,7 +23,12 @@ const OverviewPage = lazy(() => import('./pages/admin/OverviewPage'))
 const IssuesPage = lazy(() => import('./pages/issues/IssuesPage'))
 const IssueNewPage = lazy(() => import('./pages/issues/IssueNewPage'))
 const IssueDetailPage = lazy(() => import('./pages/issues/IssueDetailPage'))
+const FeedbackPage = lazy(() => import('./pages/issues/FeedbackPage'))
 const PublicReportPage = lazy(() => import('./pages/issues/PublicReportPage'))
+const NotificationsPage = lazy(() => import('./pages/NotificationsPage'))
+const KnowledgePage = lazy(() => import('./pages/knowledge/KnowledgePage'))
+const ArticlePage = lazy(() => import('./pages/knowledge/ArticlePage'))
+const ArticleEditPage = lazy(() => import('./pages/knowledge/ArticleEditPage'))
 
 function Home() {
   const isAuthenticated = useAuthStore((s) => s.isAuthenticated)
@@ -57,9 +62,15 @@ function AppRoutes() {
 
           <Route element={<ProtectedRoute><AppShell /></ProtectedRoute>}>
             <Route path="/dashboard" element={<RequirePermission permission="issue.view"><DashboardPage /></RequirePermission>} />
+            <Route path="/notifications" element={<RequirePermission permission="issue.view"><NotificationsPage /></RequirePermission>} />
             <Route path="/issues" element={<RequirePermission permission="issue.view"><IssuesPage /></RequirePermission>} />
             <Route path="/issues/new" element={<RequirePermission permission="issue.create"><IssueNewPage /></RequirePermission>} />
+            <Route path="/issues/feedback" element={<RequirePermission permission="issue.view"><FeedbackPage /></RequirePermission>} />
             <Route path="/issues/:id" element={<RequirePermission permission="issue.view"><IssueDetailPage /></RequirePermission>} />
+            <Route path="/knowledge" element={<RequirePermission permission="knowledge.view"><KnowledgePage /></RequirePermission>} />
+            <Route path="/knowledge/new" element={<RequirePermission permission="knowledge.manage"><ArticleEditPage /></RequirePermission>} />
+            <Route path="/knowledge/:id/edit" element={<RequirePermission permission="knowledge.manage"><ArticleEditPage /></RequirePermission>} />
+            <Route path="/knowledge/:id" element={<RequirePermission permission="knowledge.view"><ArticlePage /></RequirePermission>} />
 
             <Route path="/admin/overview" element={<RequirePermission permission="overview.view"><OverviewPage /></RequirePermission>} />
           </Route>

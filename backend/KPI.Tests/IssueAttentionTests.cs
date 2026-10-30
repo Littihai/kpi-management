@@ -197,6 +197,131 @@ public class IssueAttentionTests
     }
 }
 
+/// <summary>The ready-made lists: each one holds exactly the issues the matching number counts.</summary>
+public class IssueAttentionViewTests
+{
+    private static CreateIssueRequest Report() =>
+        new("เครื่องพิมพ์ชั้น 2 ไม่ออก", "สั่งพิมพ์แล้วไม่มีอะไรออกมา ไฟสถานะเป็นสีแดง", IssueCategory.Bug, IssueModule.Application, IssueImpact.Degraded);
+
+    private static async Task<IssueDetailDto> ReportAsync(TestWorld w, User by) =>
+        await w.Issues.CreateAsync(Report(), [], by.Id, "10.1.2.3");
+
+    private static async Task<int> Total(TestWorld w, User who, IssueQuery query) =>
+        (await w.Issues.ListAsync(query with { PageSize = 100 }, who.Id)).Total;
+
+    /// <summary>A mix that touches every rule: unclaimed, claimed, waiting for the reporter, fixed, late.</summary>
+    private static async Task<TestWorld> BusyWorldAsync()
+    {
+        var w = await TestWorld.CreateAsync();
+        await ReportAsync(w, w.StaffA);                                                       // never answered, will be late
+        var claimed = await ReportAsync(w, w.StaffA);
+        await w.Issues.AssignAsync(claimed.Id, w.ItA.Id, w.ItB.Id);
+        var asked = await ReportAsync(w, w.StaffA);
+        await w.Issues.AssignAsync(asked.Id, w.ItA.Id, w.ItB.Id);
+        await w.Issues.RequestInfoAsync(asked.Id, "ใช้เบราว์เซอร์อะไรอยู่", w.ItA.Id);
+        var fixedOne = await ReportAsync(w, w.StaffA);
+        await w.Issues.AssignAsync(fixedOne.Id, w.ItB.Id, w.ItB.Id);
+        await w.Issues.ResolveAsync(fixedOne.Id, new ResolveIssueRequest("เปลี่ยนสายสัญญาณแล้ว", IssueRootCause.Infrastructure), w.ItB.Id);
+        w.Clock.Advance(TimeSpan.FromHours(3));
+        await ReportAsync(w, w.StaffB);
+        return w;
+    }
+
+    [Fact]
+    public async Task Every_view_lists_exactly_as_many_issues_as_the_badge_counts_for_IT_and_for_a_requester()
+    {
+        var w = await BusyWorldAsync();
+
+        foreach (var who in new[] { w.ItA, w.ItB, w.SuperAdmin, w.StaffA, w.StaffB, w.ManagerA })
+        {
+            var counts = await w.Issues.AttentionAsync(who.Id);
+            Assert.Equal(counts.Total, await Total(w, who, new IssueQuery(Attention: IssueAttentionRule.Any)));
+            Assert.Equal(counts.NewInQueue, await Total(w, who, new IssueQuery(Attention: IssueAttentionRule.NewInQueue)));
+            Assert.Equal(counts.AssignedToMe, await Total(w, who, new IssueQuery(Attention: IssueAttentionRule.AssignedToMe)));
+            Assert.Equal(counts.Overdue, await Total(w, who, new IssueQuery(Attention: IssueAttentionRule.Overdue)));
+            Assert.Equal(counts.WaitingForMe, await Total(w, who, new IssueQuery(Attention: IssueAttentionRule.WaitingForMe)));
+            Assert.Equal(counts.ToConfirm, await Total(w, who, new IssueQuery(Attention: IssueAttentionRule.ToConfirm)));
+        }
+    }
+
+    [Fact]
+    public async Task The_assigned_view_is_only_what_is_still_the_assignees_to_work_on()
+    {
+        var w = await BusyWorldAsync();
+
+        var mine = (await w.Issues.ListAsync(new IssueQuery(Attention: IssueAttentionRule.AssignedToMe, Sort: "updated"), w.ItA.Id)).Items;
+
+        Assert.Single(mine);                                            // the one waiting for the reporter is not theirs to work on right now
+        Assert.All(mine, i => Assert.Equal(w.ItA.Id, i.AssigneeId));
+        Assert.Empty((await w.Issues.ListAsync(new IssueQuery(Attention: IssueAttentionRule.AssignedToMe), w.StaffA.Id)).Items);
+    }
+
+    [Fact]
+    public async Task A_requester_who_asks_for_a_queue_view_gets_an_empty_page()
+    {
+        var w = await BusyWorldAsync();
+        w.Clock.Advance(TimeSpan.FromDays(10));
+
+        foreach (var rule in new[] { IssueAttentionRule.NewInQueue, IssueAttentionRule.Overdue })
+        {
+            foreach (var who in new[] { w.StaffA, w.ManagerA, w.Director, w.ViewerA })
+                Assert.Empty((await w.Issues.ListAsync(new IssueQuery(Attention: rule), who.Id)).Items);
+            Assert.NotEmpty((await w.Issues.ListAsync(new IssueQuery(Attention: rule), w.ItA.Id)).Items);
+        }
+    }
+
+    [Fact]
+    public async Task A_department_role_never_sees_other_departments_or_public_form_rows_through_a_view()
+    {
+        var w = await TestWorld.CreateAsync();
+        var role = new Role { Name = "Local IT", Description = "ทดสอบ", IssueVisibility = IssueVisibility.Department };
+        foreach (var name in new[] { Permissions.Issue.View, Permissions.Issue.Manage })
+            role.RolePermissions.Add(new RolePermission { Permission = await w.Db.Permissions.SingleAsync(p => p.Name == name) });
+        w.Db.Roles.Add(role);
+        await w.Db.SaveChangesAsync();
+        var local = await w.AddUserAsync("local-it", role.Name, w.DeptA.Id);
+
+        var own = await ReportAsync(w, w.StaffA);
+        await ReportAsync(w, w.StaffB);
+        await w.Issues.CreatePublicAsync(
+            new PublicIssueRequest("สมหญิง ใจดี", "somying@example.com", null, w.DeptB.Id, "เข้าสู่ระบบไม่ได้เลย",
+                "ใส่รหัสผ่านถูกแล้วแต่ขึ้นว่าไม่ถูกต้อง", IssueCategory.Bug, IssueModule.Login, IssueImpact.Blocking), [], null);
+        w.Clock.Advance(TimeSpan.FromDays(10));
+
+        foreach (var query in new[]
+                 {
+                     new IssueQuery(Attention: IssueAttentionRule.Any), new IssueQuery(Attention: IssueAttentionRule.NewInQueue),
+                     new IssueQuery(Attention: IssueAttentionRule.Overdue), new IssueQuery(Sla: IssueSlaState.Near),
+                     new IssueQuery(Sla: IssueSlaState.Overdue),
+                 })
+            Assert.Equal(own.Id, Assert.Single((await w.Issues.ListAsync(query, local.Id)).Items).Id);
+    }
+
+    [Fact]
+    public async Task The_near_view_and_the_summary_number_agree_and_include_what_is_already_late()
+    {
+        var w = await TestWorld.CreateAsync();
+        await ReportAsync(w, w.StaffA);                                  // response due in 2 hours, resolve in 3 days
+        Assert.Equal(0, (await w.Issues.SummaryAsync(w.ItA.Id)).NearSla);
+        Assert.Equal(0, await Total(w, w.ItA, new IssueQuery(Sla: IssueSlaState.Near)));
+
+        w.Clock.Advance(TimeSpan.FromHours(1.6));                        // inside the last 30 minutes of the response target
+        Assert.Equal(1, (await w.Issues.SummaryAsync(w.ItA.Id)).NearSla);
+        Assert.Equal(0, await Total(w, w.ItA, new IssueQuery(Sla: IssueSlaState.Overdue)));
+
+        w.Clock.Advance(TimeSpan.FromHours(1));                          // now actually late
+        var summary = await w.Issues.SummaryAsync(w.ItA.Id);
+        Assert.Equal(1, summary.NearSla);
+        Assert.Equal(1, summary.Overdue);
+        Assert.Equal(summary.NearSla, await Total(w, w.ItA, new IssueQuery(Sla: IssueSlaState.Near)));
+        Assert.Equal(summary.Overdue, await Total(w, w.ItA, new IssueQuery(Sla: IssueSlaState.Overdue)));
+
+        // The reporter sees their own issue the same way (the numbers are about what a person may see, not who works the queue).
+        Assert.Equal(1, (await w.Issues.SummaryAsync(w.StaffA.Id)).NearSla);
+        Assert.Equal(0, (await w.Issues.SummaryAsync(w.StaffB.Id)).NearSla);
+    }
+}
+
 /// <summary>The same numbers over HTTP, with real sign-ins: the shape the apps rely on and who may ask.</summary>
 public class IssueAttentionApiTests : IClassFixture<IssueApiFactory>, IAsyncLifetime
 {

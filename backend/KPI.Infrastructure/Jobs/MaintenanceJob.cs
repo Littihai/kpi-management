@@ -1,6 +1,7 @@
 using KPI.Application.Issues;
 using KPI.Application.Auth;
 using KPI.Application.Jobs;
+using KPI.Application.Notifications;
 using KPI.Application.Settings;
 using KPI.Domain.Settings;
 using KPI.Infrastructure.Data;
@@ -17,9 +18,11 @@ public class MaintenanceJob : IMaintenanceJob
     private readonly ILogger<MaintenanceJob> _logger;
     private readonly ISystemSettings _settings;
     private readonly IAuthLog _authLog;
+    private readonly INotificationService _notifications;
 
     public MaintenanceJob(
         IIssueService issues,
+        INotificationService notifications,
         AppDbContext db,
         TimeProvider time,
         ISystemSettings settings,
@@ -27,6 +30,7 @@ public class MaintenanceJob : IMaintenanceJob
         ILogger<MaintenanceJob> logger)
     {
         _settings = settings;
+        _notifications = notifications;
         _authLog = authLog;
         _issues = issues;
         _db = db;
@@ -55,7 +59,11 @@ public class MaintenanceJob : IMaintenanceJob
 
         var authPurged = await _authLog.PurgeOlderThanAsync(now.AddDays(-await _settings.GetNumberAsync(SettingCatalog.Keys.AuthLogDays)));
 
-        _logger.LogInformation("Maintenance: {Closed} resolved issue(s) auto-closed, {Purged} old request log(s) and {AuthPurged} old sign-in log(s) removed",
-            closed, purged, authPurged);
+        // Read entries go after the retention period; unread ones are kept three times as long, so a week away does not empty the bell.
+        var keepDays = await _settings.GetNumberAsync(SettingCatalog.Keys.NotificationDays);
+        var notificationsPurged = await _notifications.PurgeAsync(now.AddDays(-keepDays), now.AddDays(-keepDays * 3));
+
+        _logger.LogInformation("Maintenance: {Closed} resolved issue(s) auto-closed, {Purged} old request log(s), {AuthPurged} old sign-in log(s) and {NotificationsPurged} old notification(s) removed",
+            closed, purged, authPurged, notificationsPurged);
     }
 }

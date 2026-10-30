@@ -185,6 +185,7 @@ public class IssueService : IIssueService
         var size = PagedResult<IssueListItemDto>.ClampSize(query.PageSize);
         var now = Now;
 
+        var staff = IsStaff(actor);
         var rows = Scope(_db.Issues.AsNoTracking(), actor);
 
         if (query.Status is { } status) rows = rows.Where(i => i.Status == status);
@@ -198,32 +199,14 @@ public class IssueService : IIssueService
         if (query.From is { } from) rows = rows.Where(i => i.CreatedAt >= from);
         if (query.To is { } to) rows = rows.Where(i => i.CreatedAt < to);
         if (query.Overdue == true) rows = rows.Where(IssueFilters.Overdue(now));
+        if (query.Attention is { } rule) rows = rows.Where(IssueFilters.AttentionMatches(rule, actor.Id, IsStaff(actor), now));
+        if (query.Sla == IssueSlaState.Near) rows = rows.Where(IssueFilters.NearOrOverdue(now));
+        if (query.Sla == IssueSlaState.Overdue) rows = rows.Where(IssueFilters.Overdue(now));
 
         var searching = !string.IsNullOrWhiteSpace(query.Search);
         if (searching)
         {
-            var term = query.Search!.Trim().ToLower();
-            var inDescription = query.InDescription == true;
-            var match = NumberPattern.Match(term);
-            if (match.Success)
-            {
-                var year = int.Parse(match.Groups[1].Value) - 543;
-                var number = int.Parse(match.Groups[2].Value);
-                rows = rows.Where(i => (i.NumberYear == year && i.Number == number)
-                                       || i.Title.ToLower().Contains(term));
-            }
-            else if (inDescription)
-            {
-                // Reading every description is slow on a big table; the reporter asks for it (and can narrow the dates).
-                rows = rows.Where(i => i.Title.ToLower().Contains(term)
-                                       || i.Description.ToLower().Contains(term)
-                                       || i.ReporterName.ToLower().Contains(term));
-            }
-            else
-            {
-                rows = rows.Where(i => i.Title.ToLower().Contains(term)
-                                       || i.ReporterName.ToLower().Contains(term));
-            }
+            rows = Matching(rows, query.Search!.Trim().ToLower(), query.InDescription == true);
         }
 
         var ordered = query.Sort switch
@@ -250,7 +233,7 @@ public class IssueService : IIssueService
                 i.Assignee != null ? i.Assignee.FirstName : null,
                 i.Assignee != null ? i.Assignee.LastName : null,
                 i.CreatedAt, i.UpdatedAt, i.ResponseDueAt, i.ResolveDueAt, i.FirstResponseAt,
-                i.Comments.Count, i.Attachments.Count, i.IsPublicSubmission))
+                i.Comments.Count(c => staff || !c.IsInternal), i.Attachments.Count, i.IsPublicSubmission))
             .ToListAsync();
 
         return new PagedResult<IssueListItemDto>(pageRows.Select(r => r.ToDto(now)).ToList(), total, page, size);
@@ -274,6 +257,50 @@ public class IssueService : IIssueService
             CommentCount, AttachmentCount, IsPublicSubmission);
     }
 
+    /// <summary>The search box's rule, shared with the Ctrl+K box so both find the same issues. <paramref name="term"/> is trimmed and lower case.</summary>
+    internal static IQueryable<Issue> Matching(IQueryable<Issue> rows, string term, bool inDescription)
+    {
+        var match = NumberPattern.Match(term);
+        if (match.Success)
+        {
+            var year = int.Parse(match.Groups[1].Value) - 543;
+            var number = int.Parse(match.Groups[2].Value);
+            return rows.Where(i => (i.NumberYear == year && i.Number == number)
+                                   || i.Title.ToLower().Contains(term));
+        }
+
+        if (inDescription)
+        {
+            // Reading every description is slow on a big table; the reporter asks for it (and can narrow the dates).
+            return rows.Where(i => i.Title.ToLower().Contains(term)
+                                   || i.Description.ToLower().Contains(term)
+                                   || i.ReporterName.ToLower().Contains(term));
+        }
+
+        return rows.Where(i => i.Title.ToLower().Contains(term)
+                               || i.ReporterName.ToLower().Contains(term));
+    }
+
+    public async Task<IReadOnlyList<IssueHitDto>> QuickSearchAsync(string? term, Guid userId)
+    {
+        var actor = await GetActorAsync(userId);
+        RequirePermission(actor, Permissions.Issue.View);
+
+        var text = (term ?? string.Empty).Trim().ToLower();
+        if (text.Length < IQuickSearchService.MinLength) return [];
+
+        // Open issues first, then the newest: the one someone is looking for is usually still being worked on.
+        var hits = await Matching(Scope(_db.Issues.AsNoTracking(), actor), text, inDescription: false)
+            .OrderByDescending(i => i.Status != IssueStatus.Resolved && i.Status != IssueStatus.Closed && i.Status != IssueStatus.Rejected)
+            .ThenByDescending(i => i.CreatedAt)
+            .Take(QuickSearchHits)
+            .Select(i => new { i.Id, i.NumberYear, i.Number, i.Title, i.Status, i.ReporterName })
+            .ToListAsync();
+
+        return hits.Select(h => new IssueHitDto(
+            h.Id, Issue.FormatNumber(h.NumberYear, h.Number), h.Title, h.Status, IssueStateMachine.Tone(h.Status), h.ReporterName)).ToList();
+    }
+
     public async Task<IssueSummaryDto> SummaryAsync(Guid userId)
     {
         var actor = await GetActorAsync(userId);
@@ -289,6 +316,7 @@ public class IssueService : IIssueService
         int Count(params IssueStatus[] statuses) => byStatus.Where(s => statuses.Contains(s.Status)).Sum(s => s.Count);
 
         var overdue = await rows.CountAsync(IssueFilters.Overdue(now));
+        var nearSla = await rows.CountAsync(IssueFilters.NearOrOverdue(now));
         var resolved = await rows.CountAsync(i => i.ResolvedAt != null && i.ResolvedAt >= weekAgo);
         var actorId = actor.Id;
         var mine = await rows.Where(IssueFilters.Open)
@@ -301,7 +329,7 @@ public class IssueService : IIssueService
             Count(IssueStatus.New),
             Count(IssueStatus.Assigned, IssueStatus.InProgress, IssueStatus.Reopened),
             Count(IssueStatus.WaitingForReporter),
-            overdue, resolved, mine);
+            overdue, resolved, mine, nearSla);
     }
 
     public async Task<IssueAttentionDto> AttentionAsync(Guid userId)
@@ -377,7 +405,9 @@ public class IssueService : IIssueService
             issue.Status = IssueStatus.InProgress;
         }
 
-        StageAudit(actor, issue, audit, from, to ?? body.Truncate(200));
+        // The audit log is readable by people who may not read internal notes, and its search looks inside the values,
+        // so a note leaves a row but never its words.
+        StageAudit(actor, issue, audit, from, internalNote ? null : to ?? body.Truncate(200));
         await Touch(issue, now);
 
         if (!internalNote)
@@ -662,6 +692,141 @@ public class IssueService : IIssueService
         return await DetailAsync(issue.Id, actor);
     }
 
+    // ───────────────────────── Satisfaction ─────────────────────────
+
+    public async Task<IssueDetailDto> FeedbackAsync(Guid id, int rating, string? note, Guid userId)
+    {
+        var actor = await GetActorAsync(userId);
+        var issue = await LoadAsync(id, actor);
+
+        if (issue.IsPublicSubmission || issue.ReporterUserId is null)
+            throw new InvalidStateException("เรื่องที่แจ้งผ่านแบบฟอร์มสาธารณะให้คะแนนไม่ได้");
+        if (issue.ReporterUserId != actor.Id) throw new ForbiddenException("เฉพาะผู้แจ้งเท่านั้นที่ให้คะแนนความพึงพอใจได้");
+
+        var now = Now;
+        if (!IssueStateMachine.CanGiveFeedback(issue.Status, issue.ResolvedAt, now))
+            throw new InvalidStateException(issue.Status is IssueStatus.Resolved or IssueStatus.Closed
+                ? "เลยกำหนดให้คะแนน (ภายใน 30 วันหลังแก้ไขเสร็จ)"
+                : "ให้คะแนนได้หลังจากแก้ไขปัญหาเสร็จแล้วเท่านั้น");
+
+        var existing = await _db.IssueFeedbacks.FirstOrDefaultAsync(f => f.IssueId == issue.Id);
+        if (existing != null && existing.RatedAt >= issue.ResolvedAt)
+            throw new InvalidStateException("คุณให้คะแนนเรื่องนี้แล้ว");
+
+        if (rating is < 1 or > 5) throw new RequestValidationException("กรุณาให้คะแนน 1–5");
+        note = string.IsNullOrWhiteSpace(note) ? null : note.Trim();
+        if (note is { Length: > 1000 }) throw new RequestValidationException("ข้อความยาวเกินไป (สูงสุด 1,000 ตัวอักษร)");
+
+        // One row per issue: a rating given before a reopen is replaced by the one for the second fix.
+        if (existing is null)
+            _db.IssueFeedbacks.Add(existing = new IssueFeedback { IssueId = issue.Id });
+        existing.Rating = rating;
+        existing.Note = note;
+        existing.RaterUserId = actor.Id;
+        existing.AssigneeId = issue.AssigneeId;
+        existing.RatedAt = now;
+
+        // Neither the audit row nor the live event carries the score: the history is read by people who may not see ratings.
+        StageAudit(actor, issue, "Feedback", null, null);
+        try
+        {
+            await Touch(issue, now);
+        }
+        catch (DbUpdateException)
+        {
+            // Two submits raced for the one row; the other one won.
+            throw new InvalidStateException("คุณให้คะแนนเรื่องนี้แล้ว");
+        }
+
+        await _events.PublishAsync(issue, "feedback", actor.FullName, actor.Id,
+            Toast(issue, "ผู้แจ้งให้คะแนนความพึงพอใจ", issue.Title), ToAssigneeOrIt(issue));
+
+        return await DetailAsync(issue.Id, actor);
+    }
+
+    public async Task<IReadOnlyList<MyFeedbackItemDto>> MyFeedbackAsync(Guid userId)
+    {
+        var actor = await GetActorAsync(userId);
+        RequirePermission(actor, Permissions.Issue.View);
+
+        var now = Now;
+        var cutoff = now - IssueStateMachine.FeedbackWindow;
+        var actorId = actor.Id;
+        var rows = await _db.Issues.AsNoTracking()
+            .Where(i => i.ReporterUserId == actorId
+                        && (i.Feedback != null
+                            || ((i.Status == IssueStatus.Resolved || i.Status == IssueStatus.Closed) && i.ResolvedAt >= cutoff)))
+            .OrderByDescending(i => i.ResolvedAt)
+            .Take(MaxFeedbackRows)
+            .Select(i => new
+            {
+                i.Id, i.NumberYear, i.Number, i.Title, i.Status, i.ResolvedAt,
+                Rating = i.Feedback != null ? (int?)i.Feedback.Rating : null,
+                Note = i.Feedback != null ? i.Feedback.Note : null,
+                RatedAt = i.Feedback != null ? (DateTime?)i.Feedback.RatedAt : null,
+            })
+            .ToListAsync();
+
+        return rows.Select(r => new MyFeedbackItemDto(
+            r.Id, Issue.FormatNumber(r.NumberYear, r.Number), r.Title, r.Status, UtcOrNull(r.ResolvedAt),
+            r.Rating, r.Note, UtcOrNull(r.RatedAt),
+            IssueStateMachine.CanGiveFeedback(r.Status, r.ResolvedAt, now) && !(r.RatedAt >= r.ResolvedAt))).ToList();
+    }
+
+    public async Task<FeedbackReportDto> FeedbackReportAsync(FeedbackReportQuery query, Guid userId)
+    {
+        var actor = await GetActorAsync(userId);
+        RequirePermission(actor, Permissions.Issue.View);
+        if (!IsStaff(actor)) throw new ForbiddenException("เฉพาะทีม IT เท่านั้น");
+
+        var page = PagedResult<FeedbackItemDto>.ClampPage(query.Page);
+        var size = PagedResult<FeedbackItemDto>.ClampSize(query.PageSize);
+
+        var scoped = Scope(_db.Issues.AsNoTracking(), actor).Where(i => i.Feedback != null);
+        if (query.From is { } from) scoped = scoped.Where(i => i.Feedback!.RatedAt >= from);
+        if (query.To is { } to) scoped = scoped.Where(i => i.Feedback!.RatedAt < to);
+        var ratings = scoped.Select(i => i.Feedback!);
+
+        var count = await ratings.CountAsync();
+        var average = await ratings.AverageAsync(f => (double?)f.Rating);
+        var spread = await ratings.GroupBy(f => f.Rating).Select(g => new { Rating = g.Key, Count = g.Count() }).ToListAsync();
+        var distribution = Enumerable.Range(1, 5).Select(r => spread.Where(s => s.Rating == r).Sum(s => s.Count)).ToList();
+
+        var perAssignee = await ratings.GroupBy(f => f.AssigneeId)
+            .Select(g => new { AssigneeId = g.Key, Count = g.Count(), Average = g.Average(f => (double)f.Rating) })
+            .ToListAsync();
+
+        var latest = await scoped
+            .OrderByDescending(i => i.Feedback!.RatedAt)
+            .Skip((page - 1) * size)
+            .Take(size)
+            .Select(i => new
+            {
+                i.Id, i.NumberYear, i.Number, i.Title, i.ReporterName,
+                i.Feedback!.Rating, i.Feedback.Note, i.Feedback.RatedAt, i.Feedback.AssigneeId,
+            })
+            .ToListAsync();
+
+        var nameIds = perAssignee.Select(a => a.AssigneeId)
+            .Concat(latest.Select(l => l.AssigneeId))
+            .Where(a => a != null).Select(a => a!.Value).Distinct().ToList();
+        var nameOf = (await _db.Users.AsNoTracking().Where(u => nameIds.Contains(u.Id))
+                .Select(u => new { u.Id, u.FirstName, u.LastName }).ToListAsync())
+            .ToDictionary(u => u.Id, u => $"{u.FirstName} {u.LastName}".Trim());
+        string? NameOf(Guid? assigneeId) => assigneeId is { } a && nameOf.TryGetValue(a, out var name) ? name : null;
+
+        var byAssignee = perAssignee
+            .Select(a => new FeedbackByAssigneeDto(a.AssigneeId, NameOf(a.AssigneeId) ?? "ไม่ระบุผู้รับผิดชอบ", a.Count, a.Average))
+            .OrderByDescending(a => a.Count).ThenBy(a => a.AssigneeName)
+            .ToList();
+        var items = latest.Select(l => new FeedbackItemDto(
+            l.Id, Issue.FormatNumber(l.NumberYear, l.Number), l.Title, l.Rating, l.Note, Utc(l.RatedAt),
+            l.ReporterName, NameOf(l.AssigneeId))).ToList();
+
+        return new FeedbackReportDto(count, average, distribution, byAssignee,
+            new PagedResult<FeedbackItemDto>(items, count, page, size));
+    }
+
     // ───────────────────────── Attachments ─────────────────────────
 
     public async Task<IssueDetailDto> AddAttachmentsAsync(Guid id, IReadOnlyList<IssueUpload> files, Guid userId)
@@ -811,8 +976,16 @@ public class IssueService : IIssueService
         allowed.Add(IssueActionNames.Comment);
         if (staff) allowed.Add(IssueActionNames.InternalNote);
         if (issue.Status != IssueStatus.Closed) allowed.Add(IssueActionNames.Attach);
+        if (CanRate(actor, issue, now)) allowed.Add(IssueActionNames.Feedback);
         return allowed;
     }
+
+    /// <summary>The reporter may rate a fix that is not rated yet (a rating older than the latest fix counts as not rated). Needs <c>Feedback</c> loaded.</summary>
+    private static bool CanRate(User actor, Issue issue, DateTime now) =>
+        issue.ReporterUserId == actor.Id
+        && !issue.IsPublicSubmission
+        && IssueStateMachine.CanGiveFeedback(issue.Status, issue.ResolvedAt, now)
+        && !(issue.Feedback is { } given && given.RatedAt >= issue.ResolvedAt);
 
     private static bool IsStaff(User actor) => HasPermission(actor, Permissions.Issue.Manage);
 
@@ -827,8 +1000,11 @@ public class IssueService : IIssueService
 
     /// <summary>What the role allows: their own issues, their department's as well, or all of them.</summary>
     private const int MaxCountedMatches = 1000;
+    private const int QuickSearchHits = 8;
+    private const int MaxFeedbackRows = 100;
 
-    private static IQueryable<Issue> Scope(IQueryable<Issue> issues, User actor)
+    /// <summary>Also what the notification centre filters through, so a bell entry is never visible for an issue the person could not open.</summary>
+    internal static IQueryable<Issue> Scope(IQueryable<Issue> issues, User actor)
     {
         if (actor.Role.IssueVisibility == IssueVisibility.All) return issues;
 
@@ -878,6 +1054,7 @@ public class IssueService : IIssueService
                         .Include(i => i.Assignee)
                         .Include(i => i.Department)
                         .Include(i => i.Comments)
+                        .Include(i => i.Feedback)
                         .FirstOrDefaultAsync(i => i.Id == id)
                     ?? throw new NotFoundException("ไม่พบเรื่องที่แจ้ง");
 
@@ -930,7 +1107,11 @@ public class IssueService : IIssueService
             issue.ErrorRequestId,
             staff ? issue.ReporterIp : null,
             comments, attachments, timeline,
-            AllowedActions(actor, issue, now));
+            AllowedActions(actor, issue, now),
+            // The rating is between the reporter and IT; a manager who can open the issue does not see it.
+            issue.Feedback is { } feedback && (staff || issue.ReporterUserId == actor.Id)
+                ? new IssueFeedbackDto(feedback.Rating, feedback.Note, Utc(feedback.RatedAt))
+                : null);
     }
 
     private static void MarkFirstResponse(Issue issue, DateTime now) => issue.FirstResponseAt ??= now;

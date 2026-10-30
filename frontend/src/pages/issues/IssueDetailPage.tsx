@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import AttachmentImage from '../../components/issues/AttachmentImage'
+import FeedbackCard from '../../components/issues/FeedbackCard'
 import { DueLabel, PriorityBadge, StatusBadge } from '../../components/issues/IssueBadges'
 import { HoldDialog, RejectDialog, ReopenDialog, RequestInfoDialog, ResolveDialog, ResumeDialog } from '../../components/issues/IssueDialogs'
 import { useIssueEvents } from '../../components/realtimeContext'
@@ -11,6 +12,7 @@ import { CompactSelect, TextArea } from '../../components/ui/Field'
 import { Alert, Avatar, EmptyState, Page, PageSkeleton } from '../../components/ui/Layout'
 import { issueService } from '../../services/issue.service'
 import { useAuthStore } from '../../stores/authStore'
+import { markIssueSeen } from '../../stores/notificationStore'
 import { apiError } from '../../utils/errors'
 import { formatCountdown, formatDateTime, formatRelative } from '../../utils/format'
 import { isFinished } from '../../utils/issueStatus'
@@ -52,7 +54,6 @@ export default function IssueDetailPage() {
   const [busy, setBusy] = useState(false)
   const [dialog, setDialog] = useState<Dialog>(null)
   const [comment, setComment] = useState('')
-  const [internal, setInternal] = useState(false)
   const [showTech, setShowTech] = useState(false)
   const attachInput = useRef<HTMLInputElement>(null)
 
@@ -68,7 +69,13 @@ export default function IssueDetailPage() {
 
   useEffect(() => { load().finally(() => setLoading(false)) }, [load])
 
-  useIssueEvents((event) => { if (event.issueId === id) load() })
+  // Looking at the issue is reading what the bell said about it. Forced for a live change: the badge has not caught up yet.
+  useEffect(() => { if (id) markIssueSeen(id) }, [id])
+  useIssueEvents((event) => {
+    if (event.issueId !== id) return
+    load()
+    markIssueSeen(id, true)
+  })
 
   const can = (action: IssueActionName) => issue?.allowedActions.includes(action) ?? false
   const isIt = can('internalNote')
@@ -92,12 +99,10 @@ export default function IssueDetailPage() {
     }
   }
 
-  const sendComment = async () => {
+  // Two explicit buttons instead of a sticky checkbox: a note can no longer go out as a reply (or the reverse) by a forgotten tick.
+  const sendComment = async (internal: boolean) => {
     if (!issue || !comment.trim()) return
-    if (await run(() => issueService.comment(issue.id, comment.trim(), internal))) {
-      setComment('')
-      setInternal(false)
-    }
+    if (await run(() => issueService.comment(issue.id, comment.trim(), internal))) setComment('')
   }
 
   if (loading) return <Page><PageSkeleton /></Page>
@@ -145,6 +150,10 @@ export default function IssueDetailPage() {
         <div className="mb-4">
           <Alert tone="success">ทีม IT แก้ไขเรื่องนี้แล้ว กรุณาตรวจสอบและยืนยัน (ถ้าไม่ตอบใน 3 วัน ระบบจะปิดเรื่องให้อัตโนมัติ)</Alert>
         </div>
+      )}
+
+      {can('feedback') && !issue.feedback && (
+        <div className="mb-4"><Alert tone="info">ช่วยให้คะแนนความพึงพอใจกับการแก้ไขครั้งนี้ที่ด้านล่าง ใช้เวลาไม่ถึงนาที</Alert></div>
       )}
 
       <div className="grid gap-6 lg:grid-cols-[1fr_21rem]">
@@ -226,6 +235,9 @@ export default function IssueDetailPage() {
             </Card>
           )}
 
+          <FeedbackCard canRate={can('feedback')} feedback={issue.feedback} isReporter={!isIt} busy={busy}
+            onSubmit={(rating, note) => run(() => issueService.feedback(issue.id, rating, note))} />
+
           <Card>
             <CardHeader eyebrow="การสนทนา" title={`ข้อความ (${issue.comments.length})`} />
             <ul className="space-y-4 px-5 pb-2 pt-4">
@@ -254,19 +266,24 @@ export default function IssueDetailPage() {
                 <TextArea label={waiting && !isIt ? 'ตอบกลับทีม IT' : 'เขียนข้อความ'} rows={3} maxLength={4000}
                   value={comment} onChange={(e) => setComment(e.target.value)}
                   placeholder={waiting && !isIt ? 'ให้ข้อมูลที่ทีม IT ขอ...' : 'พิมพ์ข้อความ...'} />
-                <div className="mt-3 flex flex-wrap items-center justify-between gap-3">
-                  {isIt ? (
-                    <label className="inline-flex cursor-pointer items-center gap-2 text-[13px] text-ink-2">
-                      <input type="checkbox" checked={internal} onChange={(e) => setInternal(e.target.checked)}
-                        className="h-4 w-4 rounded border-line-strong accent-accent" />
-                      บันทึกภายใน (เห็นเฉพาะทีม IT)
-                    </label>
-                  ) : <span />}
-                  <Button variant={internal ? 'dark' : 'primary'} icon={internal ? 'lock' : 'send'}
-                    disabled={!comment.trim()} loading={busy} onClick={sendComment}>
-                    {internal ? 'บันทึกโน้ต' : 'ส่งข้อความ'}
-                  </Button>
+                <div className="mt-3 flex flex-wrap items-center justify-end gap-3">
+                  {isIt && (
+                    <Button variant="dark" icon="lock" disabled={!comment.trim()} loading={busy}
+                      onClick={() => sendComment(true)}>ความคิดเห็นภายใน</Button>
+                  )}
+                  <Button variant="primary" icon="send" disabled={!comment.trim()} loading={busy}
+                    onClick={() => sendComment(false)}>ตอบกลับ</Button>
                 </div>
+                <p className="mt-2 text-xs text-ink-3">
+                  {isIt
+                    ? 'ตอบกลับ — ผู้แจ้งเห็นและได้รับอีเมล · ความคิดเห็นภายใน — เห็นเฉพาะทีม IT ผู้แจ้งไม่เห็นและไม่ได้รับแจ้ง'
+                    : 'ข้อความนี้ทีม IT จะเห็น'}
+                </p>
+                {isIt && issue.isPublicSubmission && (
+                  <p className="mt-1 text-xs text-amber-ink">
+                    เรื่องนี้ส่งจากแบบฟอร์มสาธารณะ — การตอบกลับจะถูกส่งไปยังอีเมลที่ผู้แจ้งกรอกไว้ซึ่งยังไม่ได้ยืนยันตัวตน
+                  </p>
+                )}
               </div>
             )}
           </Card>

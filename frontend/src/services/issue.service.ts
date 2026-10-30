@@ -1,6 +1,6 @@
 import api from './api'
 import type {
-  Assignee, IssueAttention, IssueDetail, IssueFormValues, IssueListItem, IssueQuery, IssueSummary, Paged, PublicReceipt,
+  Assignee, FeedbackReport, IssueAttention, IssueDetail, IssueFormValues, IssueListItem, IssueQuery, IssueSummary, MyFeedbackItem, Paged, PublicReceipt,
 } from '../types/issue'
 
 function toForm(values: IssueFormValues, files: File[], extra: Record<string, string | undefined> = {}) {
@@ -120,6 +120,18 @@ export const issueService = {
     const form = new FormData()
     files.forEach((file) => form.append('files', file))
     return (await api.post<IssueDetail>(`/api/issues/${id}/attachments`, form)).data
+  },
+
+  async feedback(id: string, rating: number, note: string): Promise<IssueDetail> {
+    return (await api.post<IssueDetail>(`/api/issues/${id}/feedback`, { rating, note: note.trim() || null })).data
+  },
+
+  async myFeedback(): Promise<MyFeedbackItem[]> {
+    return (await api.get<MyFeedbackItem[]>('/api/issues/feedback/mine')).data
+  },
+
+  async feedbackReport(params: { from?: string; to?: string; page?: number; pageSize?: number }): Promise<FeedbackReport> {
+    return (await api.get<FeedbackReport>('/api/issues/feedback', { params })).data
   },
 
   async assignees(): Promise<Assignee[]> {

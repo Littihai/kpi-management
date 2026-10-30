@@ -30,6 +30,9 @@ public class AppDbContext : DbContext
     public DbSet<Issue> Issues => Set<Issue>();
     public DbSet<IssueComment> IssueComments => Set<IssueComment>();
     public DbSet<IssueAttachment> IssueAttachments => Set<IssueAttachment>();
+    public DbSet<Notification> Notifications => Set<Notification>();
+    public DbSet<IssueFeedback> IssueFeedbacks => Set<IssueFeedback>();
+    public DbSet<KnowledgeArticle> KnowledgeArticles => Set<KnowledgeArticle>();
 
     public override int SaveChanges(bool acceptAllChangesOnSuccess)
     {
@@ -206,6 +209,42 @@ public class AppDbContext : DbContext
         var attachment = modelBuilder.Entity<IssueAttachment>();
         attachment.Property(a => a.FileName).HasMaxLength(255);
         attachment.Property(a => a.ContentType).HasMaxLength(100);
+
+        // ── Satisfaction rating ──
+        var feedback = modelBuilder.Entity<IssueFeedback>();
+        feedback.HasKey(f => f.IssueId);
+        feedback.HasOne(f => f.Issue).WithOne(i => i.Feedback).HasForeignKey<IssueFeedback>(f => f.IssueId).OnDelete(DeleteBehavior.Cascade);
+        feedback.Property(f => f.Note).HasMaxLength(1000);
+        // RaterUserId and AssigneeId have no foreign key on purpose (see the entity).
+        feedback.ToTable(t => t.HasCheckConstraint("CK_IssueFeedbacks_Rating", Database.IsNpgsql() ? "\"Rating\" BETWEEN 1 AND 5" : "[Rating] BETWEEN 1 AND 5"));
+        // the report reads the date range and the two columns it averages from this index alone
+        Cover(feedback.HasIndex(f => f.RatedAt), f => new { f.Rating, f.AssigneeId });
+
+        // ── Notification centre ──
+        var notification = modelBuilder.Entity<Notification>();
+        notification.HasOne(n => n.User).WithMany().HasForeignKey(n => n.UserId).OnDelete(DeleteBehavior.Cascade);
+        notification.Property(n => n.Kind).HasMaxLength(40);
+        notification.Property(n => n.Title).HasMaxLength(200);
+        notification.Property(n => n.Message).HasMaxLength(500);
+        notification.Property(n => n.Level).HasMaxLength(10);
+        notification.HasIndex(n => new { n.UserId, n.CreatedAt });   // the list, newest first
+        notification.HasIndex(n => new { n.UserId, n.ReadAt });      // the unread count and "mark all read"
+        notification.HasIndex(n => new { n.UserId, n.IssueId });     // "mark this issue's entries read" when its page opens
+        notification.HasIndex(n => n.CreatedAt);                     // the nightly purge
+
+        // ── Knowledge base ──
+        var article = modelBuilder.Entity<KnowledgeArticle>();
+        article.Property(a => a.Title).HasMaxLength(200);
+        article.Property(a => a.Summary).HasMaxLength(500);
+        article.Property(a => a.Body).HasMaxLength(20000);
+        article.Property(a => a.Category).HasMaxLength(100);
+        article.Property(a => a.AuthorName).HasMaxLength(200);
+        article.Property(a => a.Version).IsConcurrencyToken();
+        // the only path from Users to articles, so SET NULL is allowed on SQL Server
+        article.HasOne(a => a.Author).WithMany().HasForeignKey(a => a.AuthorId).OnDelete(DeleteBehavior.SetNull);
+        // the list (readers see published only, newest first) and the search box read these columns from the index alone
+        Cover(article.HasIndex(a => new { a.IsPublished, a.UpdatedAt }), a => new { a.Title, a.Summary, a.Category, a.PublishedAt, a.ViewCount });
+        article.HasIndex(a => a.Category);
     }
 
     /// <summary>An index that also stores the given columns, so a query that needs only those never reads the table row (both providers).</summary>

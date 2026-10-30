@@ -7,6 +7,7 @@ import Button from '../../components/ui/Button'
 import { Card, Stat } from '../../components/ui/Card'
 import { CompactSelect } from '../../components/ui/Field'
 import { Alert, EmptyState, Page, PageHeader, Pagination, Segmented, Skeleton } from '../../components/ui/Layout'
+import { findIssueView } from '../../lib/issueViews'
 import { issueService } from '../../services/issue.service'
 import { useCan } from '../../stores/authStore'
 import { apiError } from '../../utils/errors'
@@ -28,7 +29,9 @@ export default function IssuesPage() {
   const status = params.get('status') ?? ''
   const priority = params.get('priority') ?? ''
   const assignee = params.get('assignee') ?? ''
-  const sort = params.get('sort') ?? (isIt ? 'priority' : 'updated')
+  // A ready-made view (?view=) is a rule of its own, so it replaces the open/done tab instead of combining with it.
+  const view = findIssueView(params.get('view'), isIt)
+  const sort = params.get('sort') ?? view?.sort ?? (isIt ? 'priority' : 'updated')
   const overdue = params.get('overdue') === '1'
   const page = Number(params.get('page') ?? 1)
   const [pageSize, setPageSize] = usePageSize()
@@ -61,7 +64,9 @@ export default function IssuesPage() {
     issueService.list({
       search: search || undefined,
       inDescription: search && inDescription ? true : undefined,
-      openOnly: tab === 'open' ? true : tab === 'done' ? false : undefined,
+      openOnly: view ? undefined : tab === 'open' ? true : tab === 'done' ? false : undefined,
+      attention: view?.query.attention,
+      sla: view?.query.sla,
       status: status ? Number(status) : undefined,
       priority: priority ? Number(priority) : undefined,
       assigneeId: assignee && assignee !== 'me' ? assignee : undefined,
@@ -75,7 +80,7 @@ export default function IssuesPage() {
       .catch((err) => { if (current()) setError(apiError(err, 'โหลดรายการไม่สำเร็จ')) })
       .finally(() => { if (current()) setLoading(false) })
     issueService.summary().then(setSummary).catch(() => {})
-  }, [search, inDescription, tab, status, priority, assignee, overdue, sort, page, pageSize])
+  }, [view, search, inDescription, tab, status, priority, assignee, overdue, sort, page, pageSize])
 
   useEffect(() => { load() }, [load])
   useEffect(() => { if (isIt) issueService.assignees().then(setAssignees).catch(() => {}) }, [isIt])
@@ -89,11 +94,20 @@ export default function IssuesPage() {
   useEffect(() => () => window.clearTimeout(timer.current), [])
 
   // Typing in the search box updates the list after a short pause.
+  // `typed` is the last search this box put into the URL, so a change that came from elsewhere (a menu link to a
+  // ready-made view drops ?q=) can be told apart and copied back into the box instead of being re-applied.
+  const typed = useRef(search)
   useEffect(() => {
     if (searchText === search) return
-    const id = window.setTimeout(() => update({ q: searchText.trim() }), 350)
+    const id = window.setTimeout(() => {
+      typed.current = searchText.trim()
+      update({ q: typed.current })
+    }, 350)
     return () => window.clearTimeout(id)
   }, [searchText, search, update])
+  useEffect(() => {
+    if (search !== typed.current) { typed.current = search; setSearchText(search) }
+  }, [search])
 
   const items = data?.items ?? []
   const filtered = Boolean(search || status || priority || assignee || overdue)
@@ -109,21 +123,25 @@ export default function IssuesPage() {
         <section aria-label="สรุปคิวงาน" className="mb-6 grid grid-cols-2 gap-3 lg:grid-cols-4 lg:gap-4">
           <Stat dark label="เปิดอยู่" value={summary?.open ?? '–'} icon="inbox"
             hint={summary ? `ปิดได้ ${summary.resolvedLast7Days} เรื่องใน 7 วัน` : undefined}
-            onClick={() => update({ tab: 'open', status: null, overdue: null })} />
+            onClick={() => update({ tab: 'open', status: null, overdue: null, view: null })} />
           <Stat label="รอตอบรับ (ใหม่)" value={summary?.new ?? '–'} icon="bell-ringing" tone={summary?.new ? 'accent' : 'default'}
-            onClick={() => update({ tab: 'open', status: '0', overdue: null })} />
+            onClick={() => update({ tab: 'open', status: '0', overdue: null, view: null })} />
           <Stat label="รอข้อมูลจากผู้แจ้ง" value={summary?.waitingForReporter ?? '–'} icon="message-question"
-            onClick={() => update({ tab: 'open', status: '3', overdue: null })} />
+            onClick={() => update({ tab: 'open', status: '3', overdue: null, view: null })} />
           <Stat label="เกินกำหนด" value={summary?.overdue ?? '–'} icon="alarm" tone={summary?.overdue ? 'red' : 'default'}
             hint={summary?.overdue ? 'ควรจัดการก่อน' : 'ไม่มีเรื่องค้างเกินเวลา'}
-            onClick={() => update({ tab: 'open', status: null, overdue: '1' })} />
+            onClick={() => update({ tab: 'open', status: null, overdue: '1', view: null })} />
         </section>
       )}
 
       <Card>
         <div className="flex flex-wrap items-center gap-3 border-b border-line p-4">
-          <Segmented<Tab> label="สถานะงาน" value={tab} onChange={(v) => update({ tab: v })}
-            options={[{ value: 'open', label: 'กำลังดำเนินการ' }, { value: 'done', label: 'จบแล้ว' }, { value: 'all', label: 'ทั้งหมด' }]} />
+          {view ? (
+            <Badge tone="blue" icon={view.icon}>มุมมอง: {view.label}</Badge>
+          ) : (
+            <Segmented<Tab> label="สถานะงาน" value={tab} onChange={(v) => update({ tab: v })}
+              options={[{ value: 'open', label: 'กำลังดำเนินการ' }, { value: 'done', label: 'จบแล้ว' }, { value: 'all', label: 'ทั้งหมด' }]} />
+          )}
 
           <div className="relative ml-auto w-full sm:w-64">
             <i className="ti ti-search pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-ink-3" aria-hidden="true" />
@@ -162,9 +180,9 @@ export default function IssuesPage() {
             <option value="newest">ใหม่สุดก่อน</option>
             <option value="oldest">เก่าสุดก่อน</option>
           </CompactSelect>
-          {(overdue || filtered) && (
+          {(overdue || filtered || view) && (
             <Button size="sm" variant="ghost" icon="x"
-              onClick={() => { setSearchText(''); update({ q: null, desc: null, status: null, priority: null, assignee: null, overdue: null }) }}>
+              onClick={() => { setSearchText(''); update({ q: null, desc: null, status: null, priority: null, assignee: null, overdue: null, view: null }) }}>
               ล้างตัวกรอง
             </Button>
           )}
@@ -179,7 +197,7 @@ export default function IssuesPage() {
           </div>
         ) : items.length === 0 ? (
           <EmptyState icon={filtered ? 'search-off' : 'mood-smile'}
-            title={filtered ? 'ไม่พบเรื่องที่ตรงกับตัวกรอง' : tab === 'open' ? 'ไม่มีเรื่องค้างอยู่' : 'ยังไม่มีเรื่อง'}
+            title={filtered ? 'ไม่พบเรื่องที่ตรงกับตัวกรอง' : view ? 'ไม่มีเรื่องในมุมมองนี้' : tab === 'open' ? 'ไม่มีเรื่องค้างอยู่' : 'ยังไม่มีเรื่อง'}
             action={!filtered && !isIt ? <Link to="/issues/new" state={{ from: '/issues' }}><Button variant="primary" icon="plus">แจ้งปัญหา</Button></Link> : undefined}>
             {filtered ? 'ลองเปลี่ยนหรือล้างตัวกรอง' : isIt ? 'เมื่อมีคนแจ้งปัญหา เรื่องจะแสดงที่นี่แบบเรียลไทม์' : 'เมื่อพบปัญหาการใช้งาน กดปุ่มแจ้งปัญหาได้ตลอดเวลา'}
           </EmptyState>

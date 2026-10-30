@@ -51,7 +51,7 @@ public class KpiHub : Hub
                     await Groups.AddToGroupAsync(Context.ConnectionId, AllDepartmentsGroup);
 
                 // The issue queue: whoever may work the issues (IT Support, SuperAdmin, or a custom role with that right).
-                if (await _context.RolePermissions.AnyAsync(rp => rp.RoleId == user.RoleId && rp.Permission.Name == Permissions.Issue.Manage))
+                if (await IssueQueue.RoleWorksAsync(_context, user.RoleId))
                     await Groups.AddToGroupAsync(Context.ConnectionId, ItSupportGroup);
 
                 if (user.DepartmentId is { } departmentId)

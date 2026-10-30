@@ -87,6 +87,20 @@ public class PermissionMatrixTests
     }
 
     [Fact]
+    public void Every_built_in_role_reads_the_knowledge_base()
+    {
+        foreach (var role in RoleNames.All)
+            Assert.Contains(Permissions.Knowledge.View, For(role));
+    }
+
+    [Fact]
+    public void Only_IT_Support_and_SuperAdmin_write_the_knowledge_base()
+    {
+        Assert.Equal([RoleNames.SuperAdmin, RoleNames.ITSupport],
+            RoleNames.All.Where(r => For(r).Contains(Permissions.Knowledge.Manage)).ToHashSet());
+    }
+
+    [Fact]
     public void Only_SuperAdmin_sees_the_overview_and_audit_log()
     {
         foreach (var permission in new[] { Permissions.Overview.View, Permissions.Audit.View })

@@ -13,6 +13,7 @@ using KPI.Application.Audit;
 using KPI.Application.Auth;
 using KPI.Application.Issues;
 using KPI.Application.Jobs;
+using KPI.Application.Knowledge;
 using KPI.Application.Notifications;
 using KPI.Domain.Constants;
 using KPI.Domain.Interfaces;
@@ -57,6 +58,9 @@ public static class ServiceRegistration
     {
         services.AddScoped<IIssueService, IssueService>();
         services.AddScoped<IssueEventPublisher>();
+        services.AddScoped<INotificationService, NotificationService>();
+        services.AddScoped<IQuickSearchService, QuickSearchService>();
+        services.AddScoped<IKnowledgeService, KnowledgeService>();
         services.AddScoped<IMaintenanceJob, MaintenanceJob>();
         // SLA targets, limits and retention come from the settings screen (see SettingCatalog), not from configuration.
         services.AddSingleton<ISystemSettings, SystemSettingsService>();

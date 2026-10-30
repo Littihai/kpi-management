@@ -74,6 +74,9 @@ public class TestWorld
     public RecordingNotifier Notifier { get; } = new();
     public RecordingEmail Email { get; } = new();
     public IssueService Issues { get; }
+    public NotificationService Notifications { get; }
+    public QuickSearchService Search { get; }
+    public KnowledgeService Knowledge { get; }
     public TestClock Clock { get; } = new();
     public DefaultSettings Settings { get; }
     public AuthLogService AuthLog { get; }
@@ -110,6 +113,9 @@ public class TestWorld
         Passwords = new PasswordService(Db, Settings, new PasswordPolicyService(Settings), AuthLog, Clock);
         var issueEvents = new IssueEventPublisher(Notifier, Db, Email, config, Settings, NullLogger<IssueEventPublisher>.Instance);
         Issues = new IssueService(Db, new UserRepository(Db), issueEvents, Settings, Clock);
+        Notifications = new NotificationService(Db, new UserRepository(Db), Clock);
+        Knowledge = new KnowledgeService(Db, new UserRepository(Db), Clock);
+        Search = new QuickSearchService(Issues, new OrgAdminService(Db, Passwords, AuthLog, Clock), new UserRepository(Db));
     }
 
     public static async Task<TestWorld> CreateAsync(bool emailEnabled = true)

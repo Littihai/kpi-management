@@ -6,7 +6,7 @@ namespace KPI.Domain.Constants;
 /// </summary>
 public static class RolePermissionMap
 {
-    private static readonly string[] ReportAndFollow = [Permissions.Issue.Create, Permissions.Issue.View];
+    private static readonly string[] ReportAndFollow = [Permissions.Issue.Create, Permissions.Issue.View, Permissions.Knowledge.View];
 
     /// <summary>Which issues and which departments each built-in role sees. Re-synced at startup like the permissions.</summary>
     public static readonly IReadOnlyDictionary<string, (IssueVisibility Issues, bool AllDepartments)> Scopes =
@@ -50,6 +50,7 @@ public static class RolePermissionMap
         [
             Permissions.Department.View,
             Permissions.Issue.Create, Permissions.Issue.View, Permissions.Issue.Manage,
+            Permissions.Knowledge.View, Permissions.Knowledge.Manage,
         ],
     };
 }

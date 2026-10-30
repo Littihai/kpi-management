@@ -21,6 +21,11 @@ export const issueStatusTone: Record<number, Tone> = {
 export const priorityLabel: Record<number, string> = { 0: 'ต่ำ', 1: 'ปานกลาง', 2: 'สูง', 3: 'วิกฤต' }
 export const priorityTone: Record<number, Tone> = { 0: 'gray', 1: 'blue', 2: 'amber', 3: 'red' }
 
+/** What each star means; the words are shown next to the stars so the number is never the only signal. */
+export const feedbackLabel: Record<number, string> = {
+  1: 'ไม่พอใจมาก', 2: 'ไม่พอใจ', 3: 'พอใช้', 4: 'พอใจ', 5: 'พอใจมาก',
+}
+
 export const impactLabel: Record<number, string> = {
   0: 'เล็กน้อย ไม่รีบ',
   1: 'ลำบาก แต่พอทำงานได้',
@@ -99,6 +104,7 @@ export const auditActionLabel: Record<string, string> = {
   Hold: 'พักเรื่อง',
   Resume: 'กลับมาดำเนินการ',
   InternalNote: 'บันทึกภายใน',
+  Feedback: 'ให้คะแนนความพึงพอใจ',
   Attach: 'แนบไฟล์',
   AutoClose: 'ระบบปิดงานอัตโนมัติ',
 }

@@ -64,6 +64,7 @@ public class Issue : BaseEntity
 
     public ICollection<IssueComment> Comments { get; set; } = new List<IssueComment>();
     public ICollection<IssueAttachment> Attachments { get; set; } = new List<IssueAttachment>();
+    public IssueFeedback? Feedback { get; set; }
 
     public string DisplayNumber => FormatNumber(NumberYear, Number);
 
@@ -100,4 +101,24 @@ public class IssueAttachment
 
     public Guid? UploadedById { get; set; }
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
+}
+
+/// <summary>
+/// How satisfied the reporter was with the fix: one row per issue, overwritten when the issue is reopened and resolved again.
+/// The rater and the assignee are plain columns (no foreign key): the rating stays attributable to whoever did the work at the
+/// time, and a second cascading path from Users would be refused by SQL Server.
+/// </summary>
+public class IssueFeedback
+{
+    public Guid IssueId { get; set; }
+    public Issue Issue { get; set; } = null!;
+
+    /// <summary>1 (very unhappy) to 5 (very happy).</summary>
+    public int Rating { get; set; }
+    public string? Note { get; set; }
+
+    public Guid RaterUserId { get; set; }
+    /// <summary>Who held the issue when it was rated.</summary>
+    public Guid? AssigneeId { get; set; }
+    public DateTime RatedAt { get; set; } = DateTime.UtcNow;
 }

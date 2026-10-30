@@ -17,6 +17,9 @@ public interface IIssueService
     Task<PagedResult<IssueListItemDto>> ListAsync(IssueQuery query, Guid userId);
     Task<IssueSummaryDto> SummaryAsync(Guid userId);
 
+    /// <summary>The few best matches by number, title or reporter, inside what the person may see. Under two characters returns nothing.</summary>
+    Task<IReadOnlyList<IssueHitDto>> QuickSearchAsync(string? term, Guid userId);
+
     /// <summary>What is waiting for this person right now; the number behind the red badge in the app.</summary>
     Task<IssueAttentionDto> AttentionAsync(Guid userId);
     Task<IssueDetailDto> GetAsync(Guid id, Guid userId);
@@ -35,6 +38,15 @@ public interface IIssueService
     Task<IssueDetailDto> ReopenAsync(Guid id, string reason, Guid userId);
     Task<IssueDetailDto> RejectAsync(Guid id, string reason, Guid? duplicateOfId, Guid userId);
     Task<IssueDetailDto> SetPriorityAsync(Guid id, IssuePriority priority, Guid userId);
+
+    /// <summary>The reporter rates the fix (1 to 5, with an optional note). Only on a resolved or closed issue, within 30 days.</summary>
+    Task<IssueDetailDto> FeedbackAsync(Guid id, int rating, string? note, Guid userId);
+
+    /// <summary>The caller's own finished issues that were rated or can still be rated, newest first.</summary>
+    Task<IReadOnlyList<MyFeedbackItemDto>> MyFeedbackAsync(Guid userId);
+
+    /// <summary>Ratings for IT: totals, the spread, a figure per assignee and the latest ratings, inside what the person may see.</summary>
+    Task<FeedbackReportDto> FeedbackReportAsync(FeedbackReportQuery query, Guid userId);
 
     Task<IssueDetailDto> AddAttachmentsAsync(Guid id, IReadOnlyList<IssueUpload> files, Guid userId);
     Task<IssueAttachmentContent> GetAttachmentAsync(Guid id, Guid attachmentId, Guid userId);

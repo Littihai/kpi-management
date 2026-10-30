@@ -16,6 +16,15 @@ public sealed record IssueSlaPolicy(
         TimeSpan.FromHours(72),
         TimeSpan.FromHours(168));
 
+    /// <summary>
+    /// "About to be late": an unanswered issue within this long of its response target. A fixed window, not a share of the
+    /// target, so it is simple to explain; the cost is that a Critical issue (4 hour target) is always inside the resolve window.
+    /// </summary>
+    public static readonly TimeSpan NearResponse = TimeSpan.FromMinutes(30);
+
+    /// <summary>"About to be late": a running issue within this long of its resolve target.</summary>
+    public static readonly TimeSpan NearResolve = TimeSpan.FromHours(4);
+
     public TimeSpan ResolveFor(IssuePriority priority) => priority switch
     {
         IssuePriority.Critical => ResolveCritical,

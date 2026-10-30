@@ -26,6 +26,57 @@ public static class IssueFilters
             && now > i.ResolveDueAt);
 
     /// <summary>
+    /// <see cref="Overdue"/> plus the issues inside the warning window before a deadline. The window is added to "now" rather
+    /// than taken off the column, so the database can still use its indexes on the deadlines.
+    /// </summary>
+    public static Expression<Func<Issue, bool>> NearOrOverdue(DateTime now)
+    {
+        var responseEdge = now + IssueSlaPolicy.NearResponse;
+        var resolveEdge = now + IssueSlaPolicy.NearResolve;
+        return i =>
+            (i.FirstResponseAt == null && responseEdge > i.ResponseDueAt
+                && (i.Status == IssueStatus.New || i.Status == IssueStatus.Assigned))
+            || ((i.Status == IssueStatus.New || i.Status == IssueStatus.Assigned
+                 || i.Status == IssueStatus.InProgress || i.Status == IssueStatus.Reopened)
+                && resolveEdge > i.ResolveDueAt);
+    }
+
+    /// <summary>
+    /// One <see cref="Attention"/> rule as a filter, so a list holds exactly the issues the badge counts (a test keeps them
+    /// in step). A rule that cannot apply to this person (the queue rules for a requester) matches nothing.
+    /// </summary>
+    public static Expression<Func<Issue, bool>> AttentionMatches(IssueAttentionRule rule, Guid userId, bool queueWorker, DateTime now)
+    {
+        Expression<Func<Issue, bool>> none = i => false;
+        return rule switch
+        {
+            IssueAttentionRule.NewInQueue => queueWorker
+                ? i => i.Status == IssueStatus.New && i.AssigneeId == null
+                : none,
+            IssueAttentionRule.AssignedToMe => i => i.AssigneeId == userId
+                && (i.Status == IssueStatus.Assigned || i.Status == IssueStatus.InProgress || i.Status == IssueStatus.Reopened),
+            IssueAttentionRule.Overdue => queueWorker ? Overdue(now) : none,
+            IssueAttentionRule.WaitingForMe => i => i.ReporterUserId == userId && i.Status == IssueStatus.WaitingForReporter,
+            IssueAttentionRule.ToConfirm => i => i.ReporterUserId == userId && i.Status == IssueStatus.Resolved,
+            _ => queueWorker
+                ? i => (i.Status == IssueStatus.New && i.AssigneeId == null)
+                       || (i.AssigneeId == userId
+                           && (i.Status == IssueStatus.Assigned || i.Status == IssueStatus.InProgress || i.Status == IssueStatus.Reopened))
+                       || (i.ReporterUserId == userId
+                           && (i.Status == IssueStatus.WaitingForReporter || i.Status == IssueStatus.Resolved))
+                       || (i.FirstResponseAt == null && now > i.ResponseDueAt
+                           && (i.Status == IssueStatus.New || i.Status == IssueStatus.Assigned))
+                       || ((i.Status == IssueStatus.New || i.Status == IssueStatus.Assigned
+                            || i.Status == IssueStatus.InProgress || i.Status == IssueStatus.Reopened)
+                           && now > i.ResolveDueAt)
+                : i => (i.AssigneeId == userId
+                        && (i.Status == IssueStatus.Assigned || i.Status == IssueStatus.InProgress || i.Status == IssueStatus.Reopened))
+                       || (i.ReporterUserId == userId
+                           && (i.Status == IssueStatus.WaitingForReporter || i.Status == IssueStatus.Resolved)),
+        };
+    }
+
+    /// <summary>
     /// What is waiting for one person, issue by issue. Every flag is a database expression, so a count of all five
     /// (and of the issues that meet at least one) is a single query. The overdue test repeats <see cref="Overdue"/>
     /// because an expression cannot be nested inside another; a test keeps them, and <see cref="IssueStateMachine"/>, in step.

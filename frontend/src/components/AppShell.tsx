@@ -6,7 +6,10 @@ import TopNav from './TopNav'
 import AccountMenu from './AccountMenu'
 import AppToolbar from './AppToolbar'
 import AttentionTracker from './AttentionTracker'
+import CommandPalette from './CommandPalette'
 import ConnectionStatus from './ConnectionStatus'
+import NotificationBell from './NotificationBell'
+import NotificationTracker from './NotificationTracker'
 import { useOpenSettings } from './settings/settingsNav'
 import { useAppearance } from './appearanceContext'
 import { RealtimeProvider } from './RealtimeProvider'
@@ -21,6 +24,7 @@ function BarButtons() {
   const cls = 'flex h-9 w-9 items-center justify-center rounded-control text-ink-2 transition-colors hover:bg-surface hover:text-ink'
   return (
     <>
+      <NotificationBell className={cls} />
       <button type="button" className={cls} onClick={() => set('theme', dark ? 'light' : 'dark')}
         aria-label={dark ? 'เปลี่ยนเป็นธีมสว่าง' : 'เปลี่ยนเป็นธีมมืด'} title={dark ? 'ธีมสว่าง' : 'ธีมมืด'}>
         <i className={`ti ti-${dark ? 'sun' : 'moon'} text-lg`} aria-hidden="true" />
@@ -72,6 +76,8 @@ export default function AppShell() {
   return (
     <RealtimeProvider>
       <AttentionTracker />
+      <NotificationTracker />
+      <CommandPalette />
       <AppToolbar sidebarToggle />
       <div className="min-h-[calc(var(--vh100)-var(--toolbar-h))] lg:flex">
         {/* Desktop sidebar / icon rail */}
