@@ -95,6 +95,12 @@ IF NOT EXISTS (SELECT 1 FROM [Permissions] WHERE [Name] = N'issue.view')
 IF NOT EXISTS (SELECT 1 FROM [Permissions] WHERE [Name] = N'issue.manage')
     INSERT INTO [Permissions] ([Id], [Name], [Module], [CreatedAt], [UpdatedAt])
     VALUES ('666992f8-3d6f-620e-b5bc-0e49f0bcd4d9', N'issue.manage', N'issue', SYSUTCDATETIME(), SYSUTCDATETIME());
+IF NOT EXISTS (SELECT 1 FROM [Permissions] WHERE [Name] = N'knowledge.view')
+    INSERT INTO [Permissions] ([Id], [Name], [Module], [CreatedAt], [UpdatedAt])
+    VALUES ('b835910e-6933-4640-b70a-fd7ea14e7fb6', N'knowledge.view', N'knowledge', SYSUTCDATETIME(), SYSUTCDATETIME());
+IF NOT EXISTS (SELECT 1 FROM [Permissions] WHERE [Name] = N'knowledge.manage')
+    INSERT INTO [Permissions] ([Id], [Name], [Module], [CreatedAt], [UpdatedAt])
+    VALUES ('5e8c902a-32b6-0e8e-5044-88dc01e005f1', N'knowledge.manage', N'knowledge', SYSUTCDATETIME(), SYSUTCDATETIME());
 IF NOT EXISTS (SELECT 1 FROM [Permissions] WHERE [Name] = N'overview.view')
     INSERT INTO [Permissions] ([Id], [Name], [Module], [CreatedAt], [UpdatedAt])
     VALUES ('3c66f1e7-133a-c2c8-49dc-244acc03e484', N'overview.view', N'overview', SYSUTCDATETIME(), SYSUTCDATETIME());
@@ -103,58 +109,58 @@ IF NOT EXISTS (SELECT 1 FROM [Permissions] WHERE [Name] = N'overview.view')
 DELETE rp FROM [RolePermissions] rp
     JOIN [Roles] r ON r.[Id] = rp.[RoleId]
     JOIN [Permissions] p ON p.[Id] = rp.[PermissionId]
-    WHERE r.[Name] = N'SuperAdmin' AND p.[Name] NOT IN (N'audit.view', N'department.manage', N'department.view', N'issue.create', N'issue.manage', N'issue.view', N'job.trigger', N'overview.view', N'role.manage', N'role.view', N'settings.manage', N'settings.view', N'user.create', N'user.delete', N'user.edit', N'user.view');
+    WHERE r.[Name] = N'SuperAdmin' AND p.[Name] NOT IN (N'audit.view', N'department.manage', N'department.view', N'issue.create', N'issue.manage', N'issue.view', N'job.trigger', N'knowledge.manage', N'knowledge.view', N'overview.view', N'role.manage', N'role.view', N'settings.manage', N'settings.view', N'user.create', N'user.delete', N'user.edit', N'user.view');
 INSERT INTO [RolePermissions] ([RoleId], [PermissionId])
     SELECT r.[Id], p.[Id] FROM [Roles] r CROSS JOIN [Permissions] p
-    WHERE r.[Name] = N'SuperAdmin' AND p.[Name] IN (N'audit.view', N'department.manage', N'department.view', N'issue.create', N'issue.manage', N'issue.view', N'job.trigger', N'overview.view', N'role.manage', N'role.view', N'settings.manage', N'settings.view', N'user.create', N'user.delete', N'user.edit', N'user.view')
+    WHERE r.[Name] = N'SuperAdmin' AND p.[Name] IN (N'audit.view', N'department.manage', N'department.view', N'issue.create', N'issue.manage', N'issue.view', N'job.trigger', N'knowledge.manage', N'knowledge.view', N'overview.view', N'role.manage', N'role.view', N'settings.manage', N'settings.view', N'user.create', N'user.delete', N'user.edit', N'user.view')
       AND NOT EXISTS (SELECT 1 FROM [RolePermissions] x WHERE x.[RoleId] = r.[Id] AND x.[PermissionId] = p.[Id]);
 DELETE rp FROM [RolePermissions] rp
     JOIN [Roles] r ON r.[Id] = rp.[RoleId]
     JOIN [Permissions] p ON p.[Id] = rp.[PermissionId]
-    WHERE r.[Name] = N'Director' AND p.[Name] NOT IN (N'department.view', N'issue.create', N'issue.view', N'user.view');
+    WHERE r.[Name] = N'Director' AND p.[Name] NOT IN (N'department.view', N'issue.create', N'issue.view', N'knowledge.view', N'user.view');
 INSERT INTO [RolePermissions] ([RoleId], [PermissionId])
     SELECT r.[Id], p.[Id] FROM [Roles] r CROSS JOIN [Permissions] p
-    WHERE r.[Name] = N'Director' AND p.[Name] IN (N'department.view', N'issue.create', N'issue.view', N'user.view')
+    WHERE r.[Name] = N'Director' AND p.[Name] IN (N'department.view', N'issue.create', N'issue.view', N'knowledge.view', N'user.view')
       AND NOT EXISTS (SELECT 1 FROM [RolePermissions] x WHERE x.[RoleId] = r.[Id] AND x.[PermissionId] = p.[Id]);
 DELETE rp FROM [RolePermissions] rp
     JOIN [Roles] r ON r.[Id] = rp.[RoleId]
     JOIN [Permissions] p ON p.[Id] = rp.[PermissionId]
-    WHERE r.[Name] = N'Manager' AND p.[Name] NOT IN (N'department.view', N'issue.create', N'issue.view', N'user.view');
+    WHERE r.[Name] = N'Manager' AND p.[Name] NOT IN (N'department.view', N'issue.create', N'issue.view', N'knowledge.view', N'user.view');
 INSERT INTO [RolePermissions] ([RoleId], [PermissionId])
     SELECT r.[Id], p.[Id] FROM [Roles] r CROSS JOIN [Permissions] p
-    WHERE r.[Name] = N'Manager' AND p.[Name] IN (N'department.view', N'issue.create', N'issue.view', N'user.view')
+    WHERE r.[Name] = N'Manager' AND p.[Name] IN (N'department.view', N'issue.create', N'issue.view', N'knowledge.view', N'user.view')
       AND NOT EXISTS (SELECT 1 FROM [RolePermissions] x WHERE x.[RoleId] = r.[Id] AND x.[PermissionId] = p.[Id]);
 DELETE rp FROM [RolePermissions] rp
     JOIN [Roles] r ON r.[Id] = rp.[RoleId]
     JOIN [Permissions] p ON p.[Id] = rp.[PermissionId]
-    WHERE r.[Name] = N'TeamLeader' AND p.[Name] NOT IN (N'department.view', N'issue.create', N'issue.view');
+    WHERE r.[Name] = N'TeamLeader' AND p.[Name] NOT IN (N'department.view', N'issue.create', N'issue.view', N'knowledge.view');
 INSERT INTO [RolePermissions] ([RoleId], [PermissionId])
     SELECT r.[Id], p.[Id] FROM [Roles] r CROSS JOIN [Permissions] p
-    WHERE r.[Name] = N'TeamLeader' AND p.[Name] IN (N'department.view', N'issue.create', N'issue.view')
+    WHERE r.[Name] = N'TeamLeader' AND p.[Name] IN (N'department.view', N'issue.create', N'issue.view', N'knowledge.view')
       AND NOT EXISTS (SELECT 1 FROM [RolePermissions] x WHERE x.[RoleId] = r.[Id] AND x.[PermissionId] = p.[Id]);
 DELETE rp FROM [RolePermissions] rp
     JOIN [Roles] r ON r.[Id] = rp.[RoleId]
     JOIN [Permissions] p ON p.[Id] = rp.[PermissionId]
-    WHERE r.[Name] = N'Staff' AND p.[Name] NOT IN (N'department.view', N'issue.create', N'issue.view');
+    WHERE r.[Name] = N'Staff' AND p.[Name] NOT IN (N'department.view', N'issue.create', N'issue.view', N'knowledge.view');
 INSERT INTO [RolePermissions] ([RoleId], [PermissionId])
     SELECT r.[Id], p.[Id] FROM [Roles] r CROSS JOIN [Permissions] p
-    WHERE r.[Name] = N'Staff' AND p.[Name] IN (N'department.view', N'issue.create', N'issue.view')
+    WHERE r.[Name] = N'Staff' AND p.[Name] IN (N'department.view', N'issue.create', N'issue.view', N'knowledge.view')
       AND NOT EXISTS (SELECT 1 FROM [RolePermissions] x WHERE x.[RoleId] = r.[Id] AND x.[PermissionId] = p.[Id]);
 DELETE rp FROM [RolePermissions] rp
     JOIN [Roles] r ON r.[Id] = rp.[RoleId]
     JOIN [Permissions] p ON p.[Id] = rp.[PermissionId]
-    WHERE r.[Name] = N'Viewer' AND p.[Name] NOT IN (N'department.view', N'issue.create', N'issue.view');
+    WHERE r.[Name] = N'Viewer' AND p.[Name] NOT IN (N'department.view', N'issue.create', N'issue.view', N'knowledge.view');
 INSERT INTO [RolePermissions] ([RoleId], [PermissionId])
     SELECT r.[Id], p.[Id] FROM [Roles] r CROSS JOIN [Permissions] p
-    WHERE r.[Name] = N'Viewer' AND p.[Name] IN (N'department.view', N'issue.create', N'issue.view')
+    WHERE r.[Name] = N'Viewer' AND p.[Name] IN (N'department.view', N'issue.create', N'issue.view', N'knowledge.view')
       AND NOT EXISTS (SELECT 1 FROM [RolePermissions] x WHERE x.[RoleId] = r.[Id] AND x.[PermissionId] = p.[Id]);
 DELETE rp FROM [RolePermissions] rp
     JOIN [Roles] r ON r.[Id] = rp.[RoleId]
     JOIN [Permissions] p ON p.[Id] = rp.[PermissionId]
-    WHERE r.[Name] = N'ITSupport' AND p.[Name] NOT IN (N'department.view', N'issue.create', N'issue.manage', N'issue.view');
+    WHERE r.[Name] = N'ITSupport' AND p.[Name] NOT IN (N'department.view', N'issue.create', N'issue.manage', N'issue.view', N'knowledge.manage', N'knowledge.view');
 INSERT INTO [RolePermissions] ([RoleId], [PermissionId])
     SELECT r.[Id], p.[Id] FROM [Roles] r CROSS JOIN [Permissions] p
-    WHERE r.[Name] = N'ITSupport' AND p.[Name] IN (N'department.view', N'issue.create', N'issue.manage', N'issue.view')
+    WHERE r.[Name] = N'ITSupport' AND p.[Name] IN (N'department.view', N'issue.create', N'issue.manage', N'issue.view', N'knowledge.manage', N'knowledge.view')
       AND NOT EXISTS (SELECT 1 FROM [RolePermissions] x WHERE x.[RoleId] = r.[Id] AND x.[PermissionId] = p.[Id]);
 
 COMMIT TRANSACTION;

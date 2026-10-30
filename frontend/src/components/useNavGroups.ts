@@ -98,6 +98,7 @@ export function useNavGroups(): { groups: NavGroup[]; overdue: number } {
           hot: view.key === 'near',
         })),
         { to: '/issues/feedback', icon: 'mood-smile', label: isIt ? 'ความพึงพอใจ' : 'ความพึงพอใจของฉัน', permission: 'issue.view' },
+        { to: '/knowledge', icon: 'book-2', label: 'ฐานความรู้', permission: 'knowledge.view' },
       ],
     },
     {

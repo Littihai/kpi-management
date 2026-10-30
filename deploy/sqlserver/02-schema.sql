@@ -710,3 +710,64 @@ END;
 COMMIT;
 GO
 
+BEGIN TRANSACTION;
+IF NOT EXISTS (
+    SELECT * FROM [__EFMigrationsHistory]
+    WHERE [MigrationId] = N'20261029094838_AddKnowledgeBase'
+)
+BEGIN
+    CREATE TABLE [KnowledgeArticles] (
+        [Id] uniqueidentifier NOT NULL,
+        [Title] nvarchar(200) NOT NULL,
+        [Summary] nvarchar(500) NOT NULL,
+        [Body] nvarchar(max) NOT NULL,
+        [Category] nvarchar(100) NOT NULL,
+        [IsPublished] bit NOT NULL,
+        [PublishedAt] datetime2 NULL,
+        [AuthorId] uniqueidentifier NULL,
+        [AuthorName] nvarchar(200) NOT NULL,
+        [Version] int NOT NULL,
+        [ViewCount] int NOT NULL,
+        [CreatedAt] datetime2 NOT NULL,
+        [UpdatedAt] datetime2 NOT NULL,
+        CONSTRAINT [PK_KnowledgeArticles] PRIMARY KEY ([Id]),
+        CONSTRAINT [FK_KnowledgeArticles_Users_AuthorId] FOREIGN KEY ([AuthorId]) REFERENCES [Users] ([Id]) ON DELETE SET NULL
+    );
+END;
+
+IF NOT EXISTS (
+    SELECT * FROM [__EFMigrationsHistory]
+    WHERE [MigrationId] = N'20261029094838_AddKnowledgeBase'
+)
+BEGIN
+    CREATE INDEX [IX_KnowledgeArticles_AuthorId] ON [KnowledgeArticles] ([AuthorId]);
+END;
+
+IF NOT EXISTS (
+    SELECT * FROM [__EFMigrationsHistory]
+    WHERE [MigrationId] = N'20261029094838_AddKnowledgeBase'
+)
+BEGIN
+    CREATE INDEX [IX_KnowledgeArticles_Category] ON [KnowledgeArticles] ([Category]);
+END;
+
+IF NOT EXISTS (
+    SELECT * FROM [__EFMigrationsHistory]
+    WHERE [MigrationId] = N'20261029094838_AddKnowledgeBase'
+)
+BEGIN
+    CREATE INDEX [IX_KnowledgeArticles_IsPublished_UpdatedAt] ON [KnowledgeArticles] ([IsPublished], [UpdatedAt]) INCLUDE ([Title], [Summary], [Category], [PublishedAt], [ViewCount]);
+END;
+
+IF NOT EXISTS (
+    SELECT * FROM [__EFMigrationsHistory]
+    WHERE [MigrationId] = N'20261029094838_AddKnowledgeBase'
+)
+BEGIN
+    INSERT INTO [__EFMigrationsHistory] ([MigrationId], [ProductVersion])
+    VALUES (N'20261029094838_AddKnowledgeBase', N'10.0.8');
+END;
+
+COMMIT;
+GO
+

@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { Link, useLocation, useNavigate } from 'react-router-dom'
 import IssueFormFields from '../../components/issues/IssueFormFields'
 import { emptyIssueForm, validateIssueForm } from '../../components/issues/issueForm'
+import SuggestedArticles from '../../components/knowledge/SuggestedArticles'
 import Button from '../../components/ui/Button'
 import { Card } from '../../components/ui/Card'
 import { Alert, Page, PageHeader } from '../../components/ui/Layout'
@@ -82,6 +83,7 @@ export default function IssueNewPage() {
         </Card>
 
         <aside className="space-y-4">
+          <SuggestedArticles title={values.title} />
           <Card className="p-5">
             <p className="text-xs font-semibold text-ink-3">ระบบกรอกให้อัตโนมัติ</p>
             <dl className="mt-3 space-y-3 text-sm">

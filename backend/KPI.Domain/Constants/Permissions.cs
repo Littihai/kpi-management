@@ -50,6 +50,14 @@ public static class Permissions
         public const string Manage = "issue.manage";
     }
 
+    public static class Knowledge
+    {
+        /// <summary>Read the published articles of the knowledge base. Every role has it.</summary>
+        public const string View = "knowledge.view";
+        /// <summary>Write, publish, unpublish and delete articles, and read drafts.</summary>
+        public const string Manage = "knowledge.manage";
+    }
+
     public static class Overview
     {
         /// <summary>The system-wide activity overview and request log (SuperAdmin only).</summary>
@@ -65,6 +73,7 @@ public static class Permissions
         Audit.View,
         Job.Trigger,
         Issue.Create, Issue.View, Issue.Manage,
+        Knowledge.View, Knowledge.Manage,
         Overview.View,
     ];
 }

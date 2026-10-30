@@ -517,6 +517,73 @@ namespace KPI.Infrastructure.Data.Migrations
                         });
                 });
 
+            modelBuilder.Entity("KPI.Domain.Entities.KnowledgeArticle", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid?>("AuthorId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("AuthorName")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)");
+
+                    b.Property<string>("Body")
+                        .IsRequired()
+                        .HasMaxLength(20000)
+                        .HasColumnType("character varying(20000)");
+
+                    b.Property<string>("Category")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp without time zone");
+
+                    b.Property<bool>("IsPublished")
+                        .HasColumnType("boolean");
+
+                    b.Property<DateTime?>("PublishedAt")
+                        .HasColumnType("timestamp without time zone");
+
+                    b.Property<string>("Summary")
+                        .IsRequired()
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)");
+
+                    b.Property<string>("Title")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)");
+
+                    b.Property<DateTime>("UpdatedAt")
+                        .HasColumnType("timestamp without time zone");
+
+                    b.Property<int>("Version")
+                        .IsConcurrencyToken()
+                        .HasColumnType("integer");
+
+                    b.Property<int>("ViewCount")
+                        .HasColumnType("integer");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("AuthorId");
+
+                    b.HasIndex("Category");
+
+                    b.HasIndex("IsPublished", "UpdatedAt")
+                        .HasAnnotation("SqlServer:Include", new[] { "Title", "Summary", "Category", "PublishedAt", "ViewCount" });
+
+                    NpgsqlIndexBuilderExtensions.IncludeProperties(b.HasIndex("IsPublished", "UpdatedAt"), new[] { "Title", "Summary", "Category", "PublishedAt", "ViewCount" });
+
+                    b.ToTable("KnowledgeArticles");
+                });
+
             modelBuilder.Entity("KPI.Domain.Entities.Notification", b =>
                 {
                     b.Property<Guid>("Id")
@@ -853,6 +920,16 @@ namespace KPI.Infrastructure.Data.Migrations
                         .IsRequired();
 
                     b.Navigation("Issue");
+                });
+
+            modelBuilder.Entity("KPI.Domain.Entities.KnowledgeArticle", b =>
+                {
+                    b.HasOne("KPI.Domain.Entities.User", "Author")
+                        .WithMany()
+                        .HasForeignKey("AuthorId")
+                        .OnDelete(DeleteBehavior.SetNull);
+
+                    b.Navigation("Author");
                 });
 
             modelBuilder.Entity("KPI.Domain.Entities.Notification", b =>

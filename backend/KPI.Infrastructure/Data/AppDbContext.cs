@@ -32,6 +32,7 @@ public class AppDbContext : DbContext
     public DbSet<IssueAttachment> IssueAttachments => Set<IssueAttachment>();
     public DbSet<Notification> Notifications => Set<Notification>();
     public DbSet<IssueFeedback> IssueFeedbacks => Set<IssueFeedback>();
+    public DbSet<KnowledgeArticle> KnowledgeArticles => Set<KnowledgeArticle>();
 
     public override int SaveChanges(bool acceptAllChangesOnSuccess)
     {
@@ -230,6 +231,20 @@ public class AppDbContext : DbContext
         notification.HasIndex(n => new { n.UserId, n.ReadAt });      // the unread count and "mark all read"
         notification.HasIndex(n => new { n.UserId, n.IssueId });     // "mark this issue's entries read" when its page opens
         notification.HasIndex(n => n.CreatedAt);                     // the nightly purge
+
+        // ── Knowledge base ──
+        var article = modelBuilder.Entity<KnowledgeArticle>();
+        article.Property(a => a.Title).HasMaxLength(200);
+        article.Property(a => a.Summary).HasMaxLength(500);
+        article.Property(a => a.Body).HasMaxLength(20000);
+        article.Property(a => a.Category).HasMaxLength(100);
+        article.Property(a => a.AuthorName).HasMaxLength(200);
+        article.Property(a => a.Version).IsConcurrencyToken();
+        // the only path from Users to articles, so SET NULL is allowed on SQL Server
+        article.HasOne(a => a.Author).WithMany().HasForeignKey(a => a.AuthorId).OnDelete(DeleteBehavior.SetNull);
+        // the list (readers see published only, newest first) and the search box read these columns from the index alone
+        Cover(article.HasIndex(a => new { a.IsPublished, a.UpdatedAt }), a => new { a.Title, a.Summary, a.Category, a.PublishedAt, a.ViewCount });
+        article.HasIndex(a => a.Category);
     }
 
     /// <summary>An index that also stores the given columns, so a query that needs only those never reads the table row (both providers).</summary>
