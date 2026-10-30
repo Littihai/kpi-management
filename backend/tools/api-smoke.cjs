@@ -96,4 +96,7 @@ const expect = (label, got, want) => { const ok = Array.isArray(want) ? want.inc
   for (const x of results) console.log(String(x.status).padEnd(8), x.label)
   console.log(bad.length ? `\n${bad.length} FAILED` : '\nall checks passed')
   process.exit(bad.length ? 1 : 0)
-})().catch((e) => { console.error(e); process.exit(2) })
+})().catch((e) => {
+  for (const x of results) console.log(String(x.status).padEnd(8), x.label)   // what happened up to the crash
+  console.error(e); process.exit(2)
+})
