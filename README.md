@@ -158,7 +158,8 @@
    | `Cors__Origins__0` | origin เพิ่มเติม เช่น URL ของ Vercel |
    | `LoginThrottle__ClientIpHeader` | ตั้งเป็น `CF-Connecting-IP` บน Render เพื่อจำกัดการเดารหัสผ่านตาม IP จริง (ถ้า header เป็นรายการ เช่น `X-Forwarded-For` จะอ่านตัวสุดท้าย ใช้ได้กับ proxy ชั้นเดียว) |
    | `PublicIssues__MaxPerDay`, `PublicIssues__MaxUploadMbPerDay` | เพดานรวมของฟอร์มแจ้งปัญหาที่ไม่ต้องล็อกอินต่อ 24 ชั่วโมง (ค่าเริ่มต้น 300 เรื่อง / 300 MB, `0` = ปิด) |
-   | `Audit__AnonymousPerAddressPerMinute`, `Audit__AnonymousPerMinute` | จำนวนแถว request log ต่อนาทีของคำขอที่ไม่ล็อกอิน (ค่าเริ่มต้น 20 ต่อ IP / 300 รวม) |
+   | `PublicIssues__MaxPerAddressPerDay`, `PublicIssues__MaxUploadMbPerAddressPerDay` | โควตาต่อ IP ของฟอร์มเดียวกันต่อ 24 ชั่วโมง กันเครื่องเดียวใช้เพดานรวมหมด (ค่าเริ่มต้น 50 เรื่อง / 60 MB, `0` = ปิด) |
+   | `Audit__AnonymousPerAddressPerMinute`, `Audit__AnonymousPerMinute` | จำนวนแถว request log ต่อนาทีของคำขอที่ไม่ล็อกอิน (ค่าเริ่มต้น 20 ต่อ IP / 300 รวม, `0` = ไม่จำกัด) |
 
    สร้างค่าสุ่มสำหรับ `Jwt__Key` ด้วย PowerShell:
    `[Convert]::ToBase64String([Security.Cryptography.RandomNumberGenerator]::GetBytes(48))`

@@ -115,7 +115,11 @@ A Manager also sees their department's reports. **IT Support** (new role `ITSupp
 `/report` (no account; name plus e-mail or phone; limited to 5 reports per 15 minutes per address; a hidden
 honeypot field catches bots). Everyone together may also send at most `PublicIssues:MaxPerDay` reports (300) and
 `PublicIssues:MaxUploadMbPerDay` MB of pictures (300) per rolling 24 hours; when the day is full the form answers
-429 with a Retry-After until the oldest report ages out (`0` switches a limit off). The reporter is not e-mailed
+429 with a Retry-After until enough old reports or pictures have aged out (`0` switches a limit off), and a
+single report whose pictures can never fit gets a 400 instead. One address may send at most
+`PublicIssues:MaxPerAddressPerDay` reports (50) and `PublicIssues:MaxUploadMbPerAddressPerDay` MB (60) per 24
+hours, so one machine cannot use up the day for everyone else. When the form is full for everyone a warning
+is written to the server log (at most every 10 minutes). The reporter is not e-mailed
 on receipt, because the address is unverified; the receipt number is shown on screen. IT's replies, requests for
 information and resolution are still e-mailed.
 
@@ -163,7 +167,8 @@ replied to or reopened. E-mail follows the settings in "E-mail notifications" ab
   Requests from people who are not signed in are rationed so a flood cannot bury real entries: 404 and 405 are
   never recorded, and the rest are capped at `Audit:AnonymousPerAddressPerMinute` (20) per address and
   `Audit:AnonymousPerMinute` (300) overall; failed sign-ins are also kept in the sign-in log. The failed-sign-in
-  and top-IP numbers in the overview therefore count at most that many anonymous requests per minute.
+  and top-IP numbers in the overview therefore count at most that many anonymous requests per minute. As with the other
+  limits, `0` switches a limit off (it does not mean "record nothing").
   Entries are saved in the background so requests never wait for it; they are purged after 90 days
   (`Audit:RequestLogRetentionDays`), audit rows are kept.
 - **System overview** (`/admin/overview`): who is online (with IP), request volume, failed sign-ins, top IPs,

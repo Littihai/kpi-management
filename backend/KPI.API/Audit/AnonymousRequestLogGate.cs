@@ -5,6 +5,7 @@ namespace KPI.API.Audit;
 /// a script hammering the API would otherwise write thousands and push real entries out of the queue and the table.
 /// Per address and overall, a fixed number of rows is allowed each minute; the rest are dropped. Signed-in requests
 /// never pass through here, and failed sign-ins are also kept in the sign-in log, which has its own throttle.
+/// A limit of 0 (or less) switches that limit off, like the other limits in the settings; it does not mean "log nothing".
 /// Counters live in memory and reset on restart.
 /// </summary>
 public sealed class AnonymousRequestLogGate
@@ -20,8 +21,8 @@ public sealed class AnonymousRequestLogGate
     private readonly TimeProvider _time;
     private Counter _overall;
 
-    /// <param name="perAddressPerMinute">Rows one address may write per minute; 0 or less means no rows at all from anonymous callers.</param>
-    /// <param name="overallPerMinute">Rows all anonymous callers together may write per minute.</param>
+    /// <param name="perAddressPerMinute">Rows one address may write per minute; 0 or less means no limit.</param>
+    /// <param name="overallPerMinute">Rows all anonymous callers together may write per minute; 0 or less means no limit.</param>
     public AnonymousRequestLogGate(int perAddressPerMinute, int overallPerMinute, TimeProvider time)
     {
         _perAddressLimit = perAddressPerMinute;
@@ -43,11 +44,11 @@ public sealed class AnonymousRequestLogGate
         lock (_gate)
         {
             if (_overall.Minute != minute) _overall = new Counter(minute, 0);
-            if (_overall.Count >= _overallLimit) return false;
+            if (_overallLimit > 0 && _overall.Count >= _overallLimit) return false;
 
             _perAddress.TryGetValue(address, out var mine);
             if (mine.Minute != minute) mine = new Counter(minute, 0);
-            if (mine.Count >= _perAddressLimit) return false;
+            if (_perAddressLimit > 0 && mine.Count >= _perAddressLimit) return false;
 
             if (!_perAddress.ContainsKey(address) && _perAddress.Count >= MaxTrackedAddresses)
             {

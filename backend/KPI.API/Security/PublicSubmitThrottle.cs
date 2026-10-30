@@ -13,6 +13,12 @@ public class PublicSubmitOptions
 
     /// <summary>Attachment megabytes the public form accepts per rolling 24 hours from everyone together. 0 switches the limit off.</summary>
     public int MaxUploadMbPerDay { get; set; } = 300;
+
+    /// <summary>Reports one client address may send per rolling 24 hours, so one machine cannot use up the day for everybody. 0 switches the limit off.</summary>
+    public int MaxPerAddressPerDay { get; set; } = 50;
+
+    /// <summary>Attachment megabytes one client address may send per rolling 24 hours. 0 switches the limit off.</summary>
+    public int MaxUploadMbPerAddressPerDay { get; set; } = 60;
 }
 
 /// <summary>

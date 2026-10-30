@@ -49,10 +49,16 @@ public class AnonymousRequestLogGateTests
     }
 
     [Fact]
-    public void A_share_of_zero_writes_nothing_for_anonymous_callers()
+    public void A_share_of_zero_switches_that_limit_off_like_every_other_limit()
     {
         var gate = new AnonymousRequestLogGate(0, 0, _clock);
-        Assert.False(gate.Allow("1.1.1.1"));
+        for (var i = 0; i < 500; i++) Assert.True(gate.Allow("1.1.1.1"));
+
+        var onlyOverall = new AnonymousRequestLogGate(0, 3, _clock);
+        Assert.True(onlyOverall.Allow("1.1.1.1"));
+        Assert.True(onlyOverall.Allow("1.1.1.1"));
+        Assert.True(onlyOverall.Allow("2.2.2.2"));
+        Assert.False(onlyOverall.Allow("3.3.3.3"));
     }
 
     [Fact]
